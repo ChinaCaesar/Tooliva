@@ -1,0 +1,28 @@
+{
+  "name": "desktop-toolbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:Path = \\\"$env:USERPROFILE\\\\.cargo\\\\bin;$env:Path\\\"; tauri dev\"",
+    "tauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:Path = \\\"$env:USERPROFILE\\\\.cargo\\\\bin;$env:Path\\\"; tauri build\""
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.0",
+    "vue-i18n": "^9.14.0",
+    "vue-router": "^4.4.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/node": "^22.7.4",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vue-tsc": "^2.1.6"
+  }
+}

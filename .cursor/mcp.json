@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "miaoduo": {
+      "command": "npx",
+      "args": ["-y", "@miaoduo/miaoduo-mcp-server@latest"],
+      "env": {
+        "MIAODUO_TOKEN": "LIRMUh0vnBYJqpsxxfTXb5ST1jifMS30"
+      }
+    }
+  }
+}
