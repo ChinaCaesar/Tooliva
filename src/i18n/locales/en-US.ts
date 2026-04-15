@@ -14,6 +14,7 @@ export const enUS = {
     language: "Language",
     theme: "Theme",
     outputDirectory: "Default Output Directory",
+    backToHome: "Back to Home",
     save: "Save",
     noData: "No Data",
     active: "Active",
@@ -21,9 +22,71 @@ export const enUS = {
   },
   pages: {
     home: {
-      title: "Welcome to Desktop Toolbox",
-      description: "Offline, local, and extensible productivity tools.",
-      pingButton: "Ping Host"
+      topBar: {
+        appName: "Toolbox",
+        searchPlaceholder: "Search tools...",
+        userName: "Username",
+        userRole: "VIP Member"
+      },
+      sections: {
+        coreTools: {
+          title: "Core Tools",
+          description: "Professional toolkits that improve your workflow efficiency"
+        },
+        recentUsage: {
+          title: "Recent Usage"
+        },
+        usageStats: {
+          title: "Usage Stats"
+        },
+        quickActions: {
+          title: "Quick Actions"
+        }
+      },
+      tools: {
+        imageCompress: {
+          title: "Image Compression",
+          description: "Fast and lossless compression"
+        },
+        videoConvert: {
+          title: "Video Format Convert",
+          shortTitle: "Video Convert",
+          description: "Support multiple formats"
+        },
+        imageUpscale: {
+          title: "Image Upscale",
+          shortTitle: "Image Enhance",
+          description: "AI-powered enhancement"
+        },
+        comingSoon: "More tools coming soon"
+      },
+      membership: {
+        title: "VIP Member",
+        currentLevelLabel: "Current Level",
+        currentLevelValue: "Gold Member",
+        expiryLabel: "Expiry Date",
+        renewButton: "Renew & Upgrade"
+      },
+      stats: {
+        filesToday: "Files processed today",
+        storage: "Storage"
+      },
+      quickActions: {
+        history: "History",
+        favorites: "Favorite Tools",
+        documentManager: "Document Manager"
+      },
+      relativeTime: {
+        twoMinutesAgo: "2 minutes ago",
+        fifteenMinutesAgo: "15 minutes ago",
+        oneHourAgo: "1 hour ago"
+      },
+      footer: {
+        copyright: "© 2024 Toolbox",
+        versionPrefix: "Version",
+        feedback: "Feedback",
+        helpCenter: "Help Center"
+      }
     },
     tools: {
       title: "Tool List"

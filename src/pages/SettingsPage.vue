@@ -1,10 +1,20 @@
 <script setup lang="ts">
+import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
+import { ROUTE_PATHS } from "@/config/constants";
 import { LANGUAGES, type AppLanguage } from "@/types/settings";
 import { useSettingsStore } from "@/stores/settings.store";
 
+const router = useRouter();
 const settingsStore = useSettingsStore();
 const { language, defaultOutputDirectory } = storeToRefs(settingsStore);
+
+/**
+ * 返回首页，统一设置页返回入口。
+ */
+function goBackHome(): void {
+  router.push(ROUTE_PATHS.home);
+}
 
 function onLanguageChange(event: Event): void {
   const target = event.target as HTMLSelectElement;
@@ -19,6 +29,9 @@ function onOutputChange(event: Event): void {
 
 <template>
   <section class="panel">
+    <button type="button" class="back-btn" @click="goBackHome">
+      {{ $t("common.backToHome") }}
+    </button>
     <h1>{{ $t("pages.settings.title") }}</h1>
 
     <div class="form-item">
@@ -38,6 +51,16 @@ function onOutputChange(event: Event): void {
 </template>
 
 <style scoped>
+.back-btn {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  padding: 6px 12px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
 .form-item {
   margin-bottom: 16px;
   display: flex;
