@@ -18,6 +18,7 @@ pub fn run() {
             commands::transcode::save_as_converted_file,
             commands::image::list_images_from_directory,
             commands::image::start_image_upscale,
+            commands::image::start_image_compress,
             commands::image_jobs::start_image_job,
             commands::db::get_app_settings,
             commands::db::save_app_settings,

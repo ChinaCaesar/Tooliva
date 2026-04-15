@@ -4,6 +4,7 @@ import type { UserSettings } from "@/types/settings";
 
 export const WEBM_TO_MP4_PROGRESS_EVENT = "webm-to-mp4-progress";
 export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
+export const IMAGE_COMPRESS_PROGRESS_EVENT = "image-compress-progress";
 
 export type WebmToMp4OutputMode = "sameAsInput" | "globalDirectory" | "customFilePath";
 
@@ -109,6 +110,42 @@ export interface ImageUpscaleProgressPayload {
   message?: string;
 }
 
+export interface StartImageCompressPayload {
+  taskId: string;
+  inputPath: string;
+  quality: number;
+  outputDirectory?: string;
+  targetFormat?: "jpg" | "jpeg" | "png" | "webp";
+  maxOutputPixels?: number;
+  maxMemoryMb?: number;
+  tileSize?: number;
+  tileOverlap?: number;
+}
+
+export interface StartImageCompressResult {
+  taskId: string;
+  inputPath: string;
+  outputPath: string;
+  success: boolean;
+  error?: string;
+  originalWidth: number;
+  originalHeight: number;
+  outputWidth: number;
+  outputHeight: number;
+  backendUsed: string;
+  inputBytes: number;
+  outputBytes: number;
+  compressionRatio: number;
+}
+
+export interface ImageCompressProgressPayload {
+  taskId: string;
+  progress: number;
+  stage: string;
+  backend: string;
+  message?: string;
+}
+
 /**
  * 前端与 Tauri 通信统一入口，禁止在页面直接调用 invoke。
  */
@@ -194,6 +231,22 @@ export class TauriClient {
    */
   public async onImageUpscaleProgress(handler: (payload: ImageUpscaleProgressPayload) => void): Promise<UnlistenFn> {
     return listen<ImageUpscaleProgressPayload>(IMAGE_UPSCALE_PROGRESS_EVENT, (event) => {
+      handler(event.payload);
+    });
+  }
+
+  /**
+   * 执行单张图片压缩。
+   */
+  public async startImageCompress(payload: StartImageCompressPayload): Promise<StartImageCompressResult> {
+    return this.call<StartImageCompressResult>("start_image_compress", { payload });
+  }
+
+  /**
+   * 监听 Rust 侧推送的图片压缩进度事件。
+   */
+  public async onImageCompressProgress(handler: (payload: ImageCompressProgressPayload) => void): Promise<UnlistenFn> {
+    return listen<ImageCompressProgressPayload>(IMAGE_COMPRESS_PROGRESS_EVENT, (event) => {
       handler(event.payload);
     });
   }

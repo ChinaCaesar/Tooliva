@@ -305,7 +305,50 @@ export const zhCN = {
     },
     imageCompress: {
       title: "图片压缩",
-      placeholder: "图片压缩功能建设中，后续版本将支持批量压缩与质量调节。"
+      description: "支持批量导入、质量调节与格式输出，默认输出到源目录下的 /compress/ 文件夹。",
+      fileListTitle: "压缩任务列表",
+      clearList: "清空列表",
+      remove: "移除",
+      start: "开始压缩",
+      processing: "压缩处理中...",
+      listOverflowTip: "当前仅展示前 200 条，剩余 {count} 条将在后台继续处理。",
+      source: {
+        title: "输入来源",
+        pickImages: "添加图片",
+        pickDirectory: "选择目录夹",
+        directoryNotSelected: "未选择目录，支持直接拖入图片"
+      },
+      output: {
+        title: "输出目录",
+        pickDirectory: "指定输出目录",
+        defaultDirectory: "默认输出到每个文件源目录下的 /compress/ 文件夹"
+      },
+      settings: {
+        title: "压缩参数",
+        quality: "压缩质量",
+        format: "输出格式",
+        tip: "质量越高画质越好但体积更大；建议先用 JPG 80 或 WEBP 80。"
+      },
+      upload: {
+        dropTitle: "拖拽图片到此处，或点击添加",
+        dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，自动去重并串行处理",
+        button: "添加图片"
+      },
+      status: {
+        idle: "待处理",
+        running: "处理中",
+        completed: "已完成",
+        failed: "失败"
+      },
+      result: {
+        title: "执行结果",
+        total: "总数",
+        success: "成功",
+        failed: "失败",
+        elapsed: "总用时",
+        ratio: "总压缩比例",
+        sizeChange: "体积变化"
+      }
     },
     imageUpscale: {
       title: "图片高清放大",

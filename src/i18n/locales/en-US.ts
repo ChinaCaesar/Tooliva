@@ -305,7 +305,50 @@ export const enUS = {
     },
     imageCompress: {
       title: "Image Compression",
-      placeholder: "Image compression is under construction. Batch compression and quality control will be added soon."
+      description: "Supports batch import, quality tuning and format output. Default output is /compress/ under source folders.",
+      fileListTitle: "Compression Tasks",
+      clearList: "Clear List",
+      remove: "Remove",
+      start: "Start Compression",
+      processing: "Compressing...",
+      listOverflowTip: "Only first 200 items are displayed. Remaining {count} items will continue processing in background.",
+      source: {
+        title: "Input Source",
+        pickImages: "Add Images",
+        pickDirectory: "Choose Folder",
+        directoryNotSelected: "No folder selected, drag images directly is supported"
+      },
+      output: {
+        title: "Output Directory",
+        pickDirectory: "Specify Output Folder",
+        defaultDirectory: "Default output is /compress/ under each source image directory"
+      },
+      settings: {
+        title: "Compression Settings",
+        quality: "Quality",
+        format: "Output Format",
+        tip: "Higher quality preserves detail but increases file size. Start with JPG 80 or WEBP 80."
+      },
+      upload: {
+        dropTitle: "Drag images here or click to add",
+        dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported, auto dedupe with serial processing",
+        button: "Add Images"
+      },
+      status: {
+        idle: "Pending",
+        running: "Processing",
+        completed: "Completed",
+        failed: "Failed"
+      },
+      result: {
+        title: "Execution Result",
+        total: "Total",
+        success: "Success",
+        failed: "Failed",
+        elapsed: "Elapsed",
+        ratio: "Overall Compression",
+        sizeChange: "Size Change"
+      }
     },
     imageUpscale: {
       title: "Image Upscale",

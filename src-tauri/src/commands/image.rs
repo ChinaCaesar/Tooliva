@@ -3,6 +3,7 @@ use crate::image_core::pipeline::ImagePipeline;
 use crate::image_core::progress::CallbackProgressReporter;
 use crate::image_core::tile::TileEngine;
 use crate::image_core::types::{ProcessContext, ProcessingLimits, ProgressEvent, TileConfig};
+use crate::image_processors::compress::processor::CompressProcessor;
 use crate::image_processors::upscale::processor::{UpscaleBackend, UpscaleProcessor, UpscaleQualityMode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -12,6 +13,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
 const IMAGE_UPSCALE_PROGRESS_EVENT: &str = "image-upscale-progress";
+const IMAGE_COMPRESS_PROGRESS_EVENT: &str = "image-compress-progress";
 const SUPPORTED_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "bmp"];
 
 #[derive(Debug, Deserialize)]
@@ -54,6 +56,38 @@ pub struct StartImageUpscaleResult {
     pub output_width: u32,
     pub output_height: u32,
     pub backend_used: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartImageCompressPayload {
+    pub task_id: String,
+    pub input_path: String,
+    pub quality: u8,
+    pub output_directory: Option<String>,
+    pub target_format: Option<String>,
+    pub max_output_pixels: Option<u64>,
+    pub max_memory_mb: Option<u64>,
+    pub tile_size: Option<u32>,
+    pub tile_overlap: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartImageCompressResult {
+    pub task_id: String,
+    pub input_path: String,
+    pub output_path: String,
+    pub success: bool,
+    pub error: Option<String>,
+    pub original_width: u32,
+    pub original_height: u32,
+    pub output_width: u32,
+    pub output_height: u32,
+    pub backend_used: String,
+    pub input_bytes: u64,
+    pub output_bytes: u64,
+    pub compression_ratio: f64,
 }
 
 #[tauri::command]
@@ -204,6 +238,138 @@ pub async fn start_image_upscale(payload: StartImageUpscalePayload, app: AppHand
     }
 }
 
+#[tauri::command]
+pub async fn start_image_compress(payload: StartImageCompressPayload, app: AppHandle) -> Result<StartImageCompressResult, String> {
+    let input_path = PathBuf::from(payload.input_path.clone());
+    if !input_path.exists() {
+        return Err(format!("输入文件不存在：{}", input_path.display()));
+    }
+    if !input_path.is_file() {
+        return Err(format!("输入路径不是文件：{}", input_path.display()));
+    }
+    if !is_supported_image_file(&input_path) {
+        return Err("仅支持 PNG/JPG/JPEG/WEBP/BMP 格式".to_string());
+    }
+    if !(1..=100).contains(&payload.quality) {
+        return Err("压缩质量仅支持 1..100".to_string());
+    }
+
+    let extension = resolve_compress_extension(
+        payload.target_format.as_deref(),
+        input_path.extension().and_then(|x| x.to_str()),
+    )?;
+    let output_file_path = resolve_compress_output_path(&input_path, payload.output_directory.as_deref(), extension)?;
+    ensure_parent_dir_exists(&output_file_path)?;
+
+    let task_id = payload.task_id.clone();
+    let context = ProcessContext {
+        task_id: task_id.clone(),
+        processor_key: "compress".to_string(),
+        input_path: input_path.clone(),
+        output_path: output_file_path.clone(),
+        output_format: Some(extension.to_string()),
+        params: json!({
+            "quality": payload.quality,
+            "targetFormat": extension
+        }),
+        limits: ProcessingLimits {
+            max_output_side: 12_000,
+            max_output_pixels: payload.max_output_pixels.unwrap_or(60_000_000),
+            max_memory_mb: payload.max_memory_mb.unwrap_or(768),
+        },
+        tile: TileConfig {
+            tile_size: payload.tile_size.unwrap_or(1024),
+            tile_overlap: payload.tile_overlap.unwrap_or(16),
+        },
+    };
+    let app_for_emit = app.clone();
+    let reporter = CallbackProgressReporter::new(Arc::new(move |event: ProgressEvent| {
+        let _ = app_for_emit.emit(IMAGE_COMPRESS_PROGRESS_EVENT, event);
+    }));
+    let result = run_blocking(move || {
+        let pipeline = ImagePipeline::new(TileEngine {
+            tile_size: context.tile.tile_size,
+            tile_overlap: context.tile.tile_overlap,
+        })
+        .with_progress_reporter(Arc::new(reporter));
+        pipeline.execute(&CompressProcessor, &context)
+    })
+    .await;
+
+    let original = image::ImageReader::open(&input_path)
+        .map_err(|err| format!("读取图片失败：{err}"))?
+        .decode()
+        .map_err(|err| format!("解码图片失败：{err}"))?;
+    let original_width = original.width();
+    let original_height = original.height();
+    let input_bytes = fs::metadata(&input_path)
+        .map(|meta| meta.len())
+        .map_err(|err| format!("读取源文件大小失败：{err}"))?;
+
+    match result {
+        Ok((outcome, _summary)) => {
+            let output_bytes = fs::metadata(&outcome.output_path)
+                .map(|meta| meta.len())
+                .map_err(|err| format!("读取输出文件大小失败：{err}"))?;
+            let compression_ratio = calc_compression_ratio(input_bytes, output_bytes);
+            let _ = app.emit(
+                IMAGE_COMPRESS_PROGRESS_EVENT,
+                ProgressEvent {
+                    task_id: task_id.clone(),
+                    processor_key: "compress".to_string(),
+                    progress: 100,
+                    stage: "completed".to_string(),
+                    backend: Some(outcome.backend_used.clone()),
+                    message: Some("处理完成".to_string()),
+                },
+            );
+            Ok(StartImageCompressResult {
+                task_id,
+                input_path: input_path.display().to_string(),
+                output_path: outcome.output_path.display().to_string(),
+                success: true,
+                error: None,
+                original_width,
+                original_height,
+                output_width: outcome.output_width,
+                output_height: outcome.output_height,
+                backend_used: outcome.backend_used,
+                input_bytes,
+                output_bytes,
+                compression_ratio,
+            })
+        }
+        Err(error) => {
+            let _ = app.emit(
+                IMAGE_COMPRESS_PROGRESS_EVENT,
+                ProgressEvent {
+                    task_id: task_id.clone(),
+                    processor_key: "compress".to_string(),
+                    progress: 100,
+                    stage: "failed".to_string(),
+                    backend: Some("none".to_string()),
+                    message: Some(error.to_string()),
+                },
+            );
+            Ok(StartImageCompressResult {
+                task_id,
+                input_path: input_path.display().to_string(),
+                output_path: String::new(),
+                success: false,
+                error: Some(error.to_string()),
+                original_width,
+                original_height,
+                output_width: original_width,
+                output_height: original_height,
+                backend_used: "none".to_string(),
+                input_bytes,
+                output_bytes: 0,
+                compression_ratio: 0.0,
+            })
+        }
+    }
+}
+
 fn walk_directory_collect_images(dir_path: &Path, result: &mut Vec<String>) -> Result<(), String> {
     let entries = fs::read_dir(dir_path).map_err(|err| format!("读取目录失败 {}: {err}", dir_path.display()))?;
     for entry in entries {
@@ -269,4 +435,45 @@ fn ensure_unique_output_path(path: &Path) -> PathBuf {
         }
     }
     path.to_path_buf()
+}
+
+fn resolve_compress_extension(requested: Option<&str>, input_ext: Option<&str>) -> Result<&'static str, String> {
+    if let Some(format) = requested {
+        return match format.to_ascii_lowercase().as_str() {
+            "jpg" | "jpeg" => Ok("jpg"),
+            "png" => Ok("png"),
+            "webp" => Ok("webp"),
+            _ => Err("输出格式仅支持 jpg/jpeg/png/webp".to_string()),
+        };
+    }
+    let ext = input_ext.unwrap_or("jpg").to_ascii_lowercase();
+    match ext.as_str() {
+        "jpg" | "jpeg" => Ok("jpg"),
+        "png" => Ok("png"),
+        "webp" => Ok("webp"),
+        _ => Ok("jpg"),
+    }
+}
+
+fn resolve_compress_output_path(input_path: &Path, output_directory: Option<&str>, extension: &str) -> Result<PathBuf, String> {
+    let stem = input_path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "输入文件名非法".to_string())?;
+    let target_root = if let Some(output_dir) = output_directory {
+        PathBuf::from(output_dir)
+    } else {
+        let input_parent = input_path.parent().ok_or_else(|| "无法识别输入目录".to_string())?;
+        input_parent.join("compress")
+    };
+    let initial = target_root.join(format!("{stem}_compressed.{extension}"));
+    Ok(ensure_unique_output_path(&initial))
+}
+
+fn calc_compression_ratio(input_bytes: u64, output_bytes: u64) -> f64 {
+    if input_bytes == 0 {
+        return 0.0;
+    }
+    let saved = input_bytes as f64 - output_bytes as f64;
+    saved / input_bytes as f64
 }
