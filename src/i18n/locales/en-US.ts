@@ -14,6 +14,7 @@ export const enUS = {
     language: "Language",
     theme: "Theme",
     outputDirectory: "Default Output Directory",
+    back: "Back",
     backToHome: "Back to Home",
     save: "Save",
     noData: "No Data",
@@ -100,8 +101,90 @@ export const enUS = {
       demoMessage: "Processing"
     },
     settings: {
-      title: "Application Settings",
-      languageSection: "Language Settings"
+      title: "Settings Center",
+      languageSection: "Language Settings",
+      headerTitle: "Settings Center",
+      searchPlaceholder: "Search settings...",
+      userName: "Username",
+      userRole: "VIP Member",
+      restartTipTitle: "Tip",
+      restartTipDesc: "Some changes require an app restart to take effect",
+      restartApp: "Restart App",
+      aboutDesc: "A professional multi-tool platform.",
+      currentVersion: "Current Version",
+      checkUpdates: "Check Updates",
+      menu: {
+        general: "General Settings",
+        tools: "Tool Settings",
+        account: "Account Settings",
+        notifications: "Notification Settings",
+        privacy: "Privacy Settings",
+        about: "About"
+      },
+      actions: {
+        simplifiedChinese: "Simplified Chinese",
+        on: "On",
+        off: "Off",
+        browse: "Browse",
+        change: "Change",
+        every5Minutes: "Every 5 minutes",
+        standard: "Standard",
+        concurrency4: "4 concurrent",
+        dailyOnce: "Daily",
+        scale100: "100%",
+        updatePassword: "Update Password",
+        manageBindings: "Manage Bindings"
+      },
+      general: {
+        languageTitle: "Language Selection",
+        languageDesc: "Choose your preferred language",
+        darkModeTitle: "Dark Mode",
+        darkModeDesc: "Switch to a dark theme for eye comfort",
+        autoLaunchTitle: "Launch on Startup",
+        autoLaunchDesc: "Automatically run when the system starts",
+        scaleTitle: "Interface Scale",
+        scaleDesc: "Adjust the UI display scale",
+        defaultSaveTitle: "Default Save Location",
+        defaultSaveDesc: String.raw`C:\Users\Username\Documents\ToolBox`
+      },
+      tools: {
+        outputPathTitle: "Default Output Path",
+        outputPathDesc: String.raw`C:\Users\Username\Documents\ToolBox\Output`,
+        autoSaveTitle: "Auto Save",
+        autoSaveDesc: "Automatically save processing results on a timer",
+        qualityTitle: "Quality Level",
+        qualityDesc: "Balance processing speed and output quality",
+        concurrentTitle: "Concurrent Tasks",
+        concurrentDesc: "Number of files processed at the same time",
+        cleanupTitle: "Temporary Cleanup",
+        cleanupDesc: "Automatically clear temporary files generated in processing"
+      },
+      account: {
+        profileTitle: "Profile",
+        profileDesc: "Edit nickname, email, and avatar",
+        passwordTitle: "Change Password",
+        passwordDesc: "Update your current account password",
+        bindingTitle: "Account Binding",
+        bindingDesc: "Manage WeChat, Apple ID, QQ and other bindings"
+      },
+      notifications: {
+        taskDoneTitle: "Task Completion Alert",
+        taskDoneDesc: "Send notifications after processing is complete",
+        errorTitle: "Error Alert",
+        errorDesc: "Send warnings when processing fails",
+        updateTitle: "Update Notification",
+        updateDesc: "Notify when a new app version is available",
+        mailTitle: "Email Notification",
+        mailDesc: "Receive product updates and activity news"
+      },
+      privacy: {
+        usageTitle: "Usage Data Collection",
+        usageDesc: "Help us improve product experience",
+        crashTitle: "Crash Report Sending",
+        crashDesc: "Automatically send crash and error reports",
+        autoDeleteTitle: "Auto Delete Files",
+        autoDeleteDesc: "Automatically delete source files after completion"
+      }
     },
     membership: {
       title: "Membership Center",

@@ -14,6 +14,7 @@ export const zhCN = {
     language: "语言",
     theme: "主题",
     outputDirectory: "默认输出目录",
+    back: "返回",
     backToHome: "返回首页",
     save: "保存",
     noData: "暂无数据",
@@ -100,8 +101,90 @@ export const zhCN = {
       demoMessage: "处理中"
     },
     settings: {
-      title: "应用设置",
-      languageSection: "语言设置"
+      title: "设置中心",
+      languageSection: "语言设置",
+      headerTitle: "设置中心",
+      searchPlaceholder: "搜索设置项...",
+      userName: "用户名",
+      userRole: "VIP会员",
+      restartTipTitle: "提示",
+      restartTipDesc: "修改设置后部分功能需要重启应用才能生效",
+      restartApp: "重启应用",
+      aboutDesc: "专业的多功能工具平台",
+      currentVersion: "当前版本",
+      checkUpdates: "检查更新",
+      menu: {
+        general: "通用设置",
+        tools: "工具设置",
+        account: "账户设置",
+        notifications: "通知设置",
+        privacy: "隐私设置",
+        about: "关于应用"
+      },
+      actions: {
+        simplifiedChinese: "简体中文",
+        on: "已开启",
+        off: "已关闭",
+        browse: "浏览",
+        change: "更改",
+        every5Minutes: "每5分钟",
+        standard: "标准模式",
+        concurrency4: "4 并发",
+        dailyOnce: "每天一次",
+        scale100: "100%",
+        updatePassword: "更新密码",
+        manageBindings: "管理绑定"
+      },
+      general: {
+        languageTitle: "语言选择",
+        languageDesc: "选择您的首选语言",
+        darkModeTitle: "深色模式",
+        darkModeDesc: "切换到深色主题保护眼睛",
+        autoLaunchTitle: "开机自动启动",
+        autoLaunchDesc: "系统启动时自动运行应用",
+        scaleTitle: "界面缩放",
+        scaleDesc: "调整界面显示大小",
+        defaultSaveTitle: "默认保存位置",
+        defaultSaveDesc: String.raw`C:\Users\Username\Documents\ToolBox`
+      },
+      tools: {
+        outputPathTitle: "默认输出路径",
+        outputPathDesc: String.raw`C:\Users\Username\Documents\ToolBox\Output`,
+        autoSaveTitle: "自动保存",
+        autoSaveDesc: "定时自动保存处理结果",
+        qualityTitle: "处理质量等级",
+        qualityDesc: "选择处理速度与质量的平衡",
+        concurrentTitle: "并发处理数量",
+        concurrentDesc: "同时处理的文件数量",
+        cleanupTitle: "临时文件清理",
+        cleanupDesc: "自动清理处理过程中产生的临时文件"
+      },
+      account: {
+        profileTitle: "个人资料",
+        profileDesc: "修改昵称、邮箱和头像",
+        passwordTitle: "修改密码",
+        passwordDesc: "更新当前账户密码",
+        bindingTitle: "账号绑定",
+        bindingDesc: "管理微信、Apple ID、QQ 等绑定状态"
+      },
+      notifications: {
+        taskDoneTitle: "任务完成提醒",
+        taskDoneDesc: "处理完成后发送通知",
+        errorTitle: "错误警告",
+        errorDesc: "处理出错时发送警告",
+        updateTitle: "更新通知",
+        updateDesc: "应用有新版本时通知",
+        mailTitle: "邮件通知",
+        mailDesc: "接收产品更新和活动信息"
+      },
+      privacy: {
+        usageTitle: "使用数据收集",
+        usageDesc: "帮助我们改进产品体验",
+        crashTitle: "错误报告发送",
+        crashDesc: "自动发送崩溃和错误报告",
+        autoDeleteTitle: "文件自动删除",
+        autoDeleteDesc: "处理完成后自动删除原文件"
+      }
     },
     membership: {
       title: "会员中心",

@@ -2,6 +2,7 @@
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ROUTE_PATHS } from "@/config/constants";
+import ToolPageTopBar from "@/components/common/ToolPageTopBar.vue";
 import { useVideoConvertPageData } from "@/pages/video-convert/composables/useVideoConvertPageData";
 import { useVideoConvertActions } from "@/pages/video-convert/composables/useVideoConvertActions";
 
@@ -45,21 +46,7 @@ function goToSettings(): void {
 
 <template>
   <div class="video-convert-page">
-    <header class="top-bar">
-      <button type="button" class="back-entry" @click="backToHome">
-        <div class="back-entry__icon-wrap" aria-hidden="true">
-          <svg viewBox="0 0 24 24" class="back-entry__icon">
-            <path
-              d="M3 11.5L12 4l9 7.5v8a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 13 19.5v-3a1 1 0 0 0-1-1h0a1 1 0 0 0-1 1v3A1.5 1.5 0 0 1 9.5 21h-5A1.5 1.5 0 0 1 3 19.5z"
-            />
-          </svg>
-        </div>
-        <strong class="back-entry__text">{{ t("common.backToHome") }}</strong>
-      </button>
-      <button type="button" class="setting-btn" :aria-label="t('nav.settings')" @click="goToSettings">
-        <img :src="assets.settings" alt="" class="setting-btn__icon" />
-      </button>
-    </header>
+    <ToolPageTopBar title-key="common.backToHome" variant="compact" @back-home="backToHome" @open-settings="goToSettings" />
 
     <main class="content">
       <section class="upload-panel">
@@ -147,14 +134,6 @@ function goToSettings(): void {
 
 <style scoped>
 .video-convert-page { background: #fff; border-radius: 16px; overflow: hidden; min-height: calc(100vh - 48px); }
-.top-bar { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e5e7eb; padding: 16px 24px; gap: 16px; }
-.back-entry { border: none; background: transparent; padding: 0; display: inline-flex; align-items: center; gap: 12px; cursor: pointer; }
-.back-entry__icon-wrap { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #0f766e 15%, #0891b2 85%); display: flex; align-items: center; justify-content: center; }
-.back-entry__icon { width: 22px; height: 22px; fill: #fff; }
-.back-entry__text { font-size: 24px; line-height: 32px; color: #0f172a; }
-.setting-btn { width: 40px; height: 40px; border-radius: 10px; border: 1px solid #d1d5db; background: #f8fafc; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: border-color 200ms ease, background-color 200ms ease; }
-.setting-btn:hover { border-color: #94a3b8; background: #f1f5f9; }
-.setting-btn__icon { width: 20px; height: 20px; }
 .content { padding: 24px; }
 .upload-panel { border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; background: #fff; }
 .upload-panel h2 { margin: 0; color: #111827; font-size: 20px; line-height: 28px; }
@@ -200,7 +179,6 @@ function goToSettings(): void {
 @media (max-width: 768px) {
   .content { padding: 16px; }
   .upload-panel { padding: 16px; }
-  .back-entry__text { font-size: 20px; line-height: 28px; }
   .output-settings { grid-template-columns: 1fr; }
 }
 </style>
