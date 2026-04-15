@@ -111,13 +111,32 @@ export const zhCN = {
       title: "视频格式转换",
       searchPlaceholder: "搜索转换记录...",
       upload: {
-        title: "上传视频文件",
-        desc: "支持MP4、AVI、MOV、MKV、WMV、FLV等常见视频格式",
+        title: "上传Webm格式视频文件",
         dropTitle: "拖拽视频文件到这里或点击上传",
         dropDesc: "最大支持2GB，建议使用1080p及以下分辨率",
         button: "选择文件"
       },
       outputFormatTitle: "选择输出格式",
+      fileListTitle: "转换文件列表",
+      saveAs: "另存为",
+      saveAsTarget: "另存为目标",
+      retry: "重新转换",
+      cancel: "取消",
+      remove: "移除",
+      converting: "转换中...",
+      outputMode: {
+        sameAsInput: "输出到源文件目录",
+        globalDirectory: "输出到统一目录",
+        chooseDirectory: "选择目录",
+        notSelected: "未选择输出目录"
+      },
+      status: {
+        idle: "待转换",
+        running: "转换中",
+        completed: "已完成",
+        failed: "失败",
+        cancelled: "已取消"
+      },
       convertSettingsTitle: "转换参数设置",
       convertSettings: {
         resolution: "分辨率",

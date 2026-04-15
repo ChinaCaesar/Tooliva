@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.0",
     "vue-i18n": "^9.14.0",

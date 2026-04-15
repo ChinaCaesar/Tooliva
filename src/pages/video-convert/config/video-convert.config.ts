@@ -3,7 +3,6 @@ export const VIDEO_CONVERT_PAGE_CONFIG = {
   searchPlaceholderKey: "pages.videoConvert.searchPlaceholder",
   uploadSection: {
     titleKey: "pages.videoConvert.upload.title",
-    descKey: "pages.videoConvert.upload.desc",
     dropTitleKey: "pages.videoConvert.upload.dropTitle",
     dropDescKey: "pages.videoConvert.upload.dropDesc",
     buttonKey: "pages.videoConvert.upload.button"

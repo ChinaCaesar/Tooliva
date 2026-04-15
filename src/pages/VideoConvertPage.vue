@@ -3,10 +3,30 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ROUTE_PATHS } from "@/config/constants";
 import { useVideoConvertPageData } from "@/pages/video-convert/composables/useVideoConvertPageData";
+import { useVideoConvertActions } from "@/pages/video-convert/composables/useVideoConvertActions";
 
 const { t } = useI18n();
 const router = useRouter();
-const { pageConfig, assets, formatOptions, quickPresets, historyItems } = useVideoConvertPageData();
+const { pageConfig, assets } = useVideoConvertPageData();
+const {
+  items,
+  hintMessage,
+  isConverting,
+  isDropActive,
+  outputMode,
+  globalOutputDirectory,
+  canStart,
+  pickFiles,
+  pickGlobalOutputDirectory,
+  pickSaveAsPath,
+  handleDrop,
+  onDragOver,
+  onDragLeave,
+  startConvert,
+  retryItem,
+  cancelItem,
+  removeItem
+} = useVideoConvertActions();
 
 /**
  * 返回首页入口。
@@ -35,143 +55,89 @@ function backToHome(): void {
       </div>
     </header>
 
-    <section class="page-content">
-      <main class="main-area">
-        <section class="panel">
-          <h2>{{ t(pageConfig.uploadSection.titleKey) }}</h2>
-          <p class="desc">{{ t(pageConfig.uploadSection.descKey) }}</p>
-          <div class="upload-zone">
-            <img :src="assets.upload" alt="" class="upload-zone__icon" />
-            <p class="upload-zone__title">{{ t(pageConfig.uploadSection.dropTitleKey) }}</p>
-            <p class="upload-zone__desc">{{ t(pageConfig.uploadSection.dropDescKey) }}</p>
-            <button type="button" class="primary-btn">{{ t(pageConfig.uploadSection.buttonKey) }}</button>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>{{ t(pageConfig.sections.outputFormatTitleKey) }}</h2>
-          <div class="format-grid">
-            <article
-              v-for="item in formatOptions"
-              :key="item.id"
-              class="format-card"
-              :class="{ 'format-card--featured': item.featured }"
-            >
-              <h3>{{ item.title }}</h3>
-              <p>{{ t(item.descriptionKey) }}</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel panel--muted convert-settings-panel">
-          <h2 class="convert-settings-panel__title">{{ t(pageConfig.sections.convertSettingsTitleKey) }}</h2>
-          <div class="setting-row setting-row--top-label">
-            <span class="setting-row__label">{{ t("pages.videoConvert.convertSettings.resolution") }}</span>
-            <span class="setting-row__label setting-row__label--bitrate">{{ t("pages.videoConvert.convertSettings.bitrate") }}</span>
-          </div>
-          <div class="setting-row setting-row--gap setting-row--radio">
-            <div class="resolution-col resolution-col--tight">
-              <div class="radio"><span class="radio__dot" />{{ t("pages.videoConvert.convertSettings.resolution4k") }}</div>
-              <div class="radio active"><img :src="assets.radioActive" alt="" />{{ t("pages.videoConvert.convertSettings.resolution1080") }}</div>
-              <div class="radio"><span class="radio__dot" />{{ t("pages.videoConvert.convertSettings.resolution720") }}</div>
-              <div class="radio"><span class="radio__dot" />{{ t("pages.videoConvert.convertSettings.resolution480") }}</div>
-            </div>
-            <div class="bitrate-col">
-              <div class="mock-select mock-select--compact">{{ t("pages.videoConvert.convertSettings.bitrateValue") }} ▼</div>
-              <div class="bitrate-slider"><div class="bitrate-slider__inner" /></div>
-              <div class="bitrate-labels">
-                <span>{{ t("pages.videoConvert.convertSettings.bitrateLow") }}</span>
-                <span>{{ t("pages.videoConvert.convertSettings.bitrateHigh") }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="setting-row setting-row--selectors">
-            <div class="selector-group">
-              <span>{{ t("pages.videoConvert.convertSettings.frameRate") }}</span>
-              <div class="mock-select mock-select--compact">{{ t("pages.videoConvert.convertSettings.frameRateValue") }} ▼</div>
-            </div>
-            <div class="selector-group">
-              <span>{{ t("pages.videoConvert.convertSettings.audioQuality") }}</span>
-              <div class="mock-select mock-select--compact">{{ t("pages.videoConvert.convertSettings.audioQualityValue") }} ▼</div>
-            </div>
-          </div>
-          <button type="button" class="primary-btn primary-btn--full">{{ t("pages.videoConvert.startConvert") }}</button>
-        </section>
-      </main>
-
-      <aside class="side-area">
-        <section class="panel side-panel side-panel--no-margin">
-          <h3>{{ t("pages.videoConvert.quickPreset.title") }}</h3>
-          <div v-for="preset in quickPresets" :key="preset.id" class="preset-item">
-            <img :src="assets[preset.iconKey]" alt="" />
-            <div>
-              <div class="preset-item__title">{{ t(preset.titleKey) }}</div>
-              <div class="preset-item__desc">{{ t(preset.descriptionKey) }}</div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel side-panel side-panel--no-margin">
-          <h3>{{ t("pages.videoConvert.history.title") }}</h3>
-          <div v-for="item in historyItems" :key="item.id" class="history-item">
-            <img :src="assets[item.previewKey]" alt="" class="history-item__thumb" />
-            <div>
-              <div class="history-item__file">{{ item.fileName }}</div>
-              <div class="history-item__meta">{{ item.transformText }}</div>
-              <div class="history-item__time">
-                <img :src="assets.time" alt="" />{{ t(item.relativeTimeKey) }}
-              </div>
-            </div>
-          </div>
-          <button type="button" class="history-all-btn">{{ t("pages.videoConvert.history.viewAll") }}</button>
-        </section>
-
-        <section class="tip-box">
-          <div class="tip-box__title"><img :src="assets.tip" alt="" />{{ t("pages.videoConvert.tips.title") }}</div>
-          <p>• {{ t("pages.videoConvert.tips.item1") }}</p>
-          <p>• {{ t("pages.videoConvert.tips.item2") }}</p>
-          <p>• {{ t("pages.videoConvert.tips.item3") }}</p>
-          <p>• {{ t("pages.videoConvert.tips.item4") }}</p>
-        </section>
-      </aside>
-    </section>
-
-    <section class="panel progress-panel">
-      <div class="progress-panel__header">
-        <h2>{{ t(pageConfig.sections.progressTitleKey) }}</h2>
-        <span>{{ t("pages.videoConvert.progress.status") }}</span>
-      </div>
-      <div class="progress-panel__file">
-        <img :src="assets.progressIcon" alt="" />
-        <div class="progress-panel__content">
-          <div class="progress-panel__filename">{{ t("pages.videoConvert.progress.fileName") }}</div>
-          <div class="progress-track"><div class="progress-track__inner" /></div>
-          <div class="progress-panel__meta">
-            <span>{{ t("pages.videoConvert.progress.done") }}</span>
-            <span>{{ t("pages.videoConvert.progress.remaining") }}</span>
-          </div>
+    <main class="content">
+      <section class="upload-panel">
+        <h2>{{ t(pageConfig.uploadSection.titleKey) }}</h2>
+        <div class="output-settings">
+          <label>
+            <input v-model="outputMode" type="radio" value="sameAsInput" />
+            {{ t("pages.videoConvert.outputMode.sameAsInput") }}
+          </label>
+          <label>
+            <input v-model="outputMode" type="radio" value="globalDirectory" />
+            {{ t("pages.videoConvert.outputMode.globalDirectory") }}
+          </label>
+          <button
+            v-if="outputMode === 'globalDirectory'"
+            type="button"
+            class="secondary-btn"
+            @click="pickGlobalOutputDirectory"
+          >
+            {{ t("pages.videoConvert.outputMode.chooseDirectory") }}
+          </button>
+          <span v-if="outputMode === 'globalDirectory'" class="path-tip">
+            {{ globalOutputDirectory || t("pages.videoConvert.outputMode.notSelected") }}
+          </span>
         </div>
-      </div>
-      <div class="progress-stats">
-        <span>{{ t("pages.videoConvert.progress.speed") }}</span>
-        <span>{{ t("pages.videoConvert.progress.time") }}</span>
-        <span>{{ t("pages.videoConvert.progress.size") }}</span>
-      </div>
-    </section>
+        <div class="upload-zone" :class="{ 'upload-zone--active': isDropActive }" @drop="handleDrop" @dragover="onDragOver" @dragleave="onDragLeave">
+          <img :src="assets.upload" alt="" class="upload-zone__icon" />
+          <p class="upload-zone__title">{{ t(pageConfig.uploadSection.dropTitleKey) }}</p>
+          <p class="upload-zone__desc">{{ t(pageConfig.uploadSection.dropDescKey) }}</p>
+          <button type="button" class="primary-btn" @click="pickFiles">{{ t(pageConfig.uploadSection.buttonKey) }}</button>
+          <p v-if="hintMessage" class="hint">{{ hintMessage }}</p>
+        </div>
+      </section>
 
-    <footer class="footer">
-      <div>{{ t(pageConfig.footer.leftKey) }} {{ t(pageConfig.footer.versionKey) }}</div>
-      <div class="footer-links">
-        <span><img :src="assets.footerFormat" alt="" />{{ t(pageConfig.footer.formatGuideKey) }}</span>
-        <span><img :src="assets.footerAdvanced" alt="" />{{ t(pageConfig.footer.advancedKey) }}</span>
-      </div>
-    </footer>
+      <section class="task-list">
+        <h3>{{ t("pages.videoConvert.fileListTitle") }} ({{ items.length }})</h3>
+        <div v-if="items.length === 0" class="task-empty">{{ t("common.noData") }}</div>
+        <article v-for="item in items" :key="item.id" class="task-item">
+          <div class="task-item__head">
+            <div class="task-item__name">{{ item.fileName }}</div>
+            <div class="task-item__status" :class="{ 'task-item__status--completed': item.status === 'completed' }">
+              {{ t(`pages.videoConvert.status.${item.status}`) }}
+            </div>
+          </div>
+          <div class="task-item__path">{{ item.inputPath }}</div>
+          <div class="progress-row">
+            <div class="progress-bar">
+              <span class="progress-bar__value" :style="{ width: `${item.progress}%` }"></span>
+            </div>
+            <span>{{ item.progress }}%</span>
+          </div>
+          <div v-if="item.error" class="task-item__error">{{ item.error }}</div>
+          <div v-if="item.outputPath" class="task-item__output">{{ item.outputPath }}</div>
+          <div class="task-item__actions">
+            <button
+              v-if="item.status === 'failed' || item.status === 'cancelled'"
+              type="button"
+              class="secondary-btn secondary-btn--retry"
+              @click="retryItem(item.id)"
+            >
+              {{ t("pages.videoConvert.retry") }}
+            </button>
+            <button v-if="item.status === 'completed'" type="button" class="secondary-btn" @click="pickSaveAsPath(item.id)">
+              {{ t("pages.videoConvert.saveAs") }}
+            </button>
+            <button v-if="item.status === 'running'" type="button" class="secondary-btn" @click="cancelItem(item.id)">
+              {{ t("pages.videoConvert.cancel") }}
+            </button>
+            <button v-else type="button" class="secondary-btn" @click="removeItem(item.id)">
+              {{ t("pages.videoConvert.remove") }}
+            </button>
+          </div>
+        </article>
+      </section>
+
+      <button type="button" class="primary-btn primary-btn--confirm" :disabled="!canStart" @click="startConvert">
+        {{ isConverting ? t("pages.videoConvert.converting") : t("pages.videoConvert.startConvert") }}
+      </button>
+    </main>
   </div>
 </template>
 
 <style scoped>
 .video-convert-page { background: #fff; border-radius: 16px; overflow: hidden; min-height: calc(100vh - 48px); }
-.side-panel--no-margin { margin: 0 !important; }
 .top-bar { display: flex; align-items: center; border-bottom: 1px solid #e5e7eb; padding: 16px 24px; gap: 16px; }
 .back-entry { border: none; background: transparent; padding: 0; display: inline-flex; align-items: center; gap: 12px; cursor: pointer; }
 .back-entry__icon-wrap { width: 40px; height: 40px; border-radius: 8px; background: linear-gradient(135deg, #7c3aed 15%, #a855f7 85%); display: flex; align-items: center; justify-content: center; }
@@ -183,78 +149,35 @@ function backToHome(): void {
 .user-entry__role { color: #6b7280; font-size: 12px; line-height: 16px; }
 .setting-btn { border: 1px solid #e5e7eb; background: #f9fafb; border-radius: 8px; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; }
 .setting-btn__icon { width: 20px; height: 20px; }
-.page-content { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; padding: 24px; }
-.panel { border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; background: #fff; }
-.panel h2 { margin: 0; color: #111827; font-size: 20px; line-height: 28px; }
+.content { padding: 24px; }
+.upload-panel { border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; background: #fff; }
+.upload-panel h2 { margin: 0; color: #111827; font-size: 20px; line-height: 28px; }
 .desc { margin: 8px 0 0; color: #6b7280; line-height: 20px; }
+.output-settings { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .upload-zone { margin-top: 16px; border: 2px dashed #d1d5db; border-radius: 16px; background: #f9fafb; text-align: center; padding: 20px; }
+.upload-zone--active { border-color: #1d4ed8; background: #eff6ff; }
 .upload-zone__icon { width: 64px; height: 64px; }
 .upload-zone__title { margin: 12px 0 0; font-size: 16px; font-weight: 500; line-height: 24px; }
 .upload-zone__desc { margin: 0; color: #6b7280; line-height: 20px; }
 .primary-btn { margin-top: 12px; border: none; border-radius: 8px; padding: 10px 24px; color: #fff; font-weight: 500; line-height: 20px; background: linear-gradient(90deg, #1d4ed8 0%, #1e3a8a 100%); }
-.format-grid { margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.format-card { border: 2px solid #e5e7eb; border-radius: 12px; padding: 18px; }
-.format-card--featured { background: linear-gradient(135deg, #1d4ed8 15%, #1e3a8a 85%); color: #fff; border: none; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
-.format-card h3 { margin: 0; font-size: 24px; line-height: 32px; }
-.format-card p { margin: 8px 0 0; color: inherit; opacity: .8; }
-.panel--muted { background: #f9fafb; }
-.convert-settings-panel { padding: 25px; gap: 8px; }
-.convert-settings-panel__title { margin: 0; color: #111827; font-size: 18px; font-weight: 700; line-height: 28px; }
-.setting-row { margin-top: 16px; display: flex; justify-content: space-between; color: #111827; font-weight: 500; line-height: 20px; }
-.setting-row--top-label { margin-top: 8px; }
-.setting-row__label { color: #111827; font-weight: 500; line-height: 20px; }
-.setting-row__label--bitrate { width: 56px; margin-right: 423px; }
-.setting-row--gap { align-items: flex-start; gap: 24px; font-weight: 400; }
-.setting-row--radio { margin-top: 4px; }
-.resolution-col { min-width: 150px; }
-.resolution-col--tight { display: flex; flex-direction: column; gap: 8px; }
-.bitrate-col { width: 479px; }
-.radio { margin-top: 8px; display: flex; align-items: center; gap: 8px; color: #374151; }
-.radio__dot { width: 16px; height: 16px; border: 2px solid #d1d5db; border-radius: 9999px; margin-top: 1px; flex-shrink: 0; }
-.radio img { width: 16px; height: 16px; }
-.mock-select { border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; width: 100%; color: #111827; }
-.mock-select--compact { padding: 10px 17px; line-height: 20px; display: flex; align-items: center; justify-content: space-between; }
-.bitrate-slider { margin-top: 12px; width: 100%; height: 8px; border-radius: 999px; background: #d1d5db; overflow: hidden; }
-.bitrate-slider__inner { width: 80%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #3b82f6 0%, #1e40af 100%); }
-.bitrate-labels { margin-top: 4px; display: flex; justify-content: space-between; color: #9ca3af; font-size: 12px; line-height: 16px; }
-.setting-row--selectors { margin-top: 16px; gap: 24px; align-items: flex-start; font-weight: 400; }
-.selector-group { width: 479px; }
-.selector-group span { display: block; margin-bottom: 8px; color: #111827; font-weight: 500; }
-.primary-btn--full { width: 100%; margin-top: 16px; padding: 12px 0; font-size: 16px; font-weight: 700; line-height: 24px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); }
-.side-area { width: 280px; display: flex; flex-direction: column; gap: 24px; }
-.side-panel { padding: 25px; }
-.side-panel h3 { margin: 0 0 16px; color: #111827; font-size: 16px; line-height: 24px; }
-.preset-item { padding: 16px; border-radius: 8px; background: linear-gradient(90deg, #f9fafb 0%, #f3f4f6 100%); display: flex; gap: 12px; margin-top: 12px; }
-.preset-item img { width: 20px; height: 20px; }
-.preset-item__title { font-weight: 700; line-height: 20px; color: #111827; }
-.preset-item__desc { margin-top: 4px; color: #6b7280; font-size: 12px; line-height: 16px; }
-.history-item { display: flex; gap: 12px; margin-top: 12px; }
-.history-item__thumb { width: 64px; height: 48px; border-radius: 8px; object-fit: cover; }
-.history-item__file { color: #111827; font-size: 12px; font-weight: 500; line-height: 16px; }
-.history-item__meta { color: #6b7280; font-size: 12px; line-height: 16px; }
-.history-item__time { display: flex; align-items: center; gap: 4px; color: #6b7280; font-size: 12px; line-height: 16px; }
-.history-item__time img { width: 12px; height: 12px; }
-.history-all-btn { margin-top: 12px; width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; color: #1d4ed8; line-height: 20px; padding: 8px 0; }
-.tip-box { border-radius: 16px; background: linear-gradient(135deg, #fef3c7 15%, #fde68a 85%); padding: 24px; color: #92400e; }
-.tip-box__title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; line-height: 24px; }
-.tip-box__title img { width: 20px; height: 20px; }
-.tip-box p { margin: 4px 0 0; font-size: 12px; line-height: 16px; }
-.progress-panel { margin: 0 24px 24px; padding: 25px; }
-.progress-panel__header { display: flex; justify-content: space-between; color: #3b82f6; font-weight: 500; }
-.progress-panel__file { margin-top: 12px; display: flex; gap: 16px; }
-.progress-panel__file img { width: 40px; height: 40px; }
-.progress-panel__content { flex: 1; }
-.progress-panel__filename { color: #111827; font-weight: 500; line-height: 20px; }
-.progress-track { margin-top: 8px; width: 100%; height: 8px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
-.progress-track__inner { width: 65%; height: 100%; background: linear-gradient(90deg, #3b82f6 0%, #1e40af 100%); border-radius: 999px; }
-.progress-panel__meta { margin-top: 4px; display: flex; justify-content: space-between; color: #6b7280; font-size: 12px; line-height: 16px; }
-.progress-stats { margin-top: 16px; border-radius: 8px; background: #f9fafb; padding: 12px; display: flex; justify-content: space-between; color: #6b7280; line-height: 20px; }
-.footer { border-top: 1px solid #e5e7eb; padding: 24px 48px; color: #6b7280; display: flex; justify-content: space-between; align-items: center; }
-.footer-links { display: flex; align-items: center; gap: 16px; color: #6b7280; }
-.footer-links span { display: inline-flex; align-items: center; gap: 8px; }
-.footer-links img { width: 16px; height: 16px; }
-@media (max-width: 1260px) {
-  .page-content { grid-template-columns: 1fr; }
-  .format-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+.primary-btn--confirm { width: 100%; margin-top: 16px; padding: 12px 0; font-size: 16px; font-weight: 700; line-height: 24px; }
+.primary-btn--confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+.secondary-btn { border: 1px solid #d1d5db; background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.secondary-btn--retry { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; }
+.path-tip { color: #6b7280; font-size: 12px; }
+.hint { color: #b91c1c; margin: 8px 0 0; }
+.task-list { margin-top: 16px; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; }
+.task-empty { color: #6b7280; }
+.task-item { border: 1px solid #f1f5f9; border-radius: 12px; padding: 12px; margin-top: 12px; }
+.task-item__head { display: flex; justify-content: space-between; gap: 12px; }
+.task-item__name { color: #111827; font-weight: 600; }
+.task-item__status { color: #475569; font-size: 12px; }
+.task-item__status--completed { color: #16a34a; font-weight: 600; }
+.task-item__path { color: #6b7280; font-size: 12px; margin-top: 6px; word-break: break-all; }
+.progress-row { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
+.progress-bar { flex: 1; height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+.progress-bar__value { display: block; height: 100%; background: #2563eb; }
+.task-item__actions { display: flex; gap: 8px; margin-top: 8px; }
+.task-item__error { margin-top: 8px; color: #b91c1c; font-size: 12px; }
+.task-item__output { margin-top: 8px; color: #047857; font-size: 12px; word-break: break-all; }
 </style>

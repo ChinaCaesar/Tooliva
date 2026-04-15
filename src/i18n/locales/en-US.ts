@@ -112,12 +112,31 @@ export const enUS = {
       searchPlaceholder: "Search conversion history...",
       upload: {
         title: "Upload Video Files",
-        desc: "Supports common formats including MP4, AVI, MOV, MKV, WMV and FLV",
         dropTitle: "Drag video files here or click to upload",
         dropDesc: "Supports up to 2GB, 1080p and below is recommended",
         button: "Select File"
       },
       outputFormatTitle: "Choose Output Format",
+      fileListTitle: "Conversion File List",
+      saveAs: "Save As",
+      saveAsTarget: "Save As Target",
+      retry: "Retry",
+      cancel: "Cancel",
+      remove: "Remove",
+      converting: "Converting...",
+      outputMode: {
+        sameAsInput: "Output to source directory",
+        globalDirectory: "Output to selected directory",
+        chooseDirectory: "Choose Directory",
+        notSelected: "No output directory selected"
+      },
+      status: {
+        idle: "Pending",
+        running: "Converting",
+        completed: "Completed",
+        failed: "Failed",
+        cancelled: "Cancelled"
+      },
       convertSettingsTitle: "Conversion Settings",
       convertSettings: {
         resolution: "Resolution",
