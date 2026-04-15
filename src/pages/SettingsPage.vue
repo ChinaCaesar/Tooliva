@@ -114,6 +114,10 @@ function onLanguageChange(event: Event): void {
   min-height: calc(100vh - 48px);
   border-radius: 16px;
   overflow: hidden;
+  padding-top: 74px;
+}
+.settings-page :deep(.tool-top-bar) {
+  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
 }
 .settings-main {
   padding: 32px;

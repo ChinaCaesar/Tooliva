@@ -37,6 +37,9 @@ export const enUS = {
         recentUsage: {
           title: "Recent Usage"
         },
+        frequentTools: {
+          title: "Frequent Tools"
+        },
         usageStats: {
           title: "Usage Stats"
         },
@@ -69,8 +72,19 @@ export const enUS = {
         renewButton: "Renew & Upgrade"
       },
       stats: {
-        filesToday: "Files processed today",
-        storage: "Storage"
+        totalUsageCount: "Total usage count",
+        todayUsageCount: "Today's usage count",
+        totalSavedMinutes: "Total time saved",
+        todaySavedMinutes: "Today's time saved"
+      },
+      recent: {
+        justNow: "Just now",
+        emptyTitle: "No usage records yet",
+        emptyTime: "Waiting for first run"
+      },
+      frequent: {
+        emptyTool: "No frequent data yet",
+        timesUnit: "times"
       },
       quickActions: {
         history: "History",
@@ -280,6 +294,53 @@ export const enUS = {
         version: "Version v1.0.0",
         formatGuide: "Format Guide",
         advanced: "Advanced Settings"
+      }
+    },
+    imageCompress: {
+      title: "Image Compression",
+      placeholder: "Image compression is under construction. Batch compression and quality control will be added soon."
+    },
+    imageUpscale: {
+      title: "Image Upscale",
+      description: "Supports single-image, drag-drop, and folder batch input. Output defaults to /compress/ under source folders.",
+      fileListTitle: "Processing Tasks",
+      clearList: "Clear List",
+      remove: "Remove",
+      start: "Start Upscale",
+      processing: "Upscaling...",
+      listOverflowTip: "Only first 200 items are displayed. Remaining {count} items will continue processing in background.",
+      source: {
+        title: "Input Source",
+        pickImages: "Add Images",
+        pickDirectory: "Choose Folder",
+        directoryNotSelected: "No folder selected, drag images directly is supported"
+      },
+      output: {
+        title: "Output Directory",
+        pickDirectory: "Specify Output Folder",
+        defaultDirectory: "Default output is /compress/ under each source image directory"
+      },
+      scale: {
+        title: "Scale Factor",
+        tip: "Supports 2x / 4x / 8x. When output size exceeds the system limit, inline warnings will be shown."
+      },
+      upload: {
+        dropTitle: "Drag images here or click to add",
+        dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported, auto dedupe with serial processing",
+        button: "Add Images"
+      },
+      status: {
+        idle: "Pending",
+        running: "Processing",
+        completed: "Completed",
+        failed: "Failed"
+      },
+      result: {
+        title: "Execution Result",
+        total: "Total",
+        success: "Success",
+        failed: "Failed",
+        elapsed: "Elapsed"
       }
     }
   },

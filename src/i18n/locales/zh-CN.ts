@@ -37,6 +37,9 @@ export const zhCN = {
         recentUsage: {
           title: "最近使用"
         },
+        frequentTools: {
+          title: "高频使用工具"
+        },
         usageStats: {
           title: "使用统计"
         },
@@ -69,8 +72,19 @@ export const zhCN = {
         renewButton: "续费升级"
       },
       stats: {
-        filesToday: "今日处理文件",
-        storage: "存储空间"
+        totalUsageCount: "累计使用次数",
+        todayUsageCount: "今日使用次数",
+        totalSavedMinutes: "累计节省时间",
+        todaySavedMinutes: "今日节省时间"
+      },
+      recent: {
+        justNow: "刚刚",
+        emptyTitle: "暂无使用记录",
+        emptyTime: "等待首次使用"
+      },
+      frequent: {
+        emptyTool: "暂无高频数据",
+        timesUnit: "次"
       },
       quickActions: {
         history: "历史记录",
@@ -280,6 +294,53 @@ export const zhCN = {
         version: "版本 v1.0.0",
         formatGuide: "格式说明",
         advanced: "高级设置"
+      }
+    },
+    imageCompress: {
+      title: "图片压缩",
+      placeholder: "图片压缩功能建设中，后续版本将支持批量压缩与质量调节。"
+    },
+    imageUpscale: {
+      title: "图片高清放大",
+      description: "支持单图、拖拽与目录批量导入，默认输出到源目录下的 /compress/ 文件夹。",
+      fileListTitle: "处理任务列表",
+      clearList: "清空列表",
+      remove: "移除",
+      start: "开始放大",
+      processing: "放大处理中...",
+      listOverflowTip: "当前仅展示前 200 条，剩余 {count} 条将在后台继续处理。",
+      source: {
+        title: "输入来源",
+        pickImages: "添加图片",
+        pickDirectory: "选择目录夹",
+        directoryNotSelected: "未选择目录，支持直接拖入图片"
+      },
+      output: {
+        title: "输出目录",
+        pickDirectory: "指定输出目录",
+        defaultDirectory: "默认输出到每个文件源目录下的 /compress/ 文件夹"
+      },
+      scale: {
+        title: "放大倍数",
+        tip: "支持 2x / 4x / 8x。若放大后尺寸超过系统上限，会在任务列表中提示。"
+      },
+      upload: {
+        dropTitle: "拖拽图片到此处，或点击添加",
+        dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，自动去重并串行处理",
+        button: "添加图片"
+      },
+      status: {
+        idle: "待处理",
+        running: "处理中",
+        completed: "已完成",
+        failed: "失败"
+      },
+      result: {
+        title: "执行结果",
+        total: "总数",
+        success: "成功",
+        failed: "失败",
+        elapsed: "总用时"
       }
     }
   },

@@ -125,16 +125,20 @@ function goToSettings(): void {
         </article>
       </section>
 
-      <button type="button" class="primary-btn primary-btn--confirm" :disabled="!canStart" @click="startConvert">
-        {{ isConverting ? t("pages.videoConvert.converting") : t("pages.videoConvert.startConvert") }}
-      </button>
     </main>
+    <div class="action-bar">
+      <div class="action-bar__inner">
+        <button type="button" class="primary-btn primary-btn--confirm" :disabled="!canStart" @click="startConvert">
+          {{ isConverting ? t("pages.videoConvert.converting") : t("pages.videoConvert.startConvert") }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.video-convert-page { background: #fff; border-radius: 16px; overflow: hidden; min-height: calc(100vh - 48px); }
-.content { padding: 24px; }
+.video-convert-page { background: #fff; border-radius: 16px; overflow: hidden; min-height: calc(100vh - 48px); padding-top: 74px; }
+.content { padding: 24px 24px 104px; }
 .upload-panel { border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; background: #fff; }
 .upload-panel h2 { margin: 0; color: #111827; font-size: 20px; line-height: 28px; }
 .desc { margin: 8px 0 0; color: #6b7280; line-height: 20px; }
@@ -155,7 +159,7 @@ function goToSettings(): void {
 .upload-zone__title { margin: 12px 0 0; font-size: 16px; font-weight: 500; line-height: 24px; }
 .upload-zone__desc { margin: 0; color: #6b7280; line-height: 20px; }
 .primary-btn { margin-top: 12px; border: none; border-radius: 8px; padding: 10px 24px; color: #fff; font-weight: 500; line-height: 20px; background: linear-gradient(90deg, #1d4ed8 0%, #1e3a8a 100%); }
-.primary-btn--confirm { width: 100%; margin-top: 16px; padding: 12px 0; font-size: 16px; font-weight: 700; line-height: 24px; }
+.primary-btn--confirm { width: 100%; margin-top: 0; padding: 12px 0; font-size: 16px; font-weight: 700; line-height: 24px; }
 .primary-btn--confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 .secondary-btn { border: 1px solid #d1d5db; background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 .secondary-btn--retry { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; }
@@ -175,10 +179,28 @@ function goToSettings(): void {
 .task-item__actions { display: flex; gap: 8px; margin-top: 8px; }
 .task-item__error { margin-top: 8px; color: #b91c1c; font-size: 12px; }
 .task-item__output { margin-top: 8px; color: #047857; font-size: 12px; word-break: break-all; }
+.action-bar { position: fixed; left: 0; right: 0; bottom: 12px; z-index: 40; pointer-events: none; }
+.action-bar__inner {
+  max-width: calc(100% - 48px);
+  margin: 0 auto;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #dbeafe;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+
+.video-convert-page :deep(.tool-top-bar) {
+  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
+}
 
 @media (max-width: 768px) {
-  .content { padding: 16px; }
+  .content { padding: 16px 16px 96px; }
   .upload-panel { padding: 16px; }
   .output-settings { grid-template-columns: 1fr; }
+  .action-bar { bottom: 8px; }
+  .action-bar__inner { max-width: calc(100% - 24px); }
 }
 </style>

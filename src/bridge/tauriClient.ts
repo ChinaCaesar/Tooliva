@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { UserSettings } from "@/types/settings";
 
 export const WEBM_TO_MP4_PROGRESS_EVENT = "webm-to-mp4-progress";
 
@@ -32,6 +33,62 @@ export interface WebmToMp4ProgressPayload {
   speed?: string;
   status: "running" | "completed" | "failed" | "cancelled";
   message?: string;
+}
+
+export interface RecordToolUsagePayload {
+  toolKey: string;
+  fileName: string;
+  savedSeconds: number;
+}
+
+export interface HomeStatsPayload {
+  totalUsageCount: number;
+  todayUsageCount: number;
+  totalSavedMinutes: number;
+  todaySavedMinutes: number;
+}
+
+export interface HomeRecentUsagePayload {
+  id: number;
+  toolKey: string;
+  fileName: string;
+  usedAtTs: number;
+}
+
+export interface HomeDashboardPayload {
+  stats: HomeStatsPayload;
+  recentItems: HomeRecentUsagePayload[];
+  topTools: HomeTopToolPayload[];
+}
+
+export interface HomeTopToolPayload {
+  toolKey: string;
+  usageCount: number;
+}
+
+export interface ListImagesFromDirectoryPayload {
+  directoryPath: string;
+}
+
+export interface ListImagesFromDirectoryResult {
+  images: string[];
+}
+
+export interface StartImageUpscalePayload {
+  inputPath: string;
+  scaleFactor: 2 | 4 | 8;
+  outputDirectory?: string;
+}
+
+export interface StartImageUpscaleResult {
+  inputPath: string;
+  outputPath: string;
+  success: boolean;
+  error?: string;
+  originalWidth: number;
+  originalHeight: number;
+  outputWidth: number;
+  outputHeight: number;
 }
 
 /**
@@ -70,6 +127,48 @@ export class TauriClient {
     return listen<WebmToMp4ProgressPayload>(WEBM_TO_MP4_PROGRESS_EVENT, (event) => {
       handler(event.payload);
     });
+  }
+
+  /**
+   * 读取本地 SQLite 中的用户设置。
+   */
+  public async getAppSettings(): Promise<UserSettings> {
+    return this.call<UserSettings>("get_app_settings");
+  }
+
+  /**
+   * 将用户设置写入本地 SQLite。
+   */
+  public async saveAppSettings(payload: UserSettings): Promise<void> {
+    await this.call<void>("save_app_settings", { payload });
+  }
+
+  /**
+   * 记录工具使用事件，用于首页统计与最近使用列表。
+   */
+  public async recordToolUsage(payload: RecordToolUsagePayload): Promise<void> {
+    await this.call<void>("record_tool_usage", { payload });
+  }
+
+  /**
+   * 获取首页统计和最近使用数据。
+   */
+  public async getHomeDashboard(): Promise<HomeDashboardPayload> {
+    return this.call<HomeDashboardPayload>("get_home_dashboard");
+  }
+
+  /**
+   * 递归扫描目录并返回可处理图片路径。
+   */
+  public async listImagesFromDirectory(payload: ListImagesFromDirectoryPayload): Promise<ListImagesFromDirectoryResult> {
+    return this.call<ListImagesFromDirectoryResult>("list_images_from_directory", { payload });
+  }
+
+  /**
+   * 执行单张图片高清放大。
+   */
+  public async startImageUpscale(payload: StartImageUpscalePayload): Promise<StartImageUpscaleResult> {
+    return this.call<StartImageUpscaleResult>("start_image_upscale", { payload });
   }
 }
 

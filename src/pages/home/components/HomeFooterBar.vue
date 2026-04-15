@@ -20,7 +20,7 @@ const { t } = useI18n();
 <template>
   <footer class="home-footer">
     <p class="home-footer__copyright">{{ copyrightText }} {{ versionPrefix }} {{ version }}</p>
-    <div class="home-footer__links">
+    <div v-if="links.length > 0" class="home-footer__links">
       <button v-for="item in links" :key="item.id" type="button" class="home-footer__link-btn">
         <img :src="item.iconUrl" alt="" class="home-footer__icon" />
         <span>{{ t(item.labelKey) }}</span>

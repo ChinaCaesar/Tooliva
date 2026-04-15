@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ROUTE_PATHS } from "@/config/constants";
@@ -14,7 +15,7 @@ import { useHomePageData } from "@/pages/home/composables/useHomePageData";
  */
 const { t } = useI18n();
 const router = useRouter();
-const { topBar, coreTools, placeholders, recentItems, quickActions, footerLinks, stats, membership, pageConfig } =
+const { topBar, coreTools, placeholders, recentItems, quickActions, footerLinks, stats, frequentTools, pageConfig } =
   useHomePageData();
 
 /**
@@ -23,7 +24,47 @@ const { topBar, coreTools, placeholders, recentItems, quickActions, footerLinks,
 function handleToolClick(actionCode: string): void {
   if (actionCode === "video-convert") {
     router.push(ROUTE_PATHS.videoConvert);
+    return;
   }
+  if (actionCode === "image-compress") {
+    router.push(ROUTE_PATHS.imageCompress);
+    return;
+  }
+  if (actionCode === "image-upscale") {
+    router.push(ROUTE_PATHS.imageUpscale);
+  }
+}
+
+/**
+ * 处理首页高频工具点击跳转。
+ */
+function handleFrequentToolClick(route: string): void {
+  if (!route) return;
+  router.push(route);
+}
+
+/**
+ * 首页顶部搜索候选列表，统一由核心工具映射生成。
+ */
+const searchableTools = computed(() =>
+  coreTools.value.map((item) => ({
+    id: item.id,
+    title: t(item.titleKey),
+    route:
+      item.actionCode === "video-convert"
+        ? ROUTE_PATHS.videoConvert
+        : item.actionCode === "image-compress"
+          ? ROUTE_PATHS.imageCompress
+          : ROUTE_PATHS.imageUpscale
+  }))
+);
+
+/**
+ * 处理顶部快捷搜索项点击，跳转到对应工具页。
+ */
+function handleSearchSelect(route: string): void {
+  if (!route) return;
+  router.push(route);
 }
 </script>
 
@@ -35,6 +76,8 @@ function handleToolClick(actionCode: string): void {
       :search-icon-url="topBar.searchIconUrl"
       :search-placeholder="t(topBar.searchPlaceholderKey)"
       :settings-icon-url="topBar.settingsIconUrl"
+      :search-tools="searchableTools"
+      @search-select="handleSearchSelect"
     />
 
     <section class="home-page__content">
@@ -46,12 +89,17 @@ function handleToolClick(actionCode: string): void {
           :placeholders="placeholders"
           @tool-click="handleToolClick"
         />
-        <RecentUsageList :title="t(pageConfig.sections.recentUsage.titleKey)" :items="recentItems" />
+        <RecentUsageList
+          :title="t(pageConfig.sections.recentUsage.titleKey)"
+          :frequent-tools-title="t('pages.home.sections.frequentTools.title')"
+          :times-unit-label="t('pages.home.frequent.timesUnit')"
+          :items="recentItems"
+          :frequent-tools="frequentTools"
+          @frequent-tool-click="handleFrequentToolClick"
+        />
       </main>
 
       <SideInfoPanel
-        :membership-title="t('pages.home.membership.title')"
-        :membership="membership"
         :stats-title="t(pageConfig.sections.usageStats.titleKey)"
         :stats="stats"
         :quick-actions-title="t(pageConfig.sections.quickActions.titleKey)"
@@ -74,6 +122,7 @@ function handleToolClick(actionCode: string): void {
   background: #ffffff;
   overflow: hidden;
   min-height: calc(100vh - 48px);
+  padding-top: 72px;
 }
 .home-page__content {
   display: flex;
@@ -81,6 +130,9 @@ function handleToolClick(actionCode: string): void {
   padding: 24px;
 }
 .home-page__main { flex: 1; min-width: 0; }
+.home-page :deep(.home-top-bar) {
+  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
+}
 @media (max-width: 1260px) {
   .home-page__content { flex-direction: column; }
 }

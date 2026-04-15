@@ -8,6 +8,13 @@ const app = createApp(App);
 registerAppPlugins(app);
 
 const settingsStore = useSettingsStore();
-settingsStore.hydrate();
 
-app.mount("#app");
+/**
+ * 应用启动前先同步用户配置，避免首屏出现语言/设置闪动。
+ */
+async function bootstrap(): Promise<void> {
+  await settingsStore.hydrate();
+  app.mount("#app");
+}
+
+void bootstrap();

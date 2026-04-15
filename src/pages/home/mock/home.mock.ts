@@ -140,16 +140,5 @@ export const HOME_QUICK_ACTIONS_MOCK: HomeQuickActionItem[] = [
  * 页脚链接 mock。
  */
 export const HOME_FOOTER_LINKS_MOCK: HomeFooterLinkItem[] = [
-  {
-    id: "footer-feedback",
-    iconKey: "footerFeedback",
-    labelKey: "pages.home.footer.feedback",
-    route: ROUTE_PATHS.settings
-  },
-  {
-    id: "footer-help",
-    iconKey: "footerHelp",
-    labelKey: "pages.home.footer.helpCenter",
-    route: ROUTE_PATHS.settings
-  }
+  // 已按产品要求移除底部“意见反馈/帮助中心”入口。
 ];

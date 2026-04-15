@@ -13,6 +13,7 @@ import {
 } from "@/bridge/tauriClient";
 
 type ConvertItemStatus = "idle" | "running" | "completed" | "failed" | "cancelled";
+const SAVED_SECONDS_PER_USAGE = 180;
 
 export interface ConvertItem {
   id: string;
@@ -253,6 +254,18 @@ export function useVideoConvertActions() {
     try {
       const result = await tauriClient.startWebmToMp4(payload);
       if (result.success) {
+        /**
+         * 节省时间换算规则：每次成功执行工具默认节省 3 分钟（180 秒）。
+         */
+        try {
+          await tauriClient.recordToolUsage({
+            toolKey: "video-convert",
+            fileName: item.fileName,
+            savedSeconds: SAVED_SECONDS_PER_USAGE
+          });
+        } catch {
+          // 统计写入失败不影响主流程结果。
+        }
         updateItem(item.id, { status: "completed", progress: 100, outputPath: result.outputPath });
         taskStore.completeTask(task.id, `已输出：${result.outputPath}`);
         return;

@@ -109,6 +109,12 @@ const { t } = useI18n();
   align-items: center;
   border-bottom: 1px solid #e5e7eb;
   background: #fff;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 80;
 }
 .tool-top-bar--compact {
   justify-content: space-between;

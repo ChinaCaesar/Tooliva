@@ -9,7 +9,13 @@ pub fn run() {
             commands::system::ping_host,
             commands::transcode::start_webm_to_mp4,
             commands::transcode::cancel_webm_to_mp4,
-            commands::transcode::save_as_converted_file
+            commands::transcode::save_as_converted_file,
+            commands::image::list_images_from_directory,
+            commands::image::start_image_upscale,
+            commands::db::get_app_settings,
+            commands::db::save_app_settings,
+            commands::db::record_tool_usage,
+            commands::db::get_home_dashboard
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
