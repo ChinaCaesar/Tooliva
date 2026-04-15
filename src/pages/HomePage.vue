@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { ROUTE_PATHS } from "@/config/constants";
 import HomeTopBar from "@/pages/home/components/HomeTopBar.vue";
 import CoreToolGrid from "@/pages/home/components/CoreToolGrid.vue";
 import RecentUsageList from "@/pages/home/components/RecentUsageList.vue";
@@ -11,8 +13,18 @@ import { useHomePageData } from "@/pages/home/composables/useHomePageData";
  * 首页组装容器，仅负责页面编排与多语言映射。
  */
 const { t } = useI18n();
+const router = useRouter();
 const { topBar, coreTools, placeholders, recentItems, quickActions, footerLinks, stats, membership, pageConfig } =
   useHomePageData();
+
+/**
+ * 处理首页工具卡片点击事件。
+ */
+function handleToolClick(actionCode: string): void {
+  if (actionCode === "video-convert") {
+    router.push(ROUTE_PATHS.videoConvert);
+  }
+}
 </script>
 
 <template>
@@ -35,6 +47,7 @@ const { topBar, coreTools, placeholders, recentItems, quickActions, footerLinks,
           :description="t(pageConfig.sections.coreTools.descriptionKey)"
           :cards="coreTools"
           :placeholders="placeholders"
+          @tool-click="handleToolClick"
         />
         <RecentUsageList :title="t(pageConfig.sections.recentUsage.titleKey)" :items="recentItems" />
       </main>

@@ -106,6 +106,76 @@ export const zhCN = {
     membership: {
       title: "会员中心",
       description: "后续可接入授权策略和会员能力。"
+    },
+    videoConvert: {
+      title: "视频格式转换",
+      searchPlaceholder: "搜索转换记录...",
+      upload: {
+        title: "上传视频文件",
+        desc: "支持MP4、AVI、MOV、MKV、WMV、FLV等常见视频格式",
+        dropTitle: "拖拽视频文件到这里或点击上传",
+        dropDesc: "最大支持2GB，建议使用1080p及以下分辨率",
+        button: "选择文件"
+      },
+      outputFormatTitle: "选择输出格式",
+      convertSettingsTitle: "转换参数设置",
+      convertSettings: {
+        resolution: "分辨率",
+        bitrate: "视频码率",
+        frameRate: "帧率",
+        audioQuality: "音频质量",
+        bitrateValue: "8000 kbps",
+        bitrateLow: "低",
+        bitrateHigh: "高",
+        frameRateValue: "30 fps",
+        audioQualityValue: "192 kbps",
+        resolution4k: "4K (3840x2160)",
+        resolution1080: "1080p (1920x1080)",
+        resolution720: "720p (1280x720)",
+        resolution480: "480p (854x480)"
+      },
+      outputFormat: {
+        mp4: "H.264编码",
+        avi: "通用格式",
+        mov: "QuickTime",
+        mkv: "高清容器",
+        wmv: "Windows",
+        flv: "流媒体"
+      },
+      startConvert: "开始转换",
+      quickPreset: {
+        title: "快速设置",
+        high: { title: "高质量", desc: "最佳画质" },
+        standard: { title: "标准质量", desc: "平衡选择" },
+        small: { title: "小文件", desc: "节省空间" }
+      },
+      history: {
+        title: "转换历史",
+        viewAll: "查看全部"
+      },
+      tips: {
+        title: "转换小贴士",
+        item1: "MP4格式兼容性最好",
+        item2: "1080p适合大多数场景",
+        item3: "码率越高画质越好",
+        item4: "建议保持原始帧率"
+      },
+      progress: {
+        title: "转换进度",
+        status: "处理中...",
+        done: "65% 完成",
+        remaining: "预计剩余 2分15秒",
+        fileName: "sample_video.avi → sample_video.mp4",
+        speed: "转换速度: 1.2x",
+        time: "已用时间: 3分45秒",
+        size: "文件大小: 245MB → 预估 180MB"
+      },
+      footer: {
+        left: "© 2024 工具箱",
+        version: "版本 v1.0.0",
+        formatGuide: "格式说明",
+        advanced: "高级设置"
+      }
     }
   },
   toolCategory: {

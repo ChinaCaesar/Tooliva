@@ -106,6 +106,76 @@ export const enUS = {
     membership: {
       title: "Membership Center",
       description: "Authorization and membership capabilities can be added later."
+    },
+    videoConvert: {
+      title: "Video Format Convert",
+      searchPlaceholder: "Search conversion history...",
+      upload: {
+        title: "Upload Video Files",
+        desc: "Supports common formats including MP4, AVI, MOV, MKV, WMV and FLV",
+        dropTitle: "Drag video files here or click to upload",
+        dropDesc: "Supports up to 2GB, 1080p and below is recommended",
+        button: "Select File"
+      },
+      outputFormatTitle: "Choose Output Format",
+      convertSettingsTitle: "Conversion Settings",
+      convertSettings: {
+        resolution: "Resolution",
+        bitrate: "Video Bitrate",
+        frameRate: "Frame Rate",
+        audioQuality: "Audio Quality",
+        bitrateValue: "8000 kbps",
+        bitrateLow: "Low",
+        bitrateHigh: "High",
+        frameRateValue: "30 fps",
+        audioQualityValue: "192 kbps",
+        resolution4k: "4K (3840x2160)",
+        resolution1080: "1080p (1920x1080)",
+        resolution720: "720p (1280x720)",
+        resolution480: "480p (854x480)"
+      },
+      outputFormat: {
+        mp4: "H.264 Encode",
+        avi: "General Format",
+        mov: "QuickTime",
+        mkv: "HD Container",
+        wmv: "Windows",
+        flv: "Streaming"
+      },
+      startConvert: "Start Convert",
+      quickPreset: {
+        title: "Quick Presets",
+        high: { title: "High Quality", desc: "Best visual quality" },
+        standard: { title: "Standard", desc: "Balanced choice" },
+        small: { title: "Small Size", desc: "Save storage space" }
+      },
+      history: {
+        title: "Conversion History",
+        viewAll: "View All"
+      },
+      tips: {
+        title: "Conversion Tips",
+        item1: "MP4 has the best compatibility",
+        item2: "1080p fits most use cases",
+        item3: "Higher bitrate means better quality",
+        item4: "Keep original frame rate when possible"
+      },
+      progress: {
+        title: "Conversion Progress",
+        status: "Processing...",
+        done: "65% done",
+        remaining: "Estimated 2m 15s remaining",
+        fileName: "sample_video.avi → sample_video.mp4",
+        speed: "Convert Speed: 1.2x",
+        time: "Elapsed: 3m 45s",
+        size: "File Size: 245MB → Estimated 180MB"
+      },
+      footer: {
+        left: "© 2024 Toolbox",
+        version: "Version v1.0.0",
+        formatGuide: "Format Guide",
+        advanced: "Advanced Settings"
+      }
     }
   },
   toolCategory: {

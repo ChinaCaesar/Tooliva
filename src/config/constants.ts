@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
 
 export const ROUTE_PATHS = {
   home: "/",
+  videoConvert: "/video-convert",
   tools: "/tools",
   favorites: "/favorites",
   tasks: "/tasks",
