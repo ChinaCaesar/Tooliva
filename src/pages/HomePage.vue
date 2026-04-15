@@ -34,9 +34,6 @@ function handleToolClick(actionCode: string): void {
       :app-name="t(topBar.appNameKey)"
       :search-icon-url="topBar.searchIconUrl"
       :search-placeholder="t(topBar.searchPlaceholderKey)"
-      :avatar-url="topBar.avatarUrl"
-      :user-name="t(topBar.userNameKey)"
-      :user-role="t(topBar.userRoleKey)"
       :settings-icon-url="topBar.settingsIconUrl"
     />
 

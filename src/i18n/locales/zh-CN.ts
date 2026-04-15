@@ -125,8 +125,11 @@ export const zhCN = {
       remove: "移除",
       converting: "转换中...",
       outputMode: {
+        groupLabel: "输出目录选择",
         sameAsInput: "输出到源文件目录",
+        sameAsInputDesc: "转换完成后，文件会保存到每个原始视频所在的目录。",
         globalDirectory: "输出到统一目录",
+        globalDirectoryDesc: "将全部转换结果集中保存到一个指定目录，便于管理。",
         chooseDirectory: "选择目录",
         notSelected: "未选择输出目录"
       },

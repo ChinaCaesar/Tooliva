@@ -125,8 +125,11 @@ export const enUS = {
       remove: "Remove",
       converting: "Converting...",
       outputMode: {
+        groupLabel: "Output Directory Selection",
         sameAsInput: "Output to source directory",
+        sameAsInputDesc: "Save each converted file next to its original input video.",
         globalDirectory: "Output to selected directory",
+        globalDirectoryDesc: "Save all converted files in one central directory for easier management.",
         chooseDirectory: "Choose Directory",
         notSelected: "No output directory selected"
       },
