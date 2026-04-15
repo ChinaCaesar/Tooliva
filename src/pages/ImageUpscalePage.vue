@@ -84,10 +84,6 @@ function goToSettings(): void {
               <input v-model="scaleFactor" type="radio" :value="4" />
               <span>4x</span>
             </label>
-            <label class="scale-option" :class="{ 'scale-option--active': scaleFactor === 8 }">
-              <input v-model="scaleFactor" type="radio" :value="8" />
-              <span>8x</span>
-            </label>
           </div>
           <p class="scale-tip">{{ t("pages.imageUpscale.scale.tip") }}</p>
         </div>
@@ -97,6 +93,28 @@ function goToSettings(): void {
           <p class="upload-zone__desc">{{ t("pages.imageUpscale.upload.dropDesc") }}</p>
           <button type="button" class="primary-btn" @click="pickImages">{{ t("pages.imageUpscale.upload.button") }}</button>
           <p v-if="hintMessage" class="hint">{{ hintMessage }}</p>
+        </div>
+      </section>
+
+      <section v-if="resultSummary" class="result-panel">
+        <h3>{{ t("pages.imageUpscale.result.title") }}</h3>
+        <div class="result-grid">
+          <div class="result-item">
+            <span class="result-item__label">{{ t("pages.imageUpscale.result.total") }}</span>
+            <strong>{{ resultSummary.total }}</strong>
+          </div>
+          <div class="result-item">
+            <span class="result-item__label">{{ t("pages.imageUpscale.result.success") }}</span>
+            <strong class="result-item__success">{{ resultSummary.success }}</strong>
+          </div>
+          <div class="result-item">
+            <span class="result-item__label">{{ t("pages.imageUpscale.result.failed") }}</span>
+            <strong class="result-item__failed">{{ resultSummary.failed }}</strong>
+          </div>
+          <div class="result-item">
+            <span class="result-item__label">{{ t("pages.imageUpscale.result.elapsed") }}</span>
+            <strong>{{ formatElapsed(resultSummary.elapsedMs) }}</strong>
+          </div>
         </div>
       </section>
 
@@ -142,28 +160,6 @@ function goToSettings(): void {
             </button>
           </div>
         </article>
-      </section>
-
-      <section v-if="resultSummary" class="result-panel">
-        <h3>{{ t("pages.imageUpscale.result.title") }}</h3>
-        <div class="result-grid">
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageUpscale.result.total") }}</span>
-            <strong>{{ resultSummary.total }}</strong>
-          </div>
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageUpscale.result.success") }}</span>
-            <strong class="result-item__success">{{ resultSummary.success }}</strong>
-          </div>
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageUpscale.result.failed") }}</span>
-            <strong class="result-item__failed">{{ resultSummary.failed }}</strong>
-          </div>
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageUpscale.result.elapsed") }}</span>
-            <strong>{{ formatElapsed(resultSummary.elapsedMs) }}</strong>
-          </div>
-        </div>
       </section>
 
     </main>
@@ -225,7 +221,18 @@ function goToSettings(): void {
 .task-item__output { margin-top: 8px; color: #047857; font-size: 12px; word-break: break-all; }
 .task-item__actions { margin-top: 8px; display: flex; gap: 8px; }
 
-.result-panel { margin-top: 16px; border: 1px solid #dcfce7; border-radius: 16px; background: #f0fdf4; padding: 16px; }
+.result-panel {
+  margin-top: 16px;
+  border: 1px solid #dcfce7;
+  border-radius: 16px;
+  background: rgba(240, 253, 244, 0.95);
+  padding: 16px;
+  position: sticky;
+  top: 86px;
+  z-index: 20;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 8px 20px rgba(22, 101, 52, 0.08);
+}
 .result-panel h3 { margin: 0; color: #166534; font-size: 16px; line-height: 24px; }
 .result-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .result-item { border: 1px solid #bbf7d0; background: #fff; border-radius: 10px; padding: 10px; min-width: 0; }

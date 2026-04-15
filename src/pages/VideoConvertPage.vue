@@ -16,7 +16,9 @@ const {
   isDropActive,
   outputMode,
   globalOutputDirectory,
+  resultSummary,
   canStart,
+  formatElapsed,
   pickFiles,
   pickGlobalOutputDirectory,
   pickSaveAsPath,
@@ -81,6 +83,28 @@ function goToSettings(): void {
           <p class="upload-zone__desc">{{ t(pageConfig.uploadSection.dropDescKey) }}</p>
           <button type="button" class="primary-btn" @click="pickFiles">{{ t(pageConfig.uploadSection.buttonKey) }}</button>
           <p v-if="hintMessage" class="hint">{{ hintMessage }}</p>
+        </div>
+      </section>
+
+      <section v-if="resultSummary" class="result-panel">
+        <h3>{{ t("pages.videoConvert.result.title") }}</h3>
+        <div class="result-grid">
+          <div class="result-item">
+            <span class="result-item__label">{{ t("pages.videoConvert.result.total") }}</span>
+            <strong>{{ resultSummary.total }}</strong>
+          </div>
+          <div class="result-item">
+            <span class="result-item__label">{{ t("pages.videoConvert.result.success") }}</span>
+            <strong class="result-item__success">{{ resultSummary.success }}</strong>
+          </div>
+          <div class="result-item">
+            <span class="result-item__label">{{ t("pages.videoConvert.result.failed") }}</span>
+            <strong class="result-item__failed">{{ resultSummary.failed }}</strong>
+          </div>
+          <div class="result-item">
+            <span class="result-item__label">{{ t("pages.videoConvert.result.elapsed") }}</span>
+            <strong>{{ formatElapsed(resultSummary.elapsedMs) }}</strong>
+          </div>
         </div>
       </section>
 
@@ -179,6 +203,24 @@ function goToSettings(): void {
 .task-item__actions { display: flex; gap: 8px; margin-top: 8px; }
 .task-item__error { margin-top: 8px; color: #b91c1c; font-size: 12px; }
 .task-item__output { margin-top: 8px; color: #047857; font-size: 12px; word-break: break-all; }
+.result-panel {
+  margin-top: 16px;
+  border: 1px solid #dcfce7;
+  border-radius: 16px;
+  background: rgba(240, 253, 244, 0.95);
+  padding: 16px;
+  position: sticky;
+  top: 86px;
+  z-index: 20;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 8px 20px rgba(22, 101, 52, 0.08);
+}
+.result-panel h3 { margin: 0; color: #166534; font-size: 16px; line-height: 24px; }
+.result-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.result-item { border: 1px solid #bbf7d0; background: #fff; border-radius: 10px; padding: 10px; min-width: 0; }
+.result-item__label { color: #475569; font-size: 12px; display: block; margin-bottom: 4px; }
+.result-item__success { color: #15803d; }
+.result-item__failed { color: #b91c1c; }
 .action-bar { position: fixed; left: 0; right: 0; bottom: 12px; z-index: 40; pointer-events: none; }
 .action-bar__inner {
   max-width: calc(100% - 48px);
@@ -200,6 +242,7 @@ function goToSettings(): void {
   .content { padding: 16px 16px 96px; }
   .upload-panel { padding: 16px; }
   .output-settings { grid-template-columns: 1fr; }
+  .result-grid { grid-template-columns: 1fr; }
   .action-bar { bottom: 8px; }
   .action-bar__inner { max-width: calc(100% - 24px); }
 }

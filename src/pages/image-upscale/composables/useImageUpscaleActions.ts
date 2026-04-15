@@ -36,7 +36,7 @@ export interface UpscaleItem {
  */
 function extractFileName(path: string): string {
   const chunks = path.split(/[/\\]/);
-  const fileName = chunks[chunks.length - 1];
+  const fileName = chunks.at(-1);
   return fileName || path;
 }
 
@@ -71,10 +71,11 @@ export function useImageUpscaleActions() {
   const isDropActive = ref(false);
   const hintMessage = ref("");
   const outputDirectory = ref(settingsStore.defaultOutputDirectory || "");
-  const scaleFactor = ref<2 | 4 | 8>(2);
+  const scaleFactor = ref<2 | 4>(2);
   const resultSummary = ref<UpscaleResultSummary | null>(null);
   const sourceDirectory = ref("");
   let disposeDropListener: UnlistenFn | null = null;
+  let disposeUpscaleProgressListener: UnlistenFn | null = null;
 
   const visibleItems = computed(() => items.value.slice(0, MAX_VISIBLE_ITEMS));
   const hiddenItemCount = computed(() => Math.max(0, items.value.length - visibleItems.value.length));
@@ -211,15 +212,33 @@ export function useImageUpscaleActions() {
     let success = 0;
     let failed = 0;
 
+    if (!disposeUpscaleProgressListener) {
+      disposeUpscaleProgressListener = await tauriClient.onImageUpscaleProgress((event) => {
+        if (!event.taskId) return;
+        updateItem(event.taskId, {
+          progress: Math.max(0, Math.min(100, Math.round(event.progress))),
+          status: event.stage === "failed" ? "failed" : undefined,
+          error: event.stage === "failed" ? event.message || "处理失败" : undefined
+        });
+      });
+    }
+
     for (const current of pendingItems) {
       const task = taskStore.createTask("image-upscale", "image-upscale");
       updateItem(current.id, { status: "running", progress: 0, error: undefined });
       taskStore.updateTaskProgress(task.id, 1, "高清放大中");
       try {
         const result = await tauriClient.startImageUpscale({
+          taskId: current.id,
           inputPath: current.inputPath,
           scaleFactor: scaleFactor.value,
-          outputDirectory: outputDirectory.value || undefined
+          outputDirectory: outputDirectory.value || undefined,
+          qualityMode: "fast",
+          backendPreference: "auto",
+          maxOutputPixels: 60_000_000,
+          maxMemoryMb: 768,
+          tileSize: 1024,
+          tileOverlap: 16
         });
         applyResult(current.id, result);
         if (result.success) {
@@ -318,6 +337,10 @@ export function useImageUpscaleActions() {
     if (disposeDropListener) {
       disposeDropListener();
       disposeDropListener = null;
+    }
+    if (disposeUpscaleProgressListener) {
+      disposeUpscaleProgressListener();
+      disposeUpscaleProgressListener = null;
     }
   });
 

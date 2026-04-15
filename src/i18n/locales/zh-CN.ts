@@ -237,6 +237,13 @@ export const zhCN = {
         failed: "失败",
         cancelled: "已取消"
       },
+      result: {
+        title: "执行结果",
+        total: "总数",
+        success: "成功",
+        failed: "失败",
+        elapsed: "总用时"
+      },
       convertSettingsTitle: "转换参数设置",
       convertSettings: {
         resolution: "分辨率",
@@ -322,7 +329,7 @@ export const zhCN = {
       },
       scale: {
         title: "放大倍数",
-        tip: "支持 2x / 4x / 8x。若放大后尺寸超过系统上限，会在任务列表中提示。"
+        tip: "支持 2x / 4x。若放大后尺寸超过系统上限，会在任务列表中提示。"
       },
       upload: {
         dropTitle: "拖拽图片到此处，或点击添加",

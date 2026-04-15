@@ -1,10 +1,16 @@
 mod commands;
+mod image_core;
+mod image_processors;
+mod image_upscale;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::transcode::TranscodeTaskRegistry::default())
+        .manage(commands::image_jobs::ImageProcessorRegistryState(
+            image_processors::registry::build_default_registry(),
+        ))
         .invoke_handler(tauri::generate_handler![
             commands::system::ping_host,
             commands::transcode::start_webm_to_mp4,
@@ -12,6 +18,7 @@ pub fn run() {
             commands::transcode::save_as_converted_file,
             commands::image::list_images_from_directory,
             commands::image::start_image_upscale,
+            commands::image_jobs::start_image_job,
             commands::db::get_app_settings,
             commands::db::save_app_settings,
             commands::db::record_tool_usage,

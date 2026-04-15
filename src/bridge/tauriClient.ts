@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { UserSettings } from "@/types/settings";
 
 export const WEBM_TO_MP4_PROGRESS_EVENT = "webm-to-mp4-progress";
+export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
 
 export type WebmToMp4OutputMode = "sameAsInput" | "globalDirectory" | "customFilePath";
 
@@ -75,12 +76,20 @@ export interface ListImagesFromDirectoryResult {
 }
 
 export interface StartImageUpscalePayload {
+  taskId: string;
   inputPath: string;
   scaleFactor: 2 | 4 | 8;
   outputDirectory?: string;
+  qualityMode?: "fast" | "balanced" | "quality";
+  backendPreference?: "auto" | "gpu" | "cpu" | "ai";
+  maxOutputPixels?: number;
+  maxMemoryMb?: number;
+  tileSize?: number;
+  tileOverlap?: number;
 }
 
 export interface StartImageUpscaleResult {
+  taskId: string;
   inputPath: string;
   outputPath: string;
   success: boolean;
@@ -89,6 +98,15 @@ export interface StartImageUpscaleResult {
   originalHeight: number;
   outputWidth: number;
   outputHeight: number;
+  backendUsed: string;
+}
+
+export interface ImageUpscaleProgressPayload {
+  taskId: string;
+  progress: number;
+  stage: string;
+  backend: string;
+  message?: string;
 }
 
 /**
@@ -169,6 +187,15 @@ export class TauriClient {
    */
   public async startImageUpscale(payload: StartImageUpscalePayload): Promise<StartImageUpscaleResult> {
     return this.call<StartImageUpscaleResult>("start_image_upscale", { payload });
+  }
+
+  /**
+   * 监听 Rust 侧推送的图片放大进度事件。
+   */
+  public async onImageUpscaleProgress(handler: (payload: ImageUpscaleProgressPayload) => void): Promise<UnlistenFn> {
+    return listen<ImageUpscaleProgressPayload>(IMAGE_UPSCALE_PROGRESS_EVENT, (event) => {
+      handler(event.payload);
+    });
   }
 }
 

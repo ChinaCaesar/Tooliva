@@ -237,6 +237,13 @@ export const enUS = {
         failed: "Failed",
         cancelled: "Cancelled"
       },
+      result: {
+        title: "Execution Result",
+        total: "Total",
+        success: "Success",
+        failed: "Failed",
+        elapsed: "Elapsed"
+      },
       convertSettingsTitle: "Conversion Settings",
       convertSettings: {
         resolution: "Resolution",
@@ -322,7 +329,7 @@ export const enUS = {
       },
       scale: {
         title: "Scale Factor",
-        tip: "Supports 2x / 4x / 8x. When output size exceeds the system limit, inline warnings will be shown."
+        tip: "Supports 2x / 4x. When output size exceeds the system limit, inline warnings will be shown."
       },
       upload: {
         dropTitle: "Drag images here or click to add",

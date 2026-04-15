@@ -15,6 +15,13 @@ import {
 type ConvertItemStatus = "idle" | "running" | "completed" | "failed" | "cancelled";
 const SAVED_SECONDS_PER_USAGE = 180;
 
+interface ConvertResultSummary {
+  total: number;
+  success: number;
+  failed: number;
+  elapsedMs: number;
+}
+
 export interface ConvertItem {
   id: string;
   fileName: string;
@@ -36,6 +43,18 @@ function extractFileName(path: string): string {
 }
 
 /**
+ * 将毫秒转换为更易读的耗时文案。
+ */
+function formatElapsed(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const remain = seconds % 60;
+  return `${mins}m ${remain}s`;
+}
+
+/**
  * 视频转换页动作编排：处理文件导入、输出策略、任务执行和进度同步。
  */
 export function useVideoConvertActions() {
@@ -50,6 +69,7 @@ export function useVideoConvertActions() {
   const outputMode = ref<WebmToMp4OutputMode>("sameAsInput");
   const activeTaskToItemIdMap = ref<Record<string, string>>({});
   const queueRunning = ref(false);
+  const resultSummary = ref<ConvertResultSummary | null>(null);
   let disposeProgressListener: (() => void) | null = null;
   let disposeDropListener: UnlistenFn | null = null;
 
@@ -217,6 +237,10 @@ export function useVideoConvertActions() {
     if (queueRunning.value) return;
     queueRunning.value = true;
     isConverting.value = true;
+    const startedAt = performance.now();
+    let processedCount = 0;
+    let successCount = 0;
+    let failedCount = 0;
 
     try {
       while (true) {
@@ -226,18 +250,32 @@ export function useVideoConvertActions() {
         if (!nextItem) {
           break;
         }
-        await runSingleItem(nextItem.id);
+        const runResult = await runSingleItem(nextItem.id);
+        processedCount += 1;
+        if (runResult === "completed") {
+          successCount += 1;
+        } else if (runResult === "failed" || runResult === "cancelled") {
+          failedCount += 1;
+        }
       }
     } finally {
       queueRunning.value = false;
       isConverting.value = false;
+      if (processedCount > 0) {
+        resultSummary.value = {
+          total: processedCount,
+          success: successCount,
+          failed: failedCount,
+          elapsedMs: Math.round(performance.now() - startedAt)
+        };
+      }
     }
   }
 
-  async function runSingleItem(itemId: string): Promise<void> {
+  async function runSingleItem(itemId: string): Promise<ConvertItemStatus | "skipped"> {
     const item = items.value.find((entry) => entry.id === itemId);
-    if (!item) return;
-    if (item.status === "running") return;
+    if (!item) return "skipped";
+    if (item.status === "running") return "skipped";
 
     const task = taskStore.createTask("video-convert", "webm-to-mp4");
     const payload: StartWebmToMp4Payload = {
@@ -268,21 +306,23 @@ export function useVideoConvertActions() {
         }
         updateItem(item.id, { status: "completed", progress: 100, outputPath: result.outputPath });
         taskStore.completeTask(task.id, `已输出：${result.outputPath}`);
-        return;
+        return "completed";
       }
 
       if (result.cancelled) {
         updateItem(item.id, { status: "cancelled", error: result.error });
         taskStore.cancelTask(task.id, result.error || "任务已取消");
-        return;
+        return "cancelled";
       }
 
       updateItem(item.id, { status: "failed", error: result.error || "转换失败" });
       taskStore.failTask(task.id, result.error || "转换失败");
+      return "failed";
     } catch (error) {
       const message = error instanceof Error ? error.message : "转换失败";
       updateItem(item.id, { status: "failed", error: message });
       taskStore.failTask(task.id, message);
+      return "failed";
     } finally {
       delete activeTaskToItemIdMap.value[task.id];
     }
@@ -368,7 +408,9 @@ export function useVideoConvertActions() {
     isDropActive,
     outputMode,
     globalOutputDirectory,
+    resultSummary,
     canStart,
+    formatElapsed,
     pickFiles,
     pickGlobalOutputDirectory,
     pickSaveAsPath,
