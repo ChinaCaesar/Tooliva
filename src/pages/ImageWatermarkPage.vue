@@ -145,20 +145,20 @@ function goToSettings(): void {
               <button type="button" class="secondary-btn" @click="pickImages">{{ t("pages.imageWatermark.source.pickImages") }}</button>
               <button type="button" class="secondary-btn" @click="pickSourceDirectory">{{ t("pages.imageWatermark.source.pickDirectory") }}</button>
               <button type="button" class="secondary-btn" @click="pickOutputDirectory">{{ t("pages.imageWatermark.output.pickDirectory") }}</button>
+              <button
+                type="button"
+                class="secondary-btn secondary-btn--subtle"
+                :disabled="!effectiveOutputDirectory"
+                @click="openEffectiveOutputDirectory"
+              >
+                {{ t("pages.imageWatermark.output.openDirectory") }}
+              </button>
             </div>
 
             <div class="control-card">
-              <div class="control-card__title">{{ t("pages.imageWatermark.output.title") }}</div>
-              <div class="output-directory-row">
+              <div class="control-card__head">
+                <div class="control-card__title">{{ t("pages.imageWatermark.output.title") }}</div>
                 <p class="path-tip">{{ effectiveOutputDirectory || t("pages.imageWatermark.output.defaultDirectory") }}</p>
-                <button
-                  type="button"
-                  class="secondary-btn"
-                  :disabled="!effectiveOutputDirectory"
-                  @click="openEffectiveOutputDirectory"
-                >
-                  {{ t("pages.imageWatermark.output.openDirectory") }}
-                </button>
               </div>
             </div>
 
@@ -203,16 +203,16 @@ function goToSettings(): void {
                   </div>
                 </div>
 
-                <div v-if="mode === 'image'" class="setting-group">
+                <div v-if="mode === 'image'" class="setting-group setting-group--wide-on-image">
                   <label class="setting-label" for="watermark-scale">{{ t("pages.imageWatermark.settings.imageScale") }}</label>
                   <input id="watermark-scale" v-model.number="imageScalePercent" type="number" min="5" max="60" class="text-input" />
                 </div>
 
-                <div class="setting-group">
+                <div class="setting-group" :class="{ 'setting-group--wide-on-image': mode === 'image' }">
                   <label class="setting-label" for="watermark-opacity">{{ t("pages.imageWatermark.settings.opacity") }}</label>
                   <div class="range-row">
                     <input id="watermark-opacity" v-model.number="opacity" type="range" min="5" max="100" class="range-input" />
-                    <strong>{{ opacity }}%</strong>
+                    <strong class="range-value">{{ opacity }}%</strong>
                   </div>
                 </div>
 
@@ -288,7 +288,7 @@ function goToSettings(): void {
       <section class="task-list">
         <div class="task-list__head">
           <h3>{{ t("pages.imageWatermark.fileListTitle") }} ({{ items.length }})</h3>
-          <button type="button" class="secondary-btn" :disabled="isProcessing" @click="clearItems">
+          <button v-if="items.length > 0" type="button" class="secondary-btn" :disabled="isProcessing" @click="clearItems">
             {{ t("pages.imageWatermark.clearList") }}
           </button>
         </div>
@@ -340,21 +340,60 @@ function goToSettings(): void {
 </template>
 
 <style scoped>
-.image-watermark-page { background: #fff; border-radius: 16px; overflow: hidden; min-height: calc(100vh - 48px); padding-top: 74px; }
-.image-watermark-page__content { padding: 24px 24px 104px; }
-.workspace-panel { border: 1px solid #e5e7eb; border-radius: 24px; padding: 24px; background: linear-gradient(180deg, #fff 0%, #fffaf5 100%); box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06); }
+.image-watermark-page {
+  --workspace-visible-height: calc(100dvh - 198px);
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: calc(100dvh - 48px);
+  padding-top: 74px;
+}
+.image-watermark-page__content { padding: 16px 20px 104px; }
+.workspace-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  padding: 18px 18px 16px;
+  background: linear-gradient(180deg, #fff 0%, #fffaf5 100%);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+  min-height: var(--workspace-visible-height);
+  display: flex;
+  flex-direction: column;
+}
 .workspace-panel h2 { margin: 0; color: #111827; font-size: 22px; line-height: 30px; }
-.panel-desc { margin: 8px 0 0; color: #64748b; font-size: 14px; line-height: 22px; }
+.panel-desc { margin: 4px 0 0; color: #64748b; font-size: 13px; line-height: 20px; }
 .workspace-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .workspace-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.workspace-actions--panel { justify-content: flex-start; }
-.editor-layout { margin-top: 20px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, 440px); gap: 20px; align-items: start; }
+.workspace-actions--panel { justify-content: flex-start; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.editor-layout {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(276px, 324px);
+  gap: 16px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
 .preview-panel,
-.settings-panel { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
-.control-card { border: 1px solid #fed7aa; border-radius: 12px; padding: 12px; background: #fff7ed; }
+.settings-panel { min-width: 0; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.preview-panel { min-height: 0; }
+.control-card { border: 1px solid #fed7aa; border-radius: 12px; padding: 8px 10px; background: #fff7ed; }
+.control-card__head { display: flex; flex-direction: column; gap: 2px; }
 .control-card__title { color: #7c2d12; font-size: 14px; font-weight: 600; line-height: 22px; }
-.output-directory-row { display: flex; flex-direction: column; gap: 10px; }
-.preview-stage { border: 1px solid #fed7aa; border-radius: 24px; background: radial-gradient(circle at top, #fff7ed 0%, #fff 62%); min-height: 620px; display: flex; align-items: center; justify-content: center; padding: 16px; position: relative; overflow: hidden; cursor: default; user-select: none; }
+.preview-stage {
+  border: 1px solid #fed7aa;
+  border-radius: 24px;
+  background: radial-gradient(circle at top, #fff7ed 0%, #fff 62%);
+  min-height: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  user-select: none;
+}
 .preview-stage--empty { background: linear-gradient(180deg, #fff7ed 0%, #fff 100%); }
 .preview-canvas {
   position: relative;
@@ -390,35 +429,57 @@ function goToSettings(): void {
 .upload-zone__title { display: block; margin: 0; font-size: 18px; font-weight: 600; line-height: 28px; color: #0f172a; }
 .upload-zone__desc { margin: 8px 0 0; color: #64748b; line-height: 22px; }
 .preview-empty__button { margin-top: 16px; }
-.watermark-settings { margin-top: 12px; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px; background: #fff7ed; }
-.watermark-settings__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.watermark-settings {
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff7ed;
+  flex: 1;
+}
+.watermark-settings__head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
 .watermark-settings__title { color: #7c2d12; font-size: 14px; font-weight: 600; line-height: 22px; }
 .mode-options,
-.position-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.position-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.mode-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .mode-option,
-.position-option { border: 1px solid #fdba74; border-radius: 10px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 200ms ease; background: #fff; }
+.position-option {
+  border: 1px solid #fdba74;
+  border-radius: 10px;
+  padding: 5px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 200ms ease;
+  background: #fff;
+  font-size: 12px;
+  line-height: 18px;
+}
 .mode-option--active,
 .position-option--active { border-color: #ea580c; background: #ffedd5; box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.12); }
-.settings-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.setting-group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.settings-grid { margin-top: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+.setting-group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .setting-group--wide { grid-column: span 2; }
-.setting-label { color: #7c2d12; font-size: 13px; font-weight: 600; line-height: 20px; }
+.setting-group--wide-on-image { grid-column: span 2; }
+.setting-label { color: #7c2d12; font-size: 12px; font-weight: 600; line-height: 18px; }
 .text-input,
-.color-input { border: 1px solid #fdba74; background: #fff; border-radius: 10px; min-height: 40px; padding: 0 12px; color: #111827; }
+.color-input { border: 1px solid #fdba74; background: #fff; border-radius: 10px; min-height: 34px; padding: 0 10px; color: #111827; }
 .color-input { padding: 4px; width: 100%; }
-.range-row { display: flex; align-items: center; gap: 10px; }
-.range-input { flex: 1; }
-.file-picker-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.range-row { display: flex; align-items: center; gap: 8px; }
+.range-input { flex: 1; min-width: 0; }
+.range-value { flex: 0 0 44px; text-align: right; color: #7c2d12; font-size: 12px; line-height: 18px; }
+.file-picker-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .path-inline { color: #475569; font-size: 12px; line-height: 18px; word-break: break-all; }
-.scale-tip { margin: 8px 0 0; color: #9a3412; font-size: 12px; line-height: 18px; }
+.scale-tip { margin: 6px 0 0; color: #9a3412; font-size: 12px; line-height: 16px; }
 .primary-btn { margin-top: 12px; border: none; border-radius: 12px; padding: 10px 24px; color: #fff; font-weight: 700; line-height: 20px; background: linear-gradient(90deg, #c2410c 0%, #9a3412 100%); cursor: pointer; box-shadow: 0 10px 24px rgba(194, 65, 12, 0.26); }
 .primary-btn--confirm { width: 100%; margin-top: 0; padding: 12px 0; font-size: 16px; font-weight: 700; line-height: 24px; }
 .primary-btn--confirm:disabled { opacity: 0.6; cursor: not-allowed; }
-.secondary-btn { border: 1px solid #fdba74; background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; color: #7c2d12; }
+.secondary-btn { border: 1px solid #fdba74; background: #fff; border-radius: 8px; padding: 5px 10px; cursor: pointer; color: #7c2d12; min-width: 0; }
+.secondary-btn--subtle { background: rgba(255, 255, 255, 0.72); }
 .ghost-btn { border: none; background: transparent; color: #c2410c; font-weight: 600; cursor: pointer; padding: 0; }
 .secondary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .hint { color: #b91c1c; margin: 8px 0 0; }
-.path-tip { margin: 8px 0 0; color: #7c2d12; font-size: 12px; line-height: 18px; word-break: break-all; }
+.path-tip { margin: 0; color: #7c2d12; font-size: 12px; line-height: 16px; word-break: break-all; }
 .task-list { margin-top: 16px; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; }
 .task-list__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .task-list__head h3 { margin: 0; color: #111827; font-size: 16px; line-height: 24px; }
@@ -446,23 +507,80 @@ function goToSettings(): void {
 .result-item__success { color: #15803d; }
 .result-item__failed { color: #b91c1c; }
 .action-bar { position: fixed; left: 0; right: 0; bottom: 12px; z-index: 40; pointer-events: none; }
-.action-bar__inner { max-width: calc(100% - 48px); margin: 0 auto; padding: 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.9); border: 1px solid #fed7aa; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); backdrop-filter: blur(8px); pointer-events: auto; }
+.action-bar__inner { max-width: calc(100% - 48px); margin: 0 auto; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.9); border: 1px solid #fed7aa; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); backdrop-filter: blur(8px); pointer-events: auto; }
 .image-watermark-page :deep(.tool-top-bar) { box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06); }
 
+@media (max-height: 900px) and (min-width: 1025px) {
+  .image-watermark-page {
+    --workspace-visible-height: calc(100dvh - 178px);
+  }
+  .workspace-panel {
+    padding: 16px 16px 14px;
+  }
+  .panel-desc {
+    line-height: 18px;
+  }
+  .editor-layout {
+    grid-template-columns: minmax(0, 1.8fr) minmax(260px, 300px);
+    gap: 14px;
+  }
+  .preview-stage {
+    padding: 12px;
+  }
+  .watermark-settings,
+  .control-card {
+    padding: 8px 9px;
+  }
+  .settings-grid {
+    gap: 6px 8px;
+  }
+  .mode-option,
+  .position-option,
+  .secondary-btn {
+    font-size: 12px;
+  }
+}
+
 @media (max-width: 1024px) {
+  .image-watermark-page {
+    --workspace-visible-height: auto;
+  }
+  .image-watermark-page__content {
+    padding: 16px 16px 96px;
+  }
+  .workspace-panel {
+    min-height: auto;
+    padding: 16px;
+  }
   .editor-layout { grid-template-columns: 1fr; }
+  .workspace-actions--panel {
+    display: flex;
+  }
+  .preview-stage { min-height: 500px; }
   .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 768px) {
-  .image-watermark-page__content { padding: 16px 16px 96px; }
-  .workspace-panel { padding: 16px; }
   .workspace-head,
   .settings-grid { grid-template-columns: 1fr; }
   .workspace-head { flex-direction: column; }
-  .setting-group--wide { grid-column: span 1; }
+  .setting-group--wide,
+  .setting-group--wide-on-image { grid-column: span 1; }
   .task-list__head,
   .watermark-settings__head { flex-direction: column; align-items: flex-start; }
+  .workspace-actions--panel,
+  .position-options {
+    grid-template-columns: 1fr;
+  }
+  .file-picker-row,
+  .range-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .workspace-actions--panel .secondary-btn,
+  .file-picker-row .secondary-btn {
+    width: 100%;
+  }
   .preview-stage { min-height: 420px; padding: 12px; }
   .result-grid { grid-template-columns: 1fr; }
   .action-bar { bottom: 8px; }
