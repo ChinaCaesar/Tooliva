@@ -17,4 +17,5 @@ export interface UserSettings {
   windowSize: AppWindowSize;
   favoriteToolIds: string[];
   defaultOutputDirectory: string;
+  taskDoneNotificationEnabled: boolean;
 }

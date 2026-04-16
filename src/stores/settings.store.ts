@@ -32,6 +32,13 @@ export const useSettingsStore = defineStore("settings", {
       this.defaultOutputDirectory = path;
       void this.persist();
     },
+    /**
+     * 控制批量任务完成后是否展示右上角提醒。
+     */
+    setTaskDoneNotificationEnabled(enabled: boolean): void {
+      this.taskDoneNotificationEnabled = enabled;
+      void this.persist();
+    },
     toggleFavorite(toolId: string): void {
       if (this.favoriteToolIds.includes(toolId)) {
         this.favoriteToolIds = this.favoriteToolIds.filter((id) => id !== toolId);
@@ -52,7 +59,8 @@ export const useSettingsStore = defineStore("settings", {
         theme: this.theme,
         windowSize: this.windowSize,
         favoriteToolIds: this.favoriteToolIds,
-        defaultOutputDirectory: this.defaultOutputDirectory
+        defaultOutputDirectory: this.defaultOutputDirectory,
+        taskDoneNotificationEnabled: this.taskDoneNotificationEnabled
       };
       if (!isTauri()) {
         localStorageService.set(SETTINGS_STORAGE_KEY, payload);

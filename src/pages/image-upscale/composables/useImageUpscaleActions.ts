@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { open } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -6,6 +7,8 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useTaskStore } from "@/stores/task.store";
 import { tauriClient, type StartImageUpscaleResult } from "@/bridge/tauriClient";
+import { importDirectoryItems } from "@/pages/shared/directoryImport";
+import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
 type UpscaleStatus = "idle" | "running" | "completed" | "failed";
 const SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
@@ -63,8 +66,10 @@ function formatSize(width: number, height: number): string {
  * 图片高清放大页核心动作：导入、目录扫描、串行放大、结果汇总。
  */
 export function useImageUpscaleActions() {
+  const { t } = useI18n();
   const settingsStore = useSettingsStore();
   const taskStore = useTaskStore();
+  const { notifyTaskBatchCompleted } = useTaskBatchNotification();
 
   const items = ref<UpscaleItem[]>([]);
   const isProcessing = ref(false);
@@ -80,7 +85,9 @@ export function useImageUpscaleActions() {
   const visibleItems = computed(() => items.value.slice(0, MAX_VISIBLE_ITEMS));
   const hiddenItemCount = computed(() => Math.max(0, items.value.length - visibleItems.value.length));
   const canStart = computed(
-    () => !isProcessing.value && items.value.some((item) => item.status === "idle" || item.status === "failed")
+    () =>
+      !isProcessing.value &&
+      (sourceDirectory.value.trim().length > 0 || items.value.some((item) => item.status === "idle" || item.status === "failed"))
   );
 
   /**
@@ -108,14 +115,7 @@ export function useImageUpscaleActions() {
     const selected = await open({ directory: true, multiple: false });
     if (!selected || Array.isArray(selected)) return;
     sourceDirectory.value = selected;
-    try {
-      const result = await tauriClient.listImagesFromDirectory({ directoryPath: selected });
-      appendImagePaths(result.images);
-      hintMessage.value = result.images.length > 0 ? "" : "目录中未找到可处理图片";
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      hintMessage.value = message ? `扫描目录失败：${message}` : "扫描目录失败";
-    }
+    hintMessage.value = t("common.sourceDirectoryReady");
   }
 
   /**
@@ -202,76 +202,83 @@ export function useImageUpscaleActions() {
    */
   async function startUpscale(): Promise<void> {
     if (isProcessing.value) return;
-    const pendingItems = items.value.filter((item) => item.status === "idle" || item.status === "failed");
-    if (pendingItems.length === 0) return;
-
     isProcessing.value = true;
     resultSummary.value = null;
     hintMessage.value = "";
-    const startedAt = performance.now();
-    let success = 0;
-    let failed = 0;
+    try {
+      await ensureSourceDirectoryItemsLoaded();
 
-    if (!disposeUpscaleProgressListener) {
-      disposeUpscaleProgressListener = await tauriClient.onImageUpscaleProgress((event) => {
+      const pendingItems = items.value.filter((item) => item.status === "idle" || item.status === "failed");
+      if (pendingItems.length === 0) return;
+
+      const startedAt = performance.now();
+      let success = 0;
+      let failed = 0;
+
+      disposeUpscaleProgressListener ??= await tauriClient.onImageUpscaleProgress((event) => {
         if (!event.taskId) return;
-        updateItem(event.taskId, {
-          progress: Math.max(0, Math.min(100, Math.round(event.progress))),
-          status: event.stage === "failed" ? "failed" : undefined,
-          error: event.stage === "failed" ? event.message || "处理失败" : undefined
-        });
-      });
-    }
-
-    for (const current of pendingItems) {
-      const task = taskStore.createTask("image-upscale", "image-upscale");
-      updateItem(current.id, { status: "running", progress: 0, error: undefined });
-      taskStore.updateTaskProgress(task.id, 1, "高清放大中");
-      try {
-        const result = await tauriClient.startImageUpscale({
-          taskId: current.id,
-          inputPath: current.inputPath,
-          scaleFactor: scaleFactor.value,
-          outputDirectory: outputDirectory.value || undefined,
-          qualityMode: "fast",
-          backendPreference: "auto",
-          maxOutputPixels: 60_000_000,
-          maxMemoryMb: 768,
-          tileSize: 1024,
-          tileOverlap: 16
-        });
-        applyResult(current.id, result);
-        if (result.success) {
-          success += 1;
-          taskStore.completeTask(task.id, "处理完成");
-          try {
-            await tauriClient.recordToolUsage({
-              toolKey: "image-upscale",
-              fileName: current.fileName,
-              savedSeconds: SAVED_SECONDS_PER_USAGE
-            });
-          } catch {
-            // 统计失败不影响主流程。
-          }
-        } else {
-          failed += 1;
-          taskStore.failTask(task.id, result.error || "处理失败");
+        const progressPatch: Partial<UpscaleItem> = {
+          progress: Math.max(0, Math.min(100, Math.round(event.progress)))
+        };
+        if (event.stage === "failed") {
+          progressPatch.status = "failed";
+          progressPatch.error = event.message || "处理失败";
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "处理失败";
-        failed += 1;
-        updateItem(current.id, { status: "failed", progress: 100, error: message });
-        taskStore.failTask(task.id, message);
-      }
-    }
+        updateItem(event.taskId, progressPatch);
+      });
 
-    isProcessing.value = false;
-    resultSummary.value = {
-      total: pendingItems.length,
-      success,
-      failed,
-      elapsedMs: Math.round(performance.now() - startedAt)
-    };
+      for (const current of pendingItems) {
+        const task = taskStore.createTask("image-upscale", "image-upscale");
+        updateItem(current.id, { status: "running", progress: 0, error: undefined });
+        taskStore.updateTaskProgress(task.id, 1, "高清放大中");
+        try {
+          const result = await tauriClient.startImageUpscale({
+            taskId: current.id,
+            inputPath: current.inputPath,
+            scaleFactor: scaleFactor.value,
+            outputDirectory: outputDirectory.value || undefined,
+            qualityMode: "fast",
+            backendPreference: "auto",
+            maxOutputPixels: 60_000_000,
+            maxMemoryMb: 768,
+            tileSize: 1024,
+            tileOverlap: 16
+          });
+          applyResult(current.id, result);
+          if (result.success) {
+            success += 1;
+            taskStore.completeTask(task.id, "处理完成");
+            try {
+              await tauriClient.recordToolUsage({
+                toolKey: "image-upscale",
+                fileName: current.fileName,
+                savedSeconds: SAVED_SECONDS_PER_USAGE
+              });
+            } catch {
+              // 统计失败不影响主流程。
+            }
+          } else {
+            failed += 1;
+            taskStore.failTask(task.id, result.error || "处理失败");
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "处理失败";
+          failed += 1;
+          updateItem(current.id, { status: "failed", progress: 100, error: message });
+          taskStore.failTask(task.id, message);
+        }
+      }
+
+      resultSummary.value = {
+        total: pendingItems.length,
+        success,
+        failed,
+        elapsedMs: Math.round(performance.now() - startedAt)
+      };
+      notifyTaskBatchCompleted("pages.imageUpscale.title", resultSummary.value, formatElapsed(resultSummary.value.elapsedMs));
+    } finally {
+      isProcessing.value = false;
+    }
   }
 
   function applyResult(itemId: string, result: StartImageUpscaleResult): void {
@@ -327,6 +334,44 @@ export function useImageUpscaleActions() {
     }));
     items.value = [...items.value, ...newItems];
     hintMessage.value = "";
+  }
+
+  /**
+   * 开始执行前补扫目录，并只合并当前任务支持的图片文件。
+   */
+  async function ensureSourceDirectoryItemsLoaded(): Promise<void> {
+    if (!sourceDirectory.value.trim()) return;
+    try {
+      const result = await importDirectoryItems({
+        directoryPath: sourceDirectory.value,
+        supportedExtensions: SUPPORTED_IMAGE_EXTENSIONS,
+        existingPaths: items.value.map((item) => item.inputPath),
+        createItem: createUpscaleItem
+      });
+      if (result.addedItems.length > 0) {
+        items.value = [...items.value, ...result.addedItems];
+        hintMessage.value = "";
+        return;
+      }
+      hintMessage.value =
+        result.matchedCount === 0 ? t("common.sourceDirectoryNoMatch") : t("common.sourceDirectoryNoNewFiles");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      hintMessage.value = message ? `扫描目录失败：${message}` : "扫描目录失败";
+    }
+  }
+
+  /**
+   * 基于路径创建放大任务项，便于目录导入复用。
+   */
+  function createUpscaleItem(path: string): UpscaleItem {
+    return {
+      id: crypto.randomUUID(),
+      fileName: extractFileName(path),
+      inputPath: path,
+      status: "idle",
+      progress: 0
+    };
   }
 
   onMounted(async () => {

@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useTaskStore } from "@/stores/task.store";
 import { useSettingsStore } from "@/stores/settings.store";
+import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 import {
   tauriClient,
   type StartWebmToMp4Payload,
@@ -60,6 +61,7 @@ function formatElapsed(ms: number): string {
 export function useVideoConvertActions() {
   const taskStore = useTaskStore();
   const settingsStore = useSettingsStore();
+  const { notifyTaskBatchCompleted } = useTaskBatchNotification();
 
   const items = ref<ConvertItem[]>([]);
   const isConverting = ref(false);
@@ -268,6 +270,7 @@ export function useVideoConvertActions() {
           failed: failedCount,
           elapsedMs: Math.round(performance.now() - startedAt)
         };
+        notifyTaskBatchCompleted("pages.videoConvert.title", resultSummary.value, formatElapsed(resultSummary.value.elapsedMs));
       }
     }
   }

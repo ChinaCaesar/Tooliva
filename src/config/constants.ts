@@ -30,7 +30,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   theme: "system",
   windowSize: "medium",
   favoriteToolIds: [],
-  defaultOutputDirectory: ""
+  defaultOutputDirectory: "",
+  taskDoneNotificationEnabled: true
 };
 
 export const ROUTE_PATHS = {

@@ -19,7 +19,16 @@ export const enUS = {
     save: "Save",
     noData: "No Data",
     active: "Active",
-    history: "History"
+    history: "History",
+    total: "Total",
+    success: "Success",
+    failed: "Failed",
+    elapsed: "Elapsed",
+    taskCompleteTitle: "Task completed",
+    taskCompleteMessage: "{tool} finished processing {total} item(s): {success} succeeded, {failed} failed, elapsed {elapsed}.",
+    sourceDirectoryReady: "Folder selected. Matching files will be scanned when you start the task.",
+    sourceDirectoryNoMatch: "No files supported by the current task were found in the selected folder.",
+    sourceDirectoryNoNewFiles: "Folder scan finished, but no new supported files were found."
   },
   pages: {
     home: {

@@ -1,8 +1,13 @@
+<script setup lang="ts">
+import AppNotificationContainer from "@/components/common/AppNotificationContainer.vue";
+</script>
+
 <template>
   <div class="layout">
     <main class="content">
       <RouterView />
     </main>
+    <AppNotificationContainer />
   </div>
 </template>
 

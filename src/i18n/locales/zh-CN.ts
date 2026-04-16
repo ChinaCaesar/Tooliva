@@ -19,7 +19,16 @@ export const zhCN = {
     save: "保存",
     noData: "暂无数据",
     active: "进行中",
-    history: "历史"
+    history: "历史",
+    total: "总数",
+    success: "成功",
+    failed: "失败",
+    elapsed: "耗时",
+    taskCompleteTitle: "任务已完成",
+    taskCompleteMessage: "{tool}已处理完成，共 {total} 项，成功 {success} 项，失败 {failed} 项，用时 {elapsed}。",
+    sourceDirectoryReady: "已选择目录，开始执行时将自动检索当前任务可处理的文件。",
+    sourceDirectoryNoMatch: "所选目录中未找到当前任务可处理的文件。",
+    sourceDirectoryNoNewFiles: "目录扫描完成，没有发现新的可处理文件。"
   },
   pages: {
     home: {

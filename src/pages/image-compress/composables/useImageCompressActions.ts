@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { open } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -6,6 +7,8 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useTaskStore } from "@/stores/task.store";
 import { tauriClient, type StartImageCompressResult } from "@/bridge/tauriClient";
+import { importDirectoryItems } from "@/pages/shared/directoryImport";
+import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
 type CompressStatus = "idle" | "running" | "completed" | "failed";
 type CompressFormat = "jpg" | "png" | "webp";
@@ -94,8 +97,10 @@ function formatCompressionRatio(ratio: number): string {
  * 图片压缩页的核心动作：导入、拖拽、串行压缩与结果汇总。
  */
 export function useImageCompressActions() {
+  const { t } = useI18n();
   const settingsStore = useSettingsStore();
   const taskStore = useTaskStore();
+  const { notifyTaskBatchCompleted } = useTaskBatchNotification();
 
   const items = ref<CompressItem[]>([]);
   const isProcessing = ref(false);
@@ -112,7 +117,9 @@ export function useImageCompressActions() {
   const visibleItems = computed(() => items.value.slice(0, MAX_VISIBLE_ITEMS));
   const hiddenItemCount = computed(() => Math.max(0, items.value.length - visibleItems.value.length));
   const canStart = computed(
-    () => !isProcessing.value && items.value.some((item) => item.status === "idle" || item.status === "failed")
+    () =>
+      !isProcessing.value &&
+      (sourceDirectory.value.trim().length > 0 || items.value.some((item) => item.status === "idle" || item.status === "failed"))
   );
 
   /**
@@ -140,14 +147,7 @@ export function useImageCompressActions() {
     const selected = await open({ directory: true, multiple: false });
     if (!selected || Array.isArray(selected)) return;
     sourceDirectory.value = selected;
-    try {
-      const result = await tauriClient.listImagesFromDirectory({ directoryPath: selected });
-      appendImagePaths(result.images);
-      hintMessage.value = result.images.length > 0 ? "" : "目录中未找到可处理图片";
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      hintMessage.value = message ? `扫描目录失败：${message}` : "扫描目录失败";
-    }
+    hintMessage.value = t("common.sourceDirectoryReady");
   }
 
   /**
@@ -234,47 +234,54 @@ export function useImageCompressActions() {
    */
   async function startCompress(): Promise<void> {
     if (isProcessing.value) return;
-    const pendingItems = items.value.filter((item) => item.status === "idle" || item.status === "failed");
-    if (pendingItems.length === 0) return;
-
     isProcessing.value = true;
     resultSummary.value = null;
     hintMessage.value = "";
-    const startedAt = performance.now();
-    let success = 0;
-    let failed = 0;
-    let totalInputBytes = 0;
-    let totalOutputBytes = 0;
+    try {
+      await ensureSourceDirectoryItemsLoaded();
 
-    if (!disposeCompressProgressListener) {
-      disposeCompressProgressListener = await tauriClient.onImageCompressProgress((event) => {
+      const pendingItems = items.value.filter((item) => item.status === "idle" || item.status === "failed");
+      if (pendingItems.length === 0) return;
+
+      const startedAt = performance.now();
+      let success = 0;
+      let failed = 0;
+      let totalInputBytes = 0;
+      let totalOutputBytes = 0;
+
+      disposeCompressProgressListener ??= await tauriClient.onImageCompressProgress((event) => {
         if (!event.taskId) return;
-        updateItem(event.taskId, {
-          progress: Math.max(0, Math.min(100, Math.round(event.progress))),
-          status: event.stage === "failed" ? "failed" : undefined,
-          error: event.stage === "failed" ? event.message || "处理失败" : undefined
-        });
+        const progressPatch: Partial<CompressItem> = {
+          progress: Math.max(0, Math.min(100, Math.round(event.progress)))
+        };
+        if (event.stage === "failed") {
+          progressPatch.status = "failed";
+          progressPatch.error = event.message || "处理失败";
+        }
+        updateItem(event.taskId, progressPatch);
       });
-    }
 
-    for (const current of pendingItems) {
-      const outcome = await processSingleCompressItem(current);
-      totalInputBytes += outcome.inputBytes;
-      totalOutputBytes += outcome.outputBytes;
-      success += outcome.successCount;
-      failed += outcome.failedCount;
-    }
+      for (const current of pendingItems) {
+        const outcome = await processSingleCompressItem(current);
+        totalInputBytes += outcome.inputBytes;
+        totalOutputBytes += outcome.outputBytes;
+        success += outcome.successCount;
+        failed += outcome.failedCount;
+      }
 
-    isProcessing.value = false;
-    resultSummary.value = {
-      total: pendingItems.length,
-      success,
-      failed,
-      elapsedMs: Math.round(performance.now() - startedAt),
-      totalInputBytes,
-      totalOutputBytes,
-      compressionRatio: totalInputBytes > 0 ? (totalInputBytes - totalOutputBytes) / totalInputBytes : 0
-    };
+      resultSummary.value = {
+        total: pendingItems.length,
+        success,
+        failed,
+        elapsedMs: Math.round(performance.now() - startedAt),
+        totalInputBytes,
+        totalOutputBytes,
+        compressionRatio: totalInputBytes > 0 ? (totalInputBytes - totalOutputBytes) / totalInputBytes : 0
+      };
+      notifyTaskBatchCompleted("pages.imageCompress.title", resultSummary.value, formatElapsed(resultSummary.value.elapsedMs));
+    } finally {
+      isProcessing.value = false;
+    }
   }
 
   /**
@@ -384,6 +391,44 @@ export function useImageCompressActions() {
     }));
     items.value = [...items.value, ...newItems];
     hintMessage.value = "";
+  }
+
+  /**
+   * 开始执行前按当前任务支持的格式补扫目录，并与现有列表去重合并。
+   */
+  async function ensureSourceDirectoryItemsLoaded(): Promise<void> {
+    if (!sourceDirectory.value.trim()) return;
+    try {
+      const result = await importDirectoryItems({
+        directoryPath: sourceDirectory.value,
+        supportedExtensions: SUPPORTED_IMAGE_EXTENSIONS,
+        existingPaths: items.value.map((item) => item.inputPath),
+        createItem: createCompressItem
+      });
+      if (result.addedItems.length > 0) {
+        items.value = [...items.value, ...result.addedItems];
+        hintMessage.value = "";
+        return;
+      }
+      hintMessage.value =
+        result.matchedCount === 0 ? t("common.sourceDirectoryNoMatch") : t("common.sourceDirectoryNoNewFiles");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      hintMessage.value = message ? `扫描目录失败：${message}` : "扫描目录失败";
+    }
+  }
+
+  /**
+   * 基于文件路径构造压缩任务项，供目录导入与手动导入共用。
+   */
+  function createCompressItem(path: string): CompressItem {
+    return {
+      id: crypto.randomUUID(),
+      fileName: extractFileName(path),
+      inputPath: path,
+      status: "idle",
+      progress: 0
+    };
   }
 
   onMounted(async () => {

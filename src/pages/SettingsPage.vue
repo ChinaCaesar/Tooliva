@@ -8,7 +8,7 @@ import { useSettingsStore } from "@/stores/settings.store";
 
 const router = useRouter();
 const settingsStore = useSettingsStore();
-const { language, windowSize } = storeToRefs(settingsStore);
+const { language, taskDoneNotificationEnabled, windowSize } = storeToRefs(settingsStore);
 
 /**
  * 返回上一级页面，无历史记录时兜底到首页。
@@ -35,6 +35,14 @@ function onLanguageChange(event: Event): void {
 function onWindowSizeChange(event: Event): void {
   const target = event.target as HTMLSelectElement;
   settingsStore.setWindowSize(target.value as AppWindowSize);
+}
+
+/**
+ * 切换任务完成提醒开关，并立即持久化。
+ */
+function onTaskDoneNotificationChange(event: Event): void {
+  const target = event.target as HTMLInputElement;
+  settingsStore.setTaskDoneNotificationEnabled(target.checked);
 }
 </script>
 
@@ -78,6 +86,24 @@ function onWindowSizeChange(event: Event): void {
               {{ `${$t(`pages.settings.general.windowSize${item.value.charAt(0).toUpperCase()}${item.value.slice(1)}Title`)} (${item.width} × ${item.height})` }}
             </option>
           </select>
+        </article>
+      </section>
+
+      <section class="setting-section">
+        <h2>{{ $t("pages.settings.menu.notifications") }}</h2>
+        <article class="setting-row">
+          <div>
+            <h3>{{ $t("pages.settings.notifications.taskDoneTitle") }}</h3>
+            <p>{{ $t("pages.settings.notifications.taskDoneDesc") }}</p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              :checked="taskDoneNotificationEnabled"
+              @change="onTaskDoneNotificationChange"
+            />
+            <span>{{ taskDoneNotificationEnabled ? $t("pages.settings.actions.on") : $t("pages.settings.actions.off") }}</span>
+          </label>
         </article>
       </section>
     </main>
@@ -137,6 +163,13 @@ function onWindowSizeChange(event: Event): void {
   color: #111827;
   padding: 10px 12px;
   min-width: 140px;
+}
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #111827;
+  font-weight: 600;
 }
 @media (max-width: 768px) {
   .settings-main {
