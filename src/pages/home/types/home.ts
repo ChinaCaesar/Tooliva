@@ -11,14 +11,6 @@ export interface HomeToolCardItem {
 }
 
 /**
- * 首页“即将上线”占位卡片。
- */
-export interface HomeToolPlaceholderItem {
-  id: string;
-  titleKey: string;
-}
-
-/**
  * 最近使用列表项，预留可追溯任务能力。
  */
 export interface HomeRecentItem {

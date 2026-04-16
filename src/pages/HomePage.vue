@@ -15,7 +15,7 @@ import { useHomePageData } from "@/pages/home/composables/useHomePageData";
  */
 const { t } = useI18n();
 const router = useRouter();
-const { topBar, coreTools, placeholders, recentItems, quickActions, footerLinks, stats, frequentTools, pageConfig } =
+const { topBar, coreTools, recentItems, quickActions, footerLinks, stats, frequentTools, pageConfig } =
   useHomePageData();
 
 /**
@@ -92,7 +92,6 @@ function handleSearchSelect(route: string): void {
           :title="t(pageConfig.sections.coreTools.titleKey)"
           :description="t(pageConfig.sections.coreTools.descriptionKey)"
           :cards="coreTools"
-          :placeholders="placeholders"
           @tool-click="handleToolClick"
         />
         <RecentUsageList

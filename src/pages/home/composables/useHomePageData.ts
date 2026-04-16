@@ -8,8 +8,7 @@ import {
   HOME_CORE_TOOLS_MOCK,
   HOME_FOOTER_LINKS_MOCK,
   HOME_QUICK_ACTIONS_MOCK,
-  HOME_RECENT_ITEMS_MOCK,
-  HOME_TOOL_PLACEHOLDERS_MOCK
+  HOME_RECENT_ITEMS_MOCK
 } from "@/pages/home/mock/home.mock";
 
 interface HomeStatViewModel {
@@ -179,8 +178,6 @@ export function useHomePageData() {
     }))
   );
 
-  const placeholders = computed(() => HOME_TOOL_PLACEHOLDERS_MOCK);
-
   const quickActions = computed(() =>
     HOME_QUICK_ACTIONS_MOCK.map((item) => ({
       ...item,
@@ -274,7 +271,6 @@ export function useHomePageData() {
   return {
     topBar,
     coreTools,
-    placeholders,
     recentItems,
     quickActions,
     footerLinks,

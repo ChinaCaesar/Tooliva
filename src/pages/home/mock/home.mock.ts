@@ -5,8 +5,7 @@ import type {
   HomeQuickActionItem,
   HomeRecentItem,
   HomeStatItem,
-  HomeToolCardItem,
-  HomeToolPlaceholderItem
+  HomeToolCardItem
 } from "@/pages/home/types/home";
 
 /**
@@ -45,15 +44,6 @@ export const HOME_CORE_TOOLS_MOCK: HomeToolCardItem[] = [
     gradient: "linear-gradient(135deg, #ea580c 15%, #f97316 85%)",
     actionCode: "image-watermark"
   }
-];
-
-/**
- * 占位卡片 mock，便于后续动态扩容。
- */
-export const HOME_TOOL_PLACEHOLDERS_MOCK: HomeToolPlaceholderItem[] = [
-  { id: "placeholder-1", titleKey: "pages.home.tools.comingSoon" },
-  { id: "placeholder-2", titleKey: "pages.home.tools.comingSoon" },
-  { id: "placeholder-3", titleKey: "pages.home.tools.comingSoon" }
 ];
 
 /**

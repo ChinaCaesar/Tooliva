@@ -66,8 +66,7 @@ export const zhCN = {
           title: "图片加水印",
           shortTitle: "图片水印",
           description: "批量添加文字或 Logo 水印"
-        },
-        comingSoon: "更多工具即将上线"
+        }
       },
       membership: {
         title: "VIP会员",

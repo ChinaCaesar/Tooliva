@@ -10,16 +10,10 @@ interface CoreToolCardViewModel {
   actionCode: string;
 }
 
-interface PlaceholderCardViewModel {
-  id: string;
-  titleKey: string;
-}
-
 const props = defineProps<{
   title: string;
   description: string;
   cards: CoreToolCardViewModel[];
-  placeholders: PlaceholderCardViewModel[];
 }>();
 
 const { t } = useI18n();
@@ -47,13 +41,6 @@ const emit = defineEmits<{
         <p class="core-tool-card__desc">{{ t(card.descriptionKey) }}</p>
       </button>
     </div>
-
-    <div class="core-tools__grid">
-      <article v-for="placeholder in props.placeholders" :key="placeholder.id" class="tool-placeholder">
-        <div class="tool-placeholder__plus">+</div>
-        <p class="tool-placeholder__text">{{ t(placeholder.titleKey) }}</p>
-      </article>
-    </div>
   </section>
 </template>
 
@@ -62,6 +49,8 @@ const emit = defineEmits<{
 .core-tools__desc { margin: 8px 0 0; color: #6b7280; line-height: 20px; }
 .core-tools__grid {
   margin-top: 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
 }
 .core-tool-card {
   border: none;
@@ -74,18 +63,10 @@ const emit = defineEmits<{
 .core-tool-card__icon { width: 48px; height: 48px; }
 .core-tool-card__title { margin: 28px 0 0; color: #fff; font-size: 20px; line-height: 28px; }
 .core-tool-card__desc { margin: 4px 0 0; color: #ffffff; line-height: 20px; }
-.tool-placeholder {
-  border-radius: 16px; border: 2px dashed #d1d5db; background: #f3f4f6;
-  min-height: 184px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
-}
-.tool-placeholder__plus {
-  width: 48px; height: 48px; border-radius: 999px; background: #d1d5db; color: #374151; font-size: 24px;
-  display: flex; align-items: center; justify-content: center;
-}
-.tool-placeholder__text { margin: 0; color: #6b7280; font-weight: 500; }
 @media (max-width: 1180px) {
   .core-tools__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
     gap: 16px;
   }
   .core-tool-card {
@@ -97,13 +78,11 @@ const emit = defineEmits<{
     font-size: 18px;
     line-height: 26px;
   }
-  .tool-placeholder {
-    min-height: 168px;
-  }
 }
 @media (max-width: 720px) {
   .core-tools__grid {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
   }
 }
 </style>

@@ -66,8 +66,7 @@ export const enUS = {
           title: "Image Watermark",
           shortTitle: "Watermark",
           description: "Batch add text or logo watermark"
-        },
-        comingSoon: "More tools coming soon"
+        }
       },
       membership: {
         title: "VIP Member",
