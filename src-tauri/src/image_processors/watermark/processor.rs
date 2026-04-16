@@ -5,6 +5,7 @@ use crate::image_core::types::{LoadedImage, ProcessContext, ProcessOutput, Proce
 use image::imageops::{overlay, resize, FilterType};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba, RgbaImage};
 use serde::Deserialize;
+use serde_json::Value;
 use std::fs;
 
 const CHAR_WIDTH: u32 = 5;
@@ -22,11 +23,21 @@ struct WatermarkParams {
     rotation: f32,
     offset_x_ratio: Option<f32>,
     offset_y_ratio: Option<f32>,
+    offset_x_px_on_original: Option<u32>,
+    offset_y_px_on_original: Option<u32>,
     text: Option<String>,
     font_size: Option<u32>,
     text_color: Option<String>,
     image_path: Option<String>,
     image_scale_percent: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WatermarkPreviewGeometry {
+    pub base_width: u32,
+    pub base_height: u32,
+    pub overlay_width: u32,
+    pub overlay_height: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -52,7 +63,7 @@ impl ImageProcessor for WatermarkProcessor {
     }
 
     fn plan(&self, ctx: &ProcessContext, input: &LoadedImage) -> Result<ProcessPlan, ImagePipelineError> {
-        let _ = parse_params(ctx)?;
+        let _ = parse_params(&ctx.params)?;
         Ok(ProcessPlan {
             input_width: input.image.width(),
             input_height: input.image.height(),
@@ -70,7 +81,7 @@ impl ImageProcessor for WatermarkProcessor {
         _plan: &ProcessPlan,
         runtime: &ProcessRuntime,
     ) -> Result<ProcessOutput, ImagePipelineError> {
-        let params = parse_params(ctx)?;
+        let params = parse_params(&ctx.params)?;
         runtime.progress.emit(ProgressEvent::stage(
             &ctx.task_id,
             &ctx.processor_key,
@@ -100,6 +111,8 @@ impl ImageProcessor for WatermarkProcessor {
             overlay_image.height(),
             normalize_position(&params.position),
             params.margin,
+            params.offset_x_px_on_original,
+            params.offset_y_px_on_original,
             params.offset_x_ratio,
             params.offset_y_ratio,
         );
@@ -130,8 +143,11 @@ impl ImageProcessor for WatermarkProcessor {
     }
 }
 
-fn parse_params(ctx: &ProcessContext) -> Result<WatermarkParams, ImagePipelineError> {
-    let params: WatermarkParams = serde_json::from_value(ctx.params.clone())
+/**
+ * 解析并校验水印参数，供导出与预览共用同一逻辑。
+ */
+fn parse_params(params_value: &Value) -> Result<WatermarkParams, ImagePipelineError> {
+    let params: WatermarkParams = serde_json::from_value(params_value.clone())
         .map_err(|err| ImagePipelineError::InvalidInput(format!("水印参数不合法：{err}")))?;
     if !(1..=100).contains(&params.opacity) {
         return Err(ImagePipelineError::InvalidInput("透明度仅支持 1..100".to_string()));
@@ -150,6 +166,26 @@ fn parse_params(ctx: &ProcessContext) -> Result<WatermarkParams, ImagePipelineEr
         }
     }
     Ok(params)
+}
+
+/**
+ * 供命令层复用：基于当前参数生成最终会参与合成的水印图层尺寸。
+ */
+pub fn compute_watermark_preview_geometry(
+    input: &LoadedImage,
+    params_value: &Value,
+) -> Result<WatermarkPreviewGeometry, ImagePipelineError> {
+    let params = parse_params(params_value)?;
+    let overlay_image = match normalize_mode(&params.mode)? {
+        WatermarkMode::Text => build_text_overlay(input, &params)?,
+        WatermarkMode::Image => build_image_overlay(input, &params)?,
+    };
+    Ok(WatermarkPreviewGeometry {
+        base_width: input.image.width(),
+        base_height: input.image.height(),
+        overlay_width: overlay_image.width(),
+        overlay_height: overlay_image.height(),
+    })
 }
 
 fn normalize_mode(value: &str) -> Result<WatermarkMode, ImagePipelineError> {
@@ -239,11 +275,16 @@ fn resolve_position(
     overlay_height: u32,
     position: WatermarkPosition,
     margin: u32,
+    offset_x_px_on_original: Option<u32>,
+    offset_y_px_on_original: Option<u32>,
     offset_x_ratio: Option<f32>,
     offset_y_ratio: Option<f32>,
 ) -> (u32, u32) {
     let max_x = base_width.saturating_sub(overlay_width);
     let max_y = base_height.saturating_sub(overlay_height);
+    if let (Some(x_px), Some(y_px)) = (offset_x_px_on_original, offset_y_px_on_original) {
+        return (x_px.min(max_x), y_px.min(max_y));
+    }
     if let (Some(x_ratio), Some(y_ratio)) = (offset_x_ratio, offset_y_ratio) {
         let x = ((max_x as f32) * x_ratio.clamp(0.0, 1.0)).round() as u32;
         let y = ((max_y as f32) * y_ratio.clamp(0.0, 1.0)).round() as u32;

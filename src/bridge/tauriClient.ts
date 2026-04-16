@@ -174,11 +174,38 @@ export interface StartImageWatermarkPayload {
   rotation: number;
   offsetXRatio?: number;
   offsetYRatio?: number;
+  offsetXPxOnOriginal?: number;
+  offsetYPxOnOriginal?: number;
   text?: string;
   fontSize?: number;
   textColor?: string;
   imagePath?: string;
   imageScalePercent?: number;
+}
+
+export interface GetImageWatermarkPreviewGeometryPayload {
+  inputPath: string;
+  mode: WatermarkMode;
+  position: WatermarkPosition;
+  opacity: number;
+  margin: number;
+  rotation: number;
+  offsetXRatio?: number;
+  offsetYRatio?: number;
+  offsetXPxOnOriginal?: number;
+  offsetYPxOnOriginal?: number;
+  text?: string;
+  fontSize?: number;
+  textColor?: string;
+  imagePath?: string;
+  imageScalePercent?: number;
+}
+
+export interface GetImageWatermarkPreviewGeometryResult {
+  baseWidthPx: number;
+  baseHeightPx: number;
+  overlayWidthPx: number;
+  overlayHeightPx: number;
 }
 
 export interface StartImageWatermarkResult {
@@ -280,6 +307,15 @@ export class TauriClient {
    */
   public async getImagePreviewDataUrl(payload: GetImagePreviewPayload): Promise<GetImagePreviewResult> {
     return this.call<GetImagePreviewResult>("get_image_preview_data_url", { payload });
+  }
+
+  /**
+   * 获取与后端导出同源的水印几何信息，确保预览尺寸一致。
+   */
+  public async getImageWatermarkPreviewGeometry(
+    payload: GetImageWatermarkPreviewGeometryPayload
+  ): Promise<GetImageWatermarkPreviewGeometryResult> {
+    return this.call<GetImageWatermarkPreviewGeometryResult>("get_image_watermark_preview_geometry", { payload });
   }
 
   /**

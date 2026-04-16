@@ -3,10 +3,11 @@ use crate::image_core::executor::run_blocking;
 use crate::image_core::pipeline::ImagePipeline;
 use crate::image_core::progress::CallbackProgressReporter;
 use crate::image_core::tile::TileEngine;
-use crate::image_core::types::{ProcessContext, ProcessingLimits, ProgressEvent, TileConfig};
+use crate::image_core::types::{LoadedImage, ProcessContext, ProcessingLimits, ProgressEvent, TileConfig};
 use crate::image_processors::compress::processor::CompressProcessor;
 use crate::image_processors::upscale::processor::{UpscaleBackend, UpscaleProcessor, UpscaleQualityMode};
-use crate::image_processors::watermark::processor::WatermarkProcessor;
+use crate::image_processors::watermark::processor::{compute_watermark_preview_geometry, WatermarkProcessor};
+use image::ImageFormat;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs;
@@ -107,11 +108,42 @@ pub struct StartImageWatermarkPayload {
     pub rotation: f32,
     pub offset_x_ratio: Option<f32>,
     pub offset_y_ratio: Option<f32>,
+    pub offset_x_px_on_original: Option<u32>,
+    pub offset_y_px_on_original: Option<u32>,
     pub text: Option<String>,
     pub font_size: Option<u32>,
     pub text_color: Option<String>,
     pub image_path: Option<String>,
     pub image_scale_percent: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetImageWatermarkPreviewGeometryPayload {
+    pub input_path: String,
+    pub mode: String,
+    pub position: String,
+    pub opacity: u8,
+    pub margin: u32,
+    pub rotation: f32,
+    pub offset_x_ratio: Option<f32>,
+    pub offset_y_ratio: Option<f32>,
+    pub offset_x_px_on_original: Option<u32>,
+    pub offset_y_px_on_original: Option<u32>,
+    pub text: Option<String>,
+    pub font_size: Option<u32>,
+    pub text_color: Option<String>,
+    pub image_path: Option<String>,
+    pub image_scale_percent: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetImageWatermarkPreviewGeometryResult {
+    pub base_width_px: u32,
+    pub base_height_px: u32,
+    pub overlay_width_px: u32,
+    pub overlay_height_px: u32,
 }
 
 #[derive(Debug, Serialize)]
@@ -225,6 +257,52 @@ pub fn open_directory_in_file_manager(payload: OpenDirectoryPayload) -> Result<(
             .map_err(|err| format!("打开目录失败：{err}"))?;
         return Ok(());
     }
+}
+
+#[tauri::command]
+pub fn get_image_watermark_preview_geometry(
+    payload: GetImageWatermarkPreviewGeometryPayload,
+) -> Result<GetImageWatermarkPreviewGeometryResult, String> {
+    let input_path = PathBuf::from(payload.input_path.clone());
+    if !input_path.exists() {
+        return Err(format!("输入文件不存在：{}", input_path.display()));
+    }
+    if !input_path.is_file() {
+        return Err(format!("输入路径不是文件：{}", input_path.display()));
+    }
+    if !is_supported_image_file(&input_path) {
+        return Err("仅支持 PNG/JPG/JPEG/WEBP/BMP 格式".to_string());
+    }
+
+    let decoded = image::ImageReader::open(&input_path)
+        .map_err(|err| format!("读取图片失败：{err}"))?
+        .decode()
+        .map_err(|err| format!("解码图片失败：{err}"))?;
+    let format = ImageFormat::from_path(&input_path).unwrap_or(ImageFormat::Png);
+    let loaded = LoadedImage { image: decoded, format };
+    let params = json!({
+        "mode": payload.mode,
+        "position": payload.position,
+        "opacity": payload.opacity,
+        "margin": payload.margin,
+        "rotation": payload.rotation,
+        "offsetXRatio": payload.offset_x_ratio,
+        "offsetYRatio": payload.offset_y_ratio,
+        "offsetXPxOnOriginal": payload.offset_x_px_on_original,
+        "offsetYPxOnOriginal": payload.offset_y_px_on_original,
+        "text": payload.text,
+        "fontSize": payload.font_size,
+        "textColor": payload.text_color,
+        "imagePath": payload.image_path,
+        "imageScalePercent": payload.image_scale_percent
+    });
+    let geometry = compute_watermark_preview_geometry(&loaded, &params).map_err(|err| err.to_string())?;
+    Ok(GetImageWatermarkPreviewGeometryResult {
+        base_width_px: geometry.base_width,
+        base_height_px: geometry.base_height,
+        overlay_width_px: geometry.overlay_width,
+        overlay_height_px: geometry.overlay_height,
+    })
 }
 
 #[tauri::command]
@@ -547,6 +625,8 @@ pub async fn start_image_watermark(
             "rotation": payload.rotation,
             "offsetXRatio": payload.offset_x_ratio,
             "offsetYRatio": payload.offset_y_ratio,
+            "offsetXPxOnOriginal": payload.offset_x_px_on_original,
+            "offsetYPxOnOriginal": payload.offset_y_px_on_original,
             "text": payload.text,
             "fontSize": payload.font_size,
             "textColor": payload.text_color,

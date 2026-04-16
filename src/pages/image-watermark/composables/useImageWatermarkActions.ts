@@ -33,8 +33,13 @@ type RequeueReason = "mode" | "settings";
 
 interface TextPreviewAsset {
   dataUrl: string;
-  width: number;
-  height: number;
+}
+
+interface WatermarkPreviewGeometry {
+  baseWidthPx: number;
+  baseHeightPx: number;
+  overlayWidthPx: number;
+  overlayHeightPx: number;
 }
 
 export interface WatermarkItem {
@@ -136,21 +141,12 @@ function encodeSvgColor(color: string): string {
 /**
  * 生成与 Rust 最终导出结果一致的文字水印预览资源。
  */
-function createTextPreviewAsset(
-  textValue: string,
-  fontSizeValue: number,
-  textColorValue: string,
-  previewRect: PreviewRect
-): TextPreviewAsset {
+function createTextPreviewAsset(textValue: string, fontSizeValue: number, textColorValue: string): TextPreviewAsset {
   const safeText = textValue.trim() || "Vibe Coding";
   const scale = Math.max(1, Math.floor(fontSizeValue / CHAR_HEIGHT));
   const lines = safeText.split(/\r?\n/);
   const rawWidth = Math.max(1, Math.max(...lines.map((line) => Array.from(line).length), 1) * (CHAR_WIDTH + CHAR_SPACING) * scale);
   const rawHeight = Math.max(1, lines.length * (CHAR_HEIGHT + LINE_SPACING) * scale);
-  const maxOverlayWidth = Math.max(1, Math.floor((previewRect.width * 80) / 100));
-  const targetWidth = rawWidth > maxOverlayWidth ? maxOverlayWidth : rawWidth;
-  const targetHeight = rawWidth > maxOverlayWidth ? Math.max(1, Math.floor((rawHeight * maxOverlayWidth) / rawWidth)) : rawHeight;
-  const resizeRatio = rawWidth > 0 ? targetWidth / rawWidth : 1;
   const rects: string[] = [];
 
   lines.forEach((line, lineIndex) => {
@@ -162,22 +158,18 @@ function createTextPreviewAsset(
         Array.from(row).forEach((bit, colIndex) => {
           if (bit !== "1") return;
           rects.push(
-            `<rect x="${(startX + colIndex * scale) * resizeRatio}" y="${(startY + rowIndex * scale) * resizeRatio}" width="${
-              scale * resizeRatio
-            }" height="${scale * resizeRatio}" />`
+            `<rect x="${startX + colIndex * scale}" y="${startY + rowIndex * scale}" width="${scale}" height="${scale}" />`
           );
         });
       });
     });
   });
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${targetWidth} ${targetHeight}" width="${targetWidth}" height="${targetHeight}" fill="${encodeSvgColor(
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${rawWidth} ${rawHeight}" width="${rawWidth}" height="${rawHeight}" fill="${encodeSvgColor(
     textColorValue
   )}" shape-rendering="crispEdges">${rects.join("")}</svg>`;
   return {
-    dataUrl: `data:image/svg+xml;utf8,${svg}`,
-    width: targetWidth,
-    height: targetHeight
+    dataUrl: `data:image/svg+xml;utf8,${svg}`
   };
 }
 
@@ -210,33 +202,19 @@ function formatSize(width: number, height: number): string {
 }
 
 /**
- * 根据水印模式生成预览覆盖层的基础尺寸。
+ * 将原图像素中的覆盖层尺寸映射到预览画布坐标系。
  */
-function resolvePreviewOverlaySize(
-  mode: WatermarkMode,
-  textValue: string,
-  fontSizeValue: number,
-  imageScalePercentValue: number,
-  previewRect: PreviewRect
+function mapOverlayToPreviewSize(
+  geometry: WatermarkPreviewGeometry | null,
+  previewSize: PreviewRect,
+  fallbackSize: PreviewRect
 ): PreviewRect {
-  if (mode === "image") {
-    const width = Math.max(72, Math.round((previewRect.width * imageScalePercentValue) / 100));
-    const height = Math.max(48, Math.round(width * 0.56));
-    return { width, height };
+  if (!geometry || geometry.baseWidthPx <= 0 || geometry.baseHeightPx <= 0) {
+    return fallbackSize;
   }
-  const safeText = textValue.trim() || "Vibe Coding";
-  const scale = Math.max(1, Math.floor(fontSizeValue / CHAR_HEIGHT));
-  const lines = safeText.split(/\r?\n/);
-  const maxLineChars = Math.max(...lines.map((line) => line.length), 1);
-  const rawWidth = Math.max(48, maxLineChars * (CHAR_WIDTH + CHAR_SPACING) * scale);
-  const rawHeight = Math.max(24, lines.length * (CHAR_HEIGHT + LINE_SPACING) * scale);
-  const maxOverlayWidth = Math.max(1, Math.floor((previewRect.width * 80) / 100));
-  const resizeRatio = rawWidth > maxOverlayWidth ? maxOverlayWidth / rawWidth : 1;
-  const width = Math.max(1, Math.round(rawWidth * resizeRatio));
-  const height = Math.max(1, Math.round(rawHeight * resizeRatio));
   return {
-    width,
-    height
+    width: Math.max(1, Math.round((geometry.overlayWidthPx * previewSize.width) / geometry.baseWidthPx)),
+    height: Math.max(1, Math.round((geometry.overlayHeightPx * previewSize.height) / geometry.baseHeightPx))
   };
 }
 
@@ -306,9 +284,7 @@ export function useImageWatermarkActions() {
   const imagePath = ref("");
   const watermarkImageUrl = ref("");
   const textPreviewAsset = ref<TextPreviewAsset>({
-    dataUrl: "",
-    width: 120,
-    height: 42
+    dataUrl: ""
   });
   const imageScalePercent = ref(15);
   const opacity = ref(80);
@@ -318,6 +294,7 @@ export function useImageWatermarkActions() {
   const previewImagePath = ref("");
   const previewImageUrl = ref("");
   const previewNaturalSize = ref<PreviewRect>({ width: 1600, height: 1000 });
+  const previewGeometry = ref<WatermarkPreviewGeometry | null>(null);
   const previewDragRatio = ref({ x: 0.5, y: 0.5 });
   const dragState = ref<DragState>({
     isActive: false,
@@ -331,6 +308,7 @@ export function useImageWatermarkActions() {
   let disposeWatermarkProgressListener: UnlistenFn | null = null;
   let previewRequestId = 0;
   let watermarkPreviewRequestId = 0;
+  let watermarkGeometryRequestId = 0;
 
   const visibleItems = computed(() => items.value.slice(0, MAX_VISIBLE_ITEMS));
   const hiddenItemCount = computed(() => Math.max(0, items.value.length - visibleItems.value.length));
@@ -345,12 +323,10 @@ export function useImageWatermarkActions() {
     };
   });
   const previewOverlaySize = computed(() =>
-    mode.value === "text"
-      ? {
-          width: textPreviewAsset.value.width,
-          height: textPreviewAsset.value.height
-        }
-      : resolvePreviewOverlaySize(mode.value, text.value, fontSize.value, imageScalePercent.value, previewRect.value)
+    mapOverlayToPreviewSize(previewGeometry.value, previewRect.value, {
+      width: Math.max(72, Math.round((previewRect.value.width * imageScalePercent.value) / 100)),
+      height: Math.max(48, Math.round((previewRect.value.height * imageScalePercent.value) / 100))
+    })
   );
   const effectiveOutputDirectory = computed(() => {
     if (outputDirectory.value) return outputDirectory.value;
@@ -383,8 +359,8 @@ export function useImageWatermarkActions() {
     return imagePath.value.trim().length > 0;
   });
 
-  watch([text, fontSize, textColor, previewRect], ([textValue, fontSizeValue, textColorValue, currentPreviewRect]) => {
-    textPreviewAsset.value = createTextPreviewAsset(textValue, fontSizeValue, textColorValue, currentPreviewRect);
+  watch([text, fontSize, textColor], ([textValue, fontSizeValue, textColorValue]) => {
+    textPreviewAsset.value = createTextPreviewAsset(textValue, fontSizeValue, textColorValue);
   }, { immediate: true });
 
   watch(mode, () => {
@@ -396,11 +372,20 @@ export function useImageWatermarkActions() {
   });
 
   watch(
+    [previewImagePath, mode, text, fontSize, textColor, imagePath, imageScalePercent, opacity, margin, rotation],
+    () => {
+      void refreshPreviewGeometry();
+    },
+    { immediate: true }
+  );
+
+  watch(
     primaryPreviewItem,
     (item) => {
       if (!item) {
         previewImagePath.value = "";
         previewImageUrl.value = "";
+        previewGeometry.value = null;
         previewRequestId += 1;
         return;
       }
@@ -574,6 +559,66 @@ export function useImageWatermarkActions() {
         return;
       }
       watermarkImageUrl.value = "";
+    }
+  }
+
+  /**
+   * 将当前预览拖拽比例转换为原图像素坐标，作为导出和几何查询的统一基准。
+   */
+  function resolveOriginalOffsetPx(): { x: number; y: number } {
+    const maxX = Math.max(0, previewRect.value.width - previewOverlaySize.value.width);
+    const maxY = Math.max(0, previewRect.value.height - previewOverlaySize.value.height);
+    const left = Math.min(maxX, Math.max(0, previewDragRatio.value.x * maxX));
+    const top = Math.min(maxY, Math.max(0, previewDragRatio.value.y * maxY));
+    const baseWidth = previewNaturalSize.value.width || PREVIEW_BASE.width;
+    const baseHeight = previewNaturalSize.value.height || PREVIEW_BASE.height;
+    return {
+      x: Math.max(0, Math.round((left * baseWidth) / Math.max(1, previewRect.value.width))),
+      y: Math.max(0, Math.round((top * baseHeight) / Math.max(1, previewRect.value.height)))
+    };
+  }
+
+  /**
+   * 向后端请求当前参数下的真实水印几何尺寸，保证预览和导出同源。
+   */
+  async function refreshPreviewGeometry(): Promise<void> {
+    if (!previewImagePath.value) {
+      previewGeometry.value = null;
+      return;
+    }
+    if (mode.value === "image" && !imagePath.value.trim()) {
+      previewGeometry.value = null;
+      return;
+    }
+    const currentRequestId = ++watermarkGeometryRequestId;
+    try {
+      const offsetPx = resolveOriginalOffsetPx();
+      const geometry = await tauriClient.getImageWatermarkPreviewGeometry({
+        inputPath: previewImagePath.value,
+        mode: mode.value,
+        position: position.value,
+        opacity: opacity.value,
+        margin: margin.value,
+        rotation: rotation.value,
+        offsetXRatio: previewDragRatio.value.x,
+        offsetYRatio: previewDragRatio.value.y,
+        offsetXPxOnOriginal: offsetPx.x,
+        offsetYPxOnOriginal: offsetPx.y,
+        text: mode.value === "text" ? text.value.trim() : undefined,
+        fontSize: mode.value === "text" ? fontSize.value : undefined,
+        textColor: mode.value === "text" ? textColor.value : undefined,
+        imagePath: mode.value === "image" ? imagePath.value.trim() : undefined,
+        imageScalePercent: mode.value === "image" ? imageScalePercent.value : undefined
+      });
+      if (currentRequestId !== watermarkGeometryRequestId) {
+        return;
+      }
+      previewGeometry.value = geometry;
+    } catch {
+      if (currentRequestId !== watermarkGeometryRequestId) {
+        return;
+      }
+      previewGeometry.value = null;
     }
   }
 
@@ -837,6 +882,7 @@ export function useImageWatermarkActions() {
    * 组装加水印任务参数，确保预览拖拽位置能同步到实际处理。
    */
   function buildWatermarkPayload(current: WatermarkItem) {
+    const offsetPx = resolveOriginalOffsetPx();
     return {
       taskId: current.id,
       inputPath: current.inputPath,
@@ -848,6 +894,8 @@ export function useImageWatermarkActions() {
       rotation: rotation.value,
       offsetXRatio: previewDragRatio.value.x,
       offsetYRatio: previewDragRatio.value.y,
+      offsetXPxOnOriginal: offsetPx.x,
+      offsetYPxOnOriginal: offsetPx.y,
       text: mode.value === "text" ? text.value.trim() : undefined,
       fontSize: mode.value === "text" ? fontSize.value : undefined,
       textColor: mode.value === "text" ? textColor.value : undefined,
