@@ -4,7 +4,7 @@ import { i18n } from "@/i18n";
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from "@/config/constants";
 import { localStorageService } from "@/storage/localStorage";
 import { tauriClient } from "@/bridge/tauriClient";
-import type { AppLanguage, UserSettings } from "@/types/settings";
+import type { AppLanguage, AppWindowSize, UserSettings } from "@/types/settings";
 
 export const useSettingsStore = defineStore("settings", {
   state: (): UserSettings => ({ ...DEFAULT_SETTINGS }),
@@ -21,6 +21,13 @@ export const useSettingsStore = defineStore("settings", {
       this.theme = theme;
       void this.persist();
     },
+    /**
+     * 更新应用窗口尺寸档位并立即持久化。
+     */
+    setWindowSize(windowSize: AppWindowSize): void {
+      this.windowSize = windowSize;
+      void this.persist();
+    },
     setDefaultOutputDirectory(path: string): void {
       this.defaultOutputDirectory = path;
       void this.persist();
@@ -35,13 +42,15 @@ export const useSettingsStore = defineStore("settings", {
     },
     async hydrate(): Promise<void> {
       const saved = await this.loadPersistedSettings();
-      this.$patch(saved);
-      i18n.global.locale.value = saved.language;
+      const normalized = { ...DEFAULT_SETTINGS, ...saved };
+      this.$patch(normalized);
+      i18n.global.locale.value = normalized.language;
     },
     async persist(): Promise<void> {
       const payload = {
         language: this.language,
         theme: this.theme,
+        windowSize: this.windowSize,
         favoriteToolIds: this.favoriteToolIds,
         defaultOutputDirectory: this.defaultOutputDirectory
       };
@@ -57,14 +66,14 @@ export const useSettingsStore = defineStore("settings", {
     },
     async loadPersistedSettings(): Promise<UserSettings> {
       if (!isTauri()) {
-        return localStorageService.get(SETTINGS_STORAGE_KEY, DEFAULT_SETTINGS);
+        return { ...DEFAULT_SETTINGS, ...localStorageService.get(SETTINGS_STORAGE_KEY, DEFAULT_SETTINGS) };
       }
       try {
         const sqliteSettings = await tauriClient.getAppSettings();
         localStorageService.set(SETTINGS_STORAGE_KEY, sqliteSettings);
-        return sqliteSettings;
+        return { ...DEFAULT_SETTINGS, ...sqliteSettings };
       } catch {
-        return localStorageService.get(SETTINGS_STORAGE_KEY, DEFAULT_SETTINGS);
+        return { ...DEFAULT_SETTINGS, ...localStorageService.get(SETTINGS_STORAGE_KEY, DEFAULT_SETTINGS) };
       }
     }
   }

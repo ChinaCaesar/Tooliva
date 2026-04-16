@@ -136,10 +136,33 @@ function handleSearchSelect(route: string): void {
   padding: 24px;
 }
 .home-page__main { flex: 1; min-width: 0; }
+.home-page :deep(.side-panel) {
+  width: 320px;
+  flex-shrink: 0;
+}
 .home-page :deep(.home-top-bar) {
   box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
 }
 @media (max-width: 1260px) {
   .home-page__content { flex-direction: column; }
+  .home-page :deep(.side-panel) {
+    width: 100%;
+  }
+}
+@media (max-width: 1180px) {
+  .home-page__content {
+    gap: 20px;
+    padding: 20px;
+  }
+}
+@media (max-width: 768px) {
+  .home-page {
+    min-height: 100vh;
+    padding-top: 124px;
+  }
+  .home-page__content {
+    padding: 16px;
+    gap: 16px;
+  }
 }
 </style>

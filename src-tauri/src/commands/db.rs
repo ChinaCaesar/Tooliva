@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, LogicalSize, Manager};
 
 const SETTINGS_KEY: &str = "user_settings";
 const DATABASE_FILE_NAME: &str = "desktop_toolbox.db";
@@ -15,6 +15,8 @@ const DATABASE_FILE_NAME: &str = "desktop_toolbox.db";
 pub struct AppSettingsPayload {
     pub language: String,
     pub theme: String,
+    #[serde(default = "default_window_size_value")]
+    pub window_size: String,
     pub favorite_tool_ids: Vec<String>,
     pub default_output_directory: String,
 }
@@ -62,18 +64,7 @@ pub struct HomeTopToolPayload {
 
 #[tauri::command]
 pub fn get_app_settings(app: AppHandle) -> Result<AppSettingsPayload, String> {
-    let conn = open_database(&app)?;
-    let mut statement = conn
-        .prepare("SELECT value FROM settings WHERE key = ?1")
-        .map_err(|err| format!("读取设置失败：{err}"))?;
-    let mut rows = statement
-        .query(params![SETTINGS_KEY])
-        .map_err(|err| format!("查询设置失败：{err}"))?;
-    let Some(row) = rows.next().map_err(|err| format!("读取设置行失败：{err}"))? else {
-        return Ok(default_settings());
-    };
-    let raw_value: String = row.get(0).map_err(|err| format!("读取设置字段失败：{err}"))?;
-    serde_json::from_str::<AppSettingsPayload>(&raw_value).map_err(|err| format!("解析设置失败：{err}"))
+    load_saved_settings(&app)
 }
 
 #[tauri::command]
@@ -88,6 +79,7 @@ pub fn save_app_settings(payload: AppSettingsPayload, app: AppHandle) -> Result<
         params![SETTINGS_KEY, serialized, now_ts],
     )
     .map_err(|err| format!("保存设置失败：{err}"))?;
+    apply_window_size(&app, &payload.window_size)?;
     Ok(())
 }
 
@@ -194,9 +186,39 @@ fn default_settings() -> AppSettingsPayload {
     AppSettingsPayload {
         language: "zh-CN".to_string(),
         theme: "system".to_string(),
+        window_size: "medium".to_string(),
         favorite_tool_ids: Vec::new(),
         default_output_directory: String::new(),
     }
+}
+
+fn default_window_size_value() -> String {
+    "medium".to_string()
+}
+
+pub fn load_saved_settings(app: &AppHandle) -> Result<AppSettingsPayload, String> {
+    let conn = open_database(app)?;
+    let mut statement = conn
+        .prepare("SELECT value FROM settings WHERE key = ?1")
+        .map_err(|err| format!("读取设置失败：{err}"))?;
+    let mut rows = statement
+        .query(params![SETTINGS_KEY])
+        .map_err(|err| format!("查询设置失败：{err}"))?;
+    let Some(row) = rows.next().map_err(|err| format!("读取设置行失败：{err}"))? else {
+        return Ok(default_settings());
+    };
+    let raw_value: String = row.get(0).map_err(|err| format!("读取设置字段失败：{err}"))?;
+    let mut parsed =
+        serde_json::from_str::<AppSettingsPayload>(&raw_value).map_err(|err| format!("解析设置失败：{err}"))?;
+    if parsed.window_size.is_empty() {
+        parsed.window_size = "medium".to_string();
+    }
+    Ok(parsed)
+}
+
+pub fn apply_saved_window_size(app: &AppHandle) -> Result<(), String> {
+    let settings = load_saved_settings(app)?;
+    apply_window_size(app, &settings.window_size)
 }
 
 fn open_database(app: &AppHandle) -> Result<Connection, String> {
@@ -211,6 +233,21 @@ fn open_database(app: &AppHandle) -> Result<Connection, String> {
         .map_err(|err| format!("初始化数据库性能参数失败：{err}"))?;
     initialize_tables(&connection)?;
     Ok(connection)
+}
+
+fn apply_window_size(app: &AppHandle, window_size: &str) -> Result<(), String> {
+    let Some(window) = app.get_webview_window("main") else {
+        return Ok(());
+    };
+    let (width, height) = match window_size {
+        "small" => (1100.0, 720.0),
+        "large" => (1440.0, 900.0),
+        _ => (1280.0, 800.0),
+    };
+    window
+        .set_size(LogicalSize::new(width, height))
+        .map_err(|err| format!("应用窗口尺寸失败：{err}"))?;
+    Ok(())
 }
 
 fn resolve_database_path(app: &AppHandle) -> Result<PathBuf, String> {

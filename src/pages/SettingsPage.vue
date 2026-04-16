@@ -2,13 +2,13 @@
 import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import ToolPageTopBar from "@/components/common/ToolPageTopBar.vue";
-import { ROUTE_PATHS } from "@/config/constants";
-import { LANGUAGES, type AppLanguage } from "@/types/settings";
+import { ROUTE_PATHS, WINDOW_SIZE_OPTIONS } from "@/config/constants";
+import { LANGUAGES, type AppLanguage, type AppWindowSize } from "@/types/settings";
 import { useSettingsStore } from "@/stores/settings.store";
 
 const router = useRouter();
 const settingsStore = useSettingsStore();
-const { language } = storeToRefs(settingsStore);
+const { language, windowSize } = storeToRefs(settingsStore);
 
 /**
  * 返回上一级页面，无历史记录时兜底到首页。
@@ -27,6 +27,14 @@ function goBackPrevious(): void {
 function onLanguageChange(event: Event): void {
   const target = event.target as HTMLSelectElement;
   settingsStore.setLanguage(target.value as AppLanguage);
+}
+
+/**
+ * 切换应用窗口尺寸档位。
+ */
+function onWindowSizeChange(event: Event): void {
+  const target = event.target as HTMLSelectElement;
+  settingsStore.setWindowSize(target.value as AppWindowSize);
 }
 </script>
 
@@ -55,56 +63,24 @@ function onLanguageChange(event: Event): void {
             </option>
           </select>
         </article>
+
+        <article class="setting-row">
+          <div>
+            <h3>{{ $t("pages.settings.general.windowSizeTitle") }}</h3>
+            <p>{{ $t("pages.settings.general.windowSizeDesc") }}</p>
+          </div>
+          <select class="language-select" :value="windowSize" @change="onWindowSizeChange">
+            <option
+              v-for="item in WINDOW_SIZE_OPTIONS"
+              :key="item.value"
+              :value="item.value"
+            >
+              {{ `${$t(`pages.settings.general.windowSize${item.value.charAt(0).toUpperCase()}${item.value.slice(1)}Title`)} (${item.width} × ${item.height})` }}
+            </option>
+          </select>
+        </article>
       </section>
     </main>
-
-    <!--
-      <div class="settings-layout">
-        <aside class="settings-side">
-          <button v-for="item in menuItems" :key="item.key" type="button" class="menu-item" :class="{ 'menu-item--active': item.active }">
-            {{ $t(item.key) }}
-          </button>
-          <div class="restart-tip">
-            <h4>{{ $t("pages.settings.restartTipTitle") }}</h4>
-            <p>{{ $t("pages.settings.restartTipDesc") }}</p>
-            <button type="button">{{ $t("pages.settings.restartApp") }}</button>
-          </div>
-        </aside>
-      </div>
-    -->
-
-    <!--
-      <section class="setting-section">
-        <h2>{{ $t("pages.settings.menu.tools") }}</h2>
-      </section>
-      <section class="setting-section">
-        <h2>{{ $t("pages.settings.menu.account") }}</h2>
-      </section>
-      <section class="setting-section">
-        <h2>{{ $t("pages.settings.menu.notifications") }}</h2>
-      </section>
-      <section class="setting-section">
-        <h2>{{ $t("pages.settings.menu.privacy") }}</h2>
-      </section>
-      <section class="about-card">
-        <h2>{{ $t("pages.settings.menu.about") }}</h2>
-      </section>
-    -->
-
-    <!--
-      <article class="setting-row">
-        <h3>{{ $t("pages.settings.general.darkModeTitle") }}</h3>
-      </article>
-      <article class="setting-row">
-        <h3>{{ $t("pages.settings.general.autoLaunchTitle") }}</h3>
-      </article>
-      <article class="setting-row">
-        <h3>{{ $t("pages.settings.general.scaleTitle") }}</h3>
-      </article>
-      <article class="setting-row">
-        <h3>{{ $t("pages.settings.general.defaultSaveTitle") }}</h3>
-      </article>
-    -->
   </div>
 </template>
 

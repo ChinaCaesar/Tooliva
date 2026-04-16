@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
+import homeSettingsIcon from "../../../resources/home/settings.svg";
 
 type TopBarVariant = "compact" | "full";
 type CompactLeadingIcon = "home" | "back";
@@ -94,11 +95,7 @@ const { t } = useI18n();
       :aria-label="t(props.settingAriaLabelKey)"
       @click="emit('open-settings')"
     >
-      <svg viewBox="0 0 24 24" class="setting-btn__icon" aria-hidden="true">
-        <path
-          d="M10.325 4.317a1.724 1.724 0 0 1 3.35 0l.231 1.02a1.724 1.724 0 0 0 2.591 1.06l.9-.52a1.724 1.724 0 0 1 2.37.632l.105.182a1.724 1.724 0 0 1-.632 2.37l-.9.519a1.724 1.724 0 0 0 0 2.985l.9.52a1.724 1.724 0 0 1 .632 2.37l-.105.182a1.724 1.724 0 0 1-2.37.632l-.9-.52a1.724 1.724 0 0 0-2.591 1.06l-.231 1.02a1.724 1.724 0 0 1-3.35 0l-.231-1.02a1.724 1.724 0 0 0-2.591-1.06l-.9.52a1.724 1.724 0 0 1-2.37-.632l-.105-.182a1.724 1.724 0 0 1 .632-2.37l.9-.52a1.724 1.724 0 0 0 0-2.985l-.9-.52a1.724 1.724 0 0 1-.632-2.37l.105-.181a1.724 1.724 0 0 1 2.37-.633l.9.52a1.724 1.724 0 0 0 2.591-1.06zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6"
-        />
-      </svg>
+      <img :src="homeSettingsIcon" alt="" class="setting-btn__icon" />
     </button>
   </header>
 </template>
@@ -228,23 +225,24 @@ const { t } = useI18n();
 .setting-btn {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  border: 1px solid #d1d5db;
-  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 200ms ease, background-color 200ms ease;
+  transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
 }
 .setting-btn:hover {
-  border-color: #94a3b8;
-  background: #f1f5f9;
+  border-color: #d1d5db;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
 }
 .setting-btn__icon {
   width: 20px;
   height: 20px;
-  fill: #64748b;
+  display: block;
 }
 @media (max-width: 992px) {
   .tool-top-bar--full {

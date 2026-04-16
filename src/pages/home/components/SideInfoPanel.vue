@@ -56,7 +56,7 @@ const { t } = useI18n();
 </template>
 
 <style scoped>
-.side-panel { width: 280px; display: flex; flex-direction: column; gap: 24px; }
+.side-panel { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 24px; }
 .common-card {
   border-radius: 16px; border: 1px solid #e5e7eb; background: #fff; padding: 24px;
 }
@@ -113,5 +113,24 @@ const { t } = useI18n();
 .quick-item__count {
   min-width: 24px; padding: 0 8px; line-height: 24px; text-align: center;
   border-radius: 4px; background: #dbeafe; color: #1e3a8a; font-size: 12px;
+}
+@media (max-width: 1260px) {
+  .side-panel {
+    max-width: none;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .common-card {
+    padding: 18px;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .quick-item {
+    padding: 10px;
+  }
 }
 </style>

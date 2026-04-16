@@ -7,6 +7,10 @@ mod image_upscale;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            commands::db::apply_saved_window_size(app.handle())?;
+            Ok(())
+        })
         .manage(commands::transcode::TranscodeTaskRegistry::default())
         .manage(commands::image_jobs::ImageProcessorRegistryState(
             image_processors::registry::build_default_registry(),

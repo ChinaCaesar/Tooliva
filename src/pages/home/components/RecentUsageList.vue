@@ -163,4 +163,21 @@ const { t } = useI18n();
   }
   .recent-list__divider { display: none; }
 }
+@media (max-width: 720px) {
+  .recent-list {
+    padding: 18px;
+  }
+  .recent-list__item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .recent-list__left {
+    width: 100%;
+    min-width: 0;
+  }
+  .recent-list__time {
+    padding-left: 56px;
+  }
+}
 </style>

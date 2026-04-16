@@ -116,6 +116,7 @@ function handleSearchBlur(): void {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  flex-wrap: wrap;
   padding: 14px 24px;
   border-bottom: 1px solid #e5e7eb;
   background: #ffffff;
@@ -186,4 +187,42 @@ function handleSearchBlur(): void {
   background: #f9fafb; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .home-top-bar__setting-icon { width: 20px; height: 20px; }
+@media (max-width: 1180px) {
+  .home-top-bar {
+    gap: 16px;
+  }
+  .home-top-bar__app-name {
+    font-size: 20px;
+  }
+  .home-top-bar__search-wrap {
+    max-width: none;
+  }
+  .home-top-bar__search {
+    max-width: none;
+  }
+}
+@media (max-width: 768px) {
+  .home-top-bar {
+    padding: 12px 16px;
+  }
+  .home-top-bar__brand {
+    width: calc(100% - 56px);
+    min-width: 0;
+  }
+  .home-top-bar__app-name {
+    min-width: 0;
+    font-size: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .home-top-bar__search-wrap {
+    order: 3;
+    flex: 0 0 100%;
+    min-width: 0;
+  }
+  .home-top-bar__search {
+    min-width: 0;
+  }
+}
 </style>

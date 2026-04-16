@@ -83,4 +83,27 @@ const emit = defineEmits<{
   display: flex; align-items: center; justify-content: center;
 }
 .tool-placeholder__text { margin: 0; color: #6b7280; font-weight: 500; }
+@media (max-width: 1180px) {
+  .core-tools__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .core-tool-card {
+    padding: 20px;
+    min-height: 168px;
+  }
+  .core-tool-card__title {
+    margin-top: 20px;
+    font-size: 18px;
+    line-height: 26px;
+  }
+  .tool-placeholder {
+    min-height: 168px;
+  }
+}
+@media (max-width: 720px) {
+  .core-tools__grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

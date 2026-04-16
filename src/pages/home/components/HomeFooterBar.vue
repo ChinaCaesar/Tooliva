@@ -37,6 +37,8 @@ const { t } = useI18n();
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .home-footer__copyright { margin: 0; color: #9ca3af; }
 .home-footer__links { display: flex; align-items: center; gap: 12px; }
@@ -45,4 +47,13 @@ const { t } = useI18n();
   display: inline-flex; align-items: center; gap: 6px; padding: 0;
 }
 .home-footer__icon { width: 16px; height: 16px; }
+@media (max-width: 768px) {
+  .home-footer {
+    padding: 16px;
+  }
+  .home-footer__links {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
 </style>
