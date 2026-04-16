@@ -2,7 +2,7 @@
 name = "desktop-toolbox"
 version = "0.1.0"
 description = "Desktop Toolbox powered by Tauri 2"
-authors = ["you"]
+authors = ["Desktop Toolbox Team"]
 edition = "2021"
 
 [lib]
