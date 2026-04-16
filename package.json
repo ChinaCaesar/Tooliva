@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:desktop": "vite --host 127.0.0.1 --strictPort",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:Path = \\\"$env:USERPROFILE\\\\.cargo\\\\bin;$env:Path\\\"; tauri dev\"",
