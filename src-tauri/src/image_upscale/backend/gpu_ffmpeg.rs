@@ -1,8 +1,19 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+use crate::runtime_bins::resolve_binary;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 pub fn is_available() -> bool {
-    let ffmpeg_ok = Command::new("ffmpeg")
+    let ffmpeg_bin = resolve_binary("ffmpeg");
+    let mut version_command = Command::new(&ffmpeg_bin);
+    #[cfg(target_os = "windows")]
+    version_command.creation_flags(CREATE_NO_WINDOW);
+    let ffmpeg_ok = version_command
         .arg("-version")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -13,7 +24,10 @@ pub fn is_available() -> bool {
         return false;
     }
 
-    let output = Command::new("ffmpeg")
+    let mut encoders_command = Command::new(&ffmpeg_bin);
+    #[cfg(target_os = "windows")]
+    encoders_command.creation_flags(CREATE_NO_WINDOW);
+    let output = encoders_command
         .arg("-hide_banner")
         .arg("-encoders")
         .output();
@@ -36,7 +50,11 @@ pub fn upscale_with_cuda(
         "hwupload_cuda,scale_cuda={}:{}:interp_algo=lanczos,hwdownload,format=rgba",
         output_width, output_height
     );
-    let status = Command::new("ffmpeg")
+    let ffmpeg_bin = resolve_binary("ffmpeg");
+    let mut command = Command::new(ffmpeg_bin);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+    let status = command
         .arg("-y")
         .arg("-i")
         .arg(input_path)

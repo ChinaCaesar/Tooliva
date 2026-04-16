@@ -2,6 +2,7 @@ mod commands;
 mod image_core;
 mod image_processors;
 mod image_upscale;
+mod runtime_bins;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

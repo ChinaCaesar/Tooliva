@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     collections::HashMap,
     fs,
     io::Read,
@@ -12,8 +13,14 @@ use std::{
     time::Duration,
 };
 use tauri::{AppHandle, Emitter, State};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+use crate::runtime_bins::resolve_binary;
 
 const TRANSCODE_PROGRESS_EVENT: &str = "webm-to-mp4-progress";
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[derive(Default)]
 pub struct TranscodeTaskRegistry {
@@ -140,7 +147,8 @@ pub fn start_webm_to_mp4(
         guard.insert(payload.task_id.clone(), Arc::clone(&cancel_flag));
     }
 
-    let mut command = Command::new("ffmpeg");
+    let ffmpeg_bin = resolve_binary("ffmpeg");
+    let mut command = Command::new(ffmpeg_bin);
     command
         .arg("-y")
         .arg("-i")
@@ -157,6 +165,8 @@ pub fn start_webm_to_mp4(
         .arg(&output_path)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
 
     let mut child = command
         .spawn()
@@ -308,12 +318,21 @@ fn remove_registry_flag(registry: &State<'_, TranscodeTaskRegistry>, task_id: &s
 }
 
 fn ensure_binary_exists(binary: &str) -> Result<(), String> {
-    let status = Command::new(binary)
+    let binary_path = resolve_binary(binary);
+    let display_name: Cow<'_, str> = if binary_path.as_os_str() == binary {
+        Cow::Borrowed(binary)
+    } else {
+        Cow::Owned(binary_path.display().to_string())
+    };
+    let mut command = Command::new(&binary_path);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+    let status = command
         .arg("-version")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .map_err(|_| format!("未检测到 {binary}，请先安装并加入系统 PATH"))?;
+        .map_err(|_| format!("未检测到 {binary}（当前查找：{display_name}）"))?;
     if status.success() {
         Ok(())
     } else {
@@ -374,7 +393,11 @@ fn ensure_unique_output_path(path: &Path) -> PathBuf {
 }
 
 fn probe_duration_ms(input_path: &Path) -> Result<u64, String> {
-    let output = Command::new("ffprobe")
+    let ffprobe_bin = resolve_binary("ffprobe");
+    let mut command = Command::new(ffprobe_bin);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+    let output = command
         .arg("-v")
         .arg("error")
         .arg("-show_format")
