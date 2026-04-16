@@ -31,10 +31,6 @@ interface WatermarkResultSummary {
 
 type RequeueReason = "mode" | "settings";
 
-interface TextPreviewAsset {
-  dataUrl: string;
-}
-
 interface WatermarkPreviewGeometry {
   baseWidthPx: number;
   baseHeightPx: number;
@@ -66,112 +62,13 @@ interface DragState {
   offsetTop: number;
 }
 
-type GlyphMap = Record<string, readonly string[]>;
-
 const PREVIEW_BASE = {
   width: 920,
   height: 620
 } as const;
-const CHAR_WIDTH = 5;
-const CHAR_HEIGHT = 7;
-const CHAR_SPACING = 1;
-const LINE_SPACING = 2;
+const DEFAULT_WATERMARK_TEXT = "水印";
+const DEFAULT_WATERMARK_FONT_SIZE = 100;
 const WINDOWS_PATH_SEPARATOR = "\\";
-const GLYPH_MAP: GlyphMap = {
-  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
-  B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
-  C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
-  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
-  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
-  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
-  G: ["01111", "10000", "10000", "10111", "10001", "10001", "01110"],
-  H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
-  I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
-  J: ["00001", "00001", "00001", "00001", "10001", "10001", "01110"],
-  K: ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
-  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
-  M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
-  N: ["10001", "10001", "11001", "10101", "10011", "10001", "10001"],
-  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
-  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
-  Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
-  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
-  S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
-  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
-  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
-  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
-  W: ["10001", "10001", "10001", "10101", "10101", "10101", "01010"],
-  X: ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
-  Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
-  Z: ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
-  0: ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
-  1: ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
-  2: ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
-  3: ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
-  4: ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
-  5: ["11111", "10000", "10000", "11110", "00001", "00001", "11110"],
-  6: ["01110", "10000", "10000", "11110", "10001", "10001", "01110"],
-  7: ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
-  8: ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
-  9: ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
-  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
-  "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
-  _: ["00000", "00000", "00000", "00000", "00000", "00000", "11111"],
-  ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
-  ",": ["00000", "00000", "00000", "00000", "00110", "00100", "01000"],
-  ":": ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
-  "/": ["00001", "00010", "00100", "01000", "10000", "00000", "00000"],
-  "\\": ["10000", "01000", "00100", "00010", "00001", "00000", "00000"]
-};
-
-/**
- * 根据后端同款点阵字形返回单个字符图案。
- */
-function resolveGlyphPattern(char: string): readonly string[] {
-  return GLYPH_MAP[char.toUpperCase()] || ["11111", "10001", "00010", "00100", "00100", "00000", "00100"];
-}
-
-/**
- * 将文字颜色安全地编码进 SVG data URL。
- */
-function encodeSvgColor(color: string): string {
-  return color.replace("#", "%23");
-}
-
-/**
- * 生成与 Rust 最终导出结果一致的文字水印预览资源。
- */
-function createTextPreviewAsset(textValue: string, fontSizeValue: number, textColorValue: string): TextPreviewAsset {
-  const safeText = textValue.trim() || "Vibe Coding";
-  const scale = Math.max(1, Math.floor(fontSizeValue / CHAR_HEIGHT));
-  const lines = safeText.split(/\r?\n/);
-  const rawWidth = Math.max(1, Math.max(...lines.map((line) => Array.from(line).length), 1) * (CHAR_WIDTH + CHAR_SPACING) * scale);
-  const rawHeight = Math.max(1, lines.length * (CHAR_HEIGHT + LINE_SPACING) * scale);
-  const rects: string[] = [];
-
-  lines.forEach((line, lineIndex) => {
-    const startY = lineIndex * (CHAR_HEIGHT + LINE_SPACING) * scale;
-    Array.from(line).forEach((char, charIndex) => {
-      const glyph = resolveGlyphPattern(char);
-      const startX = charIndex * (CHAR_WIDTH + CHAR_SPACING) * scale;
-      glyph.forEach((row, rowIndex) => {
-        Array.from(row).forEach((bit, colIndex) => {
-          if (bit !== "1") return;
-          rects.push(
-            `<rect x="${startX + colIndex * scale}" y="${startY + rowIndex * scale}" width="${scale}" height="${scale}" />`
-          );
-        });
-      });
-    });
-  });
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${rawWidth} ${rawHeight}" width="${rawWidth}" height="${rawHeight}" fill="${encodeSvgColor(
-    textColorValue
-  )}" shape-rendering="crispEdges">${rects.join("")}</svg>`;
-  return {
-    dataUrl: `data:image/svg+xml;utf8,${svg}`
-  };
-}
 
 /**
  * 从完整路径提取文件名，避免任务列表展示过长路径。
@@ -275,17 +172,15 @@ export function useImageWatermarkActions() {
   const isProcessing = ref(false);
   const isDropActive = ref(false);
   const hintMessage = ref("");
-  const outputDirectory = ref(settingsStore.defaultOutputDirectory || "");
+  const outputDirectory = ref("");
   const sourceDirectory = ref("");
   const mode = ref<WatermarkMode>("text");
-  const text = ref("Vibe Coding");
-  const fontSize = ref(24);
+  const text = ref(DEFAULT_WATERMARK_TEXT);
+  const fontSize = ref(DEFAULT_WATERMARK_FONT_SIZE);
   const textColor = ref("#FFFFFF");
   const imagePath = ref("");
   const watermarkImageUrl = ref("");
-  const textPreviewAsset = ref<TextPreviewAsset>({
-    dataUrl: ""
-  });
+  const textWatermarkPreviewUrl = ref("");
   const imageScalePercent = ref(15);
   const opacity = ref(80);
   const margin = ref(24);
@@ -309,6 +204,8 @@ export function useImageWatermarkActions() {
   let previewRequestId = 0;
   let watermarkPreviewRequestId = 0;
   let watermarkGeometryRequestId = 0;
+  let textOverlayPreviewRequestId = 0;
+  let textOverlayRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   const visibleItems = computed(() => items.value.slice(0, MAX_VISIBLE_ITEMS));
   const hiddenItemCount = computed(() => Math.max(0, items.value.length - visibleItems.value.length));
@@ -355,13 +252,9 @@ export function useImageWatermarkActions() {
   const canStart = computed(() => {
     if (isProcessing.value) return false;
     if (sourceDirectory.value.trim().length === 0 && !items.value.some((item) => item.status === "idle" || item.status === "failed")) return false;
-    if (mode.value === "text") return text.value.trim().length > 0;
+    if (mode.value === "text") return true;
     return imagePath.value.trim().length > 0;
   });
-
-  watch([text, fontSize, textColor], ([textValue, fontSizeValue, textColorValue]) => {
-    textPreviewAsset.value = createTextPreviewAsset(textValue, fontSizeValue, textColorValue);
-  }, { immediate: true });
 
   watch(mode, () => {
     requeueCompletedItems("mode");
@@ -375,6 +268,7 @@ export function useImageWatermarkActions() {
     [previewImagePath, mode, text, fontSize, textColor, imagePath, imageScalePercent, opacity, margin, rotation],
     () => {
       void refreshPreviewGeometry();
+      scheduleTextOverlayPreviewRefresh();
     },
     { immediate: true }
   );
@@ -455,7 +349,6 @@ export function useImageWatermarkActions() {
     const selected = await open({ directory: true, multiple: false });
     if (!selected || Array.isArray(selected)) return;
     outputDirectory.value = selected;
-    settingsStore.setDefaultOutputDirectory(selected);
   }
 
   /**
@@ -619,6 +512,62 @@ export function useImageWatermarkActions() {
         return;
       }
       previewGeometry.value = null;
+    }
+  }
+
+  /**
+   * 构建水印预览参数，确保几何查询和图层预览严格同源。
+   */
+  function buildOverlayPreviewPayload() {
+    const offsetPx = resolveOriginalOffsetPx();
+    return {
+      inputPath: previewImagePath.value,
+      mode: mode.value,
+      position: position.value,
+      opacity: opacity.value,
+      margin: margin.value,
+      rotation: rotation.value,
+      offsetXRatio: previewDragRatio.value.x,
+      offsetYRatio: previewDragRatio.value.y,
+      offsetXPxOnOriginal: offsetPx.x,
+      offsetYPxOnOriginal: offsetPx.y,
+      text: mode.value === "text" ? text.value.trim() : undefined,
+      fontSize: mode.value === "text" ? fontSize.value : undefined,
+      textColor: mode.value === "text" ? textColor.value : undefined,
+      imagePath: mode.value === "image" ? imagePath.value.trim() : undefined,
+      imageScalePercent: mode.value === "image" ? imageScalePercent.value : undefined
+    };
+  }
+
+  /**
+   * 通过短防抖限制高频参数变更带来的预览请求，避免拖动时产生请求风暴。
+   */
+  function scheduleTextOverlayPreviewRefresh(): void {
+    if (textOverlayRefreshTimer) {
+      clearTimeout(textOverlayRefreshTimer);
+      textOverlayRefreshTimer = null;
+    }
+    textOverlayRefreshTimer = setTimeout(() => {
+      void refreshTextOverlayPreview();
+    }, 80);
+  }
+
+  /**
+   * 请求后端同源水印图层预览，保证预览与导出像素级一致。
+   */
+  async function refreshTextOverlayPreview(): Promise<void> {
+    if (!previewImagePath.value || mode.value !== "text" || !text.value.trim()) {
+      textWatermarkPreviewUrl.value = "";
+      return;
+    }
+    const currentRequestId = ++textOverlayPreviewRequestId;
+    try {
+      const result = await tauriClient.getImageWatermarkOverlayPreviewDataUrl(buildOverlayPreviewPayload());
+      if (currentRequestId !== textOverlayPreviewRequestId) return;
+      textWatermarkPreviewUrl.value = result.dataUrl;
+    } catch {
+      if (currentRequestId !== textOverlayPreviewRequestId) return;
+      textWatermarkPreviewUrl.value = "";
     }
   }
 
@@ -794,6 +743,11 @@ export function useImageWatermarkActions() {
    */
   async function startWatermark(): Promise<void> {
     if (!canStart.value) return;
+    if (mode.value === "text" && text.value.trim().length === 0) {
+      hintMessage.value = "请输入水印文字后再开始处理";
+      globalThis.alert("水印文字不能为空，请先输入内容。");
+      return;
+    }
     isProcessing.value = true;
     resultSummary.value = null;
     hintMessage.value = "";
@@ -998,10 +952,15 @@ export function useImageWatermarkActions() {
   }
 
   onMounted(async () => {
+    outputDirectory.value = settingsStore.defaultOutputDirectory || "";
     await setupNativeDropListener();
   });
 
   onBeforeUnmount(() => {
+    if (textOverlayRefreshTimer) {
+      clearTimeout(textOverlayRefreshTimer);
+      textOverlayRefreshTimer = null;
+    }
     if (disposeDropListener) {
       disposeDropListener();
       disposeDropListener = null;
@@ -1029,7 +988,7 @@ export function useImageWatermarkActions() {
     textColor,
     imagePath,
     watermarkImageUrl,
-    textWatermarkPreviewUrl: computed(() => textPreviewAsset.value.dataUrl),
+    textWatermarkPreviewUrl,
     imageScalePercent,
     opacity,
     margin,

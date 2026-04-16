@@ -2,16 +2,13 @@ use crate::image_core::error::ImagePipelineError;
 use crate::image_core::pipeline::ProcessRuntime;
 use crate::image_core::processor::ImageProcessor;
 use crate::image_core::types::{LoadedImage, ProcessContext, ProcessOutput, ProcessPlan, ProgressEvent};
+use ab_glyph::{FontArc, PxScale};
 use image::imageops::{overlay, resize, FilterType};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba, RgbaImage};
+use imageproc::drawing::{draw_text_mut, text_size};
 use serde::Deserialize;
 use serde_json::Value;
 use std::fs;
-
-const CHAR_WIDTH: u32 = 5;
-const CHAR_HEIGHT: u32 = 7;
-const CHAR_SPACING: u32 = 1;
-const LINE_SPACING: u32 = 2;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -188,6 +185,20 @@ pub fn compute_watermark_preview_geometry(
     })
 }
 
+/**
+ * 供命令层复用：按与导出同源的逻辑生成预览水印图层位图。
+ */
+pub fn render_watermark_preview_overlay(
+    input: &LoadedImage,
+    params_value: &Value,
+) -> Result<RgbaImage, ImagePipelineError> {
+    let params = parse_params(params_value)?;
+    match normalize_mode(&params.mode)? {
+        WatermarkMode::Text => build_text_overlay(input, &params),
+        WatermarkMode::Image => build_image_overlay(input, &params),
+    }
+}
+
 fn normalize_mode(value: &str) -> Result<WatermarkMode, ImagePipelineError> {
     match value {
         "text" => Ok(WatermarkMode::Text),
@@ -214,13 +225,17 @@ fn build_text_overlay(input: &LoadedImage, params: &WatermarkParams) -> Result<R
         .filter(|value| !value.is_empty())
         .ok_or_else(|| ImagePipelineError::InvalidInput("文字水印内容不能为空".to_string()))?;
     let font_size = params.font_size.unwrap_or(24).max(8);
-    let scale = (font_size / CHAR_HEIGHT.max(1)).max(1);
+    let font = load_system_font()?;
+    let scale = PxScale::from(font_size as f32);
     let lines: Vec<&str> = content.lines().collect();
-    let max_line_chars = lines.iter().map(|line| line.chars().count()).max().unwrap_or(0) as u32;
-    let text_width = max_line_chars.saturating_mul((CHAR_WIDTH + CHAR_SPACING) * scale).max(scale);
-    let text_height = (lines.len() as u32)
-        .saturating_mul((CHAR_HEIGHT + LINE_SPACING) * scale)
-        .max(scale);
+    let line_height = ((font_size as f32) * 1.35).ceil() as u32;
+    let text_width = lines
+        .iter()
+        .map(|line| text_size(scale, &font, line).0 as u32)
+        .max()
+        .unwrap_or(font_size)
+        .max(1);
+    let text_height = (lines.len() as u32).saturating_mul(line_height).max(font_size);
     let mut overlay_image = ImageBuffer::from_pixel(
         text_width.max(1),
         text_height.max(1),
@@ -228,8 +243,16 @@ fn build_text_overlay(input: &LoadedImage, params: &WatermarkParams) -> Result<R
     );
     let color = parse_hex_rgba(params.text_color.as_deref().unwrap_or("#FFFFFF"), params.opacity)?;
     for (line_index, line) in lines.iter().enumerate() {
-        let line_y = (line_index as u32) * (CHAR_HEIGHT + LINE_SPACING) * scale;
-        draw_text_line(&mut overlay_image, line, 0, line_y, scale, color);
+        let baseline_y = (line_index as u32).saturating_mul(line_height);
+        draw_text_mut(
+            &mut overlay_image,
+            color,
+            0,
+            baseline_y as i32,
+            scale,
+            &font,
+            line,
+        );
     }
     if params.rotation.abs() > 0.1 {
         return Ok(rotate_rgba(&overlay_image, params.rotation));
@@ -245,6 +268,32 @@ fn build_text_overlay(input: &LoadedImage, params: &WatermarkParams) -> Result<R
         ));
     }
     Ok(overlay_image)
+}
+
+/**
+ * 尝试加载系统常见中文字体，保证文字水印支持中文字符。
+ */
+fn load_system_font() -> Result<FontArc, ImagePipelineError> {
+    let candidate_paths = [
+        "C:\\Windows\\Fonts\\msyh.ttc",
+        "C:\\Windows\\Fonts\\msyhbd.ttc",
+        "C:\\Windows\\Fonts\\simhei.ttf",
+        "C:\\Windows\\Fonts\\simsun.ttc",
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    ];
+    for path in candidate_paths {
+        if let Ok(bytes) = fs::read(path) {
+            if let Ok(font) = FontArc::try_from_vec(bytes) {
+                return Ok(font);
+            }
+        }
+    }
+    Err(ImagePipelineError::InvalidInput(
+        "未找到可用系统字体，请安装微软雅黑/黑体/Noto Sans CJK 后重试".to_string(),
+    ))
 }
 
 fn build_image_overlay(input: &LoadedImage, params: &WatermarkParams) -> Result<RgbaImage, ImagePipelineError> {
@@ -380,82 +429,3 @@ fn rotate_rgba(source: &RgbaImage, degrees: f32) -> RgbaImage {
     target
 }
 
-fn draw_text_line(image: &mut RgbaImage, text: &str, start_x: u32, start_y: u32, scale: u32, color: Rgba<u8>) {
-    let mut cursor_x = start_x;
-    for ch in text.chars() {
-        draw_glyph(image, ch, cursor_x, start_y, scale, color);
-        cursor_x = cursor_x.saturating_add((CHAR_WIDTH + CHAR_SPACING) * scale);
-    }
-}
-
-fn draw_glyph(image: &mut RgbaImage, ch: char, start_x: u32, start_y: u32, scale: u32, color: Rgba<u8>) {
-    let glyph = glyph_pattern(ch);
-    for (row_index, row) in glyph.iter().enumerate() {
-        for (col_index, bit) in row.chars().enumerate() {
-            if bit != '1' {
-                continue;
-            }
-            let pixel_x = start_x + col_index as u32 * scale;
-            let pixel_y = start_y + row_index as u32 * scale;
-            for dy in 0..scale {
-                for dx in 0..scale {
-                    let target_x = pixel_x + dx;
-                    let target_y = pixel_y + dy;
-                    if target_x < image.width() && target_y < image.height() {
-                        image.put_pixel(target_x, target_y, color);
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn glyph_pattern(ch: char) -> [&'static str; 7] {
-    match ch.to_ascii_uppercase() {
-        'A' => ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
-        'B' => ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
-        'C' => ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
-        'D' => ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
-        'E' => ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
-        'F' => ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
-        'G' => ["01111", "10000", "10000", "10111", "10001", "10001", "01110"],
-        'H' => ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
-        'I' => ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
-        'J' => ["00001", "00001", "00001", "00001", "10001", "10001", "01110"],
-        'K' => ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
-        'L' => ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
-        'M' => ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
-        'N' => ["10001", "10001", "11001", "10101", "10011", "10001", "10001"],
-        'O' => ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
-        'P' => ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
-        'Q' => ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
-        'R' => ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
-        'S' => ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
-        'T' => ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
-        'U' => ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
-        'V' => ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
-        'W' => ["10001", "10001", "10001", "10101", "10101", "10101", "01010"],
-        'X' => ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
-        'Y' => ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
-        'Z' => ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
-        '0' => ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
-        '1' => ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
-        '2' => ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
-        '3' => ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
-        '4' => ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
-        '5' => ["11111", "10000", "10000", "11110", "00001", "00001", "11110"],
-        '6' => ["01110", "10000", "10000", "11110", "10001", "10001", "01110"],
-        '7' => ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
-        '8' => ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
-        '9' => ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
-        ' ' => ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
-        '-' => ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
-        '_' => ["00000", "00000", "00000", "00000", "00000", "00000", "11111"],
-        '.' => ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
-        ',' => ["00000", "00000", "00000", "00000", "00110", "00100", "01000"],
-        ':' => ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
-        '/' => ["00001", "00010", "00100", "01000", "10000", "00000", "00000"],
-        '\\' => ["10000", "01000", "00100", "00010", "00001", "00000", "00000"],
-        _ => ["11111", "10001", "00010", "00100", "00100", "00000", "00100"],
-    }
-}

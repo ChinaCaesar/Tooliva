@@ -75,7 +75,7 @@ export function useImageUpscaleActions() {
   const isProcessing = ref(false);
   const isDropActive = ref(false);
   const hintMessage = ref("");
-  const outputDirectory = ref(settingsStore.defaultOutputDirectory || "");
+  const outputDirectory = ref("");
   const scaleFactor = ref<2 | 4>(2);
   const resultSummary = ref<UpscaleResultSummary | null>(null);
   const sourceDirectory = ref("");
@@ -125,7 +125,6 @@ export function useImageUpscaleActions() {
     const selected = await open({ directory: true, multiple: false });
     if (!selected || Array.isArray(selected)) return;
     outputDirectory.value = selected;
-    settingsStore.setDefaultOutputDirectory(selected);
   }
 
   /**
@@ -375,6 +374,7 @@ export function useImageUpscaleActions() {
   }
 
   onMounted(async () => {
+    outputDirectory.value = settingsStore.defaultOutputDirectory || "";
     await setupNativeDropListener();
   });
 

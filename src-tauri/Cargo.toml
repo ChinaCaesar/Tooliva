@@ -20,6 +20,8 @@ tauri = { version = "2.10.1", features = [] }
 tauri-plugin-dialog = "2.4"
 rusqlite = { version = "0.32", features = ["bundled"] }
 image = { version = "0.25", default-features = true }
+imageproc = "0.25"
+ab_glyph = "0.2"
 
 [profile.dev]
 debug = 0

@@ -24,6 +24,7 @@ pub fn run() {
             commands::image::list_images_from_directory,
             commands::image::get_image_preview_data_url,
             commands::image::get_image_watermark_preview_geometry,
+            commands::image::get_image_watermark_overlay_preview_data_url,
             commands::image::open_directory_in_file_manager,
             commands::image::start_image_upscale,
             commands::image::start_image_compress,

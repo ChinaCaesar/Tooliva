@@ -106,7 +106,7 @@ export function useImageCompressActions() {
   const isProcessing = ref(false);
   const isDropActive = ref(false);
   const hintMessage = ref("");
-  const outputDirectory = ref(settingsStore.defaultOutputDirectory || "");
+  const outputDirectory = ref("");
   const sourceDirectory = ref("");
   const quality = ref(80);
   const targetFormat = ref<CompressFormat>("jpg");
@@ -157,7 +157,6 @@ export function useImageCompressActions() {
     const selected = await open({ directory: true, multiple: false });
     if (!selected || Array.isArray(selected)) return;
     outputDirectory.value = selected;
-    settingsStore.setDefaultOutputDirectory(selected);
   }
 
   /**
@@ -432,6 +431,7 @@ export function useImageCompressActions() {
   }
 
   onMounted(async () => {
+    outputDirectory.value = settingsStore.defaultOutputDirectory || "";
     await setupNativeDropListener();
   });
 

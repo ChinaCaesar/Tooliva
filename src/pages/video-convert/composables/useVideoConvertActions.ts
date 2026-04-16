@@ -67,7 +67,7 @@ export function useVideoConvertActions() {
   const isConverting = ref(false);
   const isDropActive = ref(false);
   const hintMessage = ref("");
-  const globalOutputDirectory = ref(settingsStore.defaultOutputDirectory || "");
+  const globalOutputDirectory = ref("");
   const outputMode = ref<WebmToMp4OutputMode>("sameAsInput");
   const activeTaskToItemIdMap = ref<Record<string, string>>({});
   const queueRunning = ref(false);
@@ -106,7 +106,6 @@ export function useVideoConvertActions() {
     const selected = await open({ directory: true, multiple: false });
     if (!selected || Array.isArray(selected)) return;
     globalOutputDirectory.value = selected;
-    settingsStore.setDefaultOutputDirectory(selected);
   }
 
   /**
@@ -389,6 +388,7 @@ export function useVideoConvertActions() {
   }
 
   onMounted(async () => {
+    globalOutputDirectory.value = settingsStore.defaultOutputDirectory || "";
     disposeProgressListener = await tauriClient.onWebmToMp4Progress(handleProgress);
     await setupNativeDropListener();
   });

@@ -413,7 +413,7 @@ function goToSettings(): void {
 .preview-overlay { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0; cursor: grab; touch-action: none; }
 .preview-overlay--text,
 .preview-overlay--image { background: transparent; border: none; box-shadow: none; backdrop-filter: none; }
-.preview-overlay__text-image { width: 100%; height: 100%; object-fit: contain; display: block; image-rendering: pixelated; filter: drop-shadow(0 2px 10px rgba(15, 23, 42, 0.55)); }
+.preview-overlay__text-image { width: 100%; height: 100%; object-fit: contain; display: block; image-rendering: auto; filter: drop-shadow(0 2px 10px rgba(15, 23, 42, 0.55)); }
 .preview-overlay__logo { width: 100%; height: auto; max-height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 8px 20px rgba(15, 23, 42, 0.35)); }
 .preview-overlay__placeholder { color: #fff; font-size: 14px; font-weight: 600; }
 .upload-zone {

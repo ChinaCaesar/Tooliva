@@ -208,6 +208,24 @@ export interface GetImageWatermarkPreviewGeometryResult {
   overlayHeightPx: number;
 }
 
+export interface GetImageWatermarkOverlayPreviewPayload {
+  inputPath: string;
+  mode: WatermarkMode;
+  position: WatermarkPosition;
+  opacity: number;
+  margin: number;
+  rotation: number;
+  offsetXRatio?: number;
+  offsetYRatio?: number;
+  offsetXPxOnOriginal?: number;
+  offsetYPxOnOriginal?: number;
+  text?: string;
+  fontSize?: number;
+  textColor?: string;
+  imagePath?: string;
+  imageScalePercent?: number;
+}
+
 export interface StartImageWatermarkResult {
   taskId: string;
   inputPath: string;
@@ -316,6 +334,15 @@ export class TauriClient {
     payload: GetImageWatermarkPreviewGeometryPayload
   ): Promise<GetImageWatermarkPreviewGeometryResult> {
     return this.call<GetImageWatermarkPreviewGeometryResult>("get_image_watermark_preview_geometry", { payload });
+  }
+
+  /**
+   * 获取与后端导出同源的水印图层预览 data URL，确保样式与像素一致。
+   */
+  public async getImageWatermarkOverlayPreviewDataUrl(
+    payload: GetImageWatermarkOverlayPreviewPayload
+  ): Promise<GetImagePreviewResult> {
+    return this.call<GetImagePreviewResult>("get_image_watermark_overlay_preview_data_url", { payload });
   }
 
   /**

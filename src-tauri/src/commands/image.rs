@@ -6,11 +6,14 @@ use crate::image_core::tile::TileEngine;
 use crate::image_core::types::{LoadedImage, ProcessContext, ProcessingLimits, ProgressEvent, TileConfig};
 use crate::image_processors::compress::processor::CompressProcessor;
 use crate::image_processors::upscale::processor::{UpscaleBackend, UpscaleProcessor, UpscaleQualityMode};
-use crate::image_processors::watermark::processor::{compute_watermark_preview_geometry, WatermarkProcessor};
-use image::ImageFormat;
+use crate::image_processors::watermark::processor::{
+    compute_watermark_preview_geometry, render_watermark_preview_overlay, WatermarkProcessor,
+};
+use image::{DynamicImage, ImageFormat};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -120,6 +123,26 @@ pub struct StartImageWatermarkPayload {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetImageWatermarkPreviewGeometryPayload {
+    pub input_path: String,
+    pub mode: String,
+    pub position: String,
+    pub opacity: u8,
+    pub margin: u32,
+    pub rotation: f32,
+    pub offset_x_ratio: Option<f32>,
+    pub offset_y_ratio: Option<f32>,
+    pub offset_x_px_on_original: Option<u32>,
+    pub offset_y_px_on_original: Option<u32>,
+    pub text: Option<String>,
+    pub font_size: Option<u32>,
+    pub text_color: Option<String>,
+    pub image_path: Option<String>,
+    pub image_scale_percent: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetImageWatermarkOverlayPreviewPayload {
     pub input_path: String,
     pub mode: String,
     pub position: String,
@@ -302,6 +325,55 @@ pub fn get_image_watermark_preview_geometry(
         base_height_px: geometry.base_height,
         overlay_width_px: geometry.overlay_width,
         overlay_height_px: geometry.overlay_height,
+    })
+}
+
+#[tauri::command]
+pub fn get_image_watermark_overlay_preview_data_url(
+    payload: GetImageWatermarkOverlayPreviewPayload,
+) -> Result<GetImagePreviewResult, String> {
+    let input_path = PathBuf::from(payload.input_path.clone());
+    if !input_path.exists() {
+        return Err(format!("输入文件不存在：{}", input_path.display()));
+    }
+    if !input_path.is_file() {
+        return Err(format!("输入路径不是文件：{}", input_path.display()));
+    }
+    if !is_supported_image_file(&input_path) {
+        return Err("仅支持 PNG/JPG/JPEG/WEBP/BMP 格式".to_string());
+    }
+
+    let decoded = image::ImageReader::open(&input_path)
+        .map_err(|err| format!("读取图片失败：{err}"))?
+        .decode()
+        .map_err(|err| format!("解码图片失败：{err}"))?;
+    let format = ImageFormat::from_path(&input_path).unwrap_or(ImageFormat::Png);
+    let loaded = LoadedImage { image: decoded, format };
+    let params = json!({
+        "mode": payload.mode,
+        "position": payload.position,
+        "opacity": payload.opacity,
+        "margin": payload.margin,
+        "rotation": payload.rotation,
+        "offsetXRatio": payload.offset_x_ratio,
+        "offsetYRatio": payload.offset_y_ratio,
+        "offsetXPxOnOriginal": payload.offset_x_px_on_original,
+        "offsetYPxOnOriginal": payload.offset_y_px_on_original,
+        "text": payload.text,
+        "fontSize": payload.font_size,
+        "textColor": payload.text_color,
+        "imagePath": payload.image_path,
+        "imageScalePercent": payload.image_scale_percent
+    });
+    let overlay = render_watermark_preview_overlay(&loaded, &params).map_err(|err| err.to_string())?;
+    let mut png_bytes: Vec<u8> = Vec::new();
+    DynamicImage::ImageRgba8(overlay)
+        .write_to(&mut Cursor::new(&mut png_bytes), ImageFormat::Png)
+        .map_err(|err| format!("编码水印预览失败：{err}"))?;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(png_bytes);
+    Ok(GetImagePreviewResult {
+        data_url: format!("data:image/png;base64,{encoded}"),
+        mime_type: "image/png".to_string(),
     })
 }
 
