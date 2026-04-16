@@ -5,6 +5,7 @@ import type { UserSettings } from "@/types/settings";
 export const WEBM_TO_MP4_PROGRESS_EVENT = "webm-to-mp4-progress";
 export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
 export const IMAGE_COMPRESS_PROGRESS_EVENT = "image-compress-progress";
+export const IMAGE_WATERMARK_PROGRESS_EVENT = "image-watermark-progress";
 
 export type WebmToMp4OutputMode = "sameAsInput" | "globalDirectory" | "customFilePath";
 
@@ -76,6 +77,19 @@ export interface ListImagesFromDirectoryResult {
   images: string[];
 }
 
+export interface GetImagePreviewPayload {
+  filePath: string;
+}
+
+export interface GetImagePreviewResult {
+  dataUrl: string;
+  mimeType: string;
+}
+
+export interface OpenDirectoryPayload {
+  directoryPath: string;
+}
+
 export interface StartImageUpscalePayload {
   taskId: string;
   inputPath: string;
@@ -139,6 +153,48 @@ export interface StartImageCompressResult {
 }
 
 export interface ImageCompressProgressPayload {
+  taskId: string;
+  progress: number;
+  stage: string;
+  backend: string;
+  message?: string;
+}
+
+export type WatermarkMode = "text" | "image";
+export type WatermarkPosition = "topLeft" | "topRight" | "center" | "bottomLeft" | "bottomRight" | "custom";
+
+export interface StartImageWatermarkPayload {
+  taskId: string;
+  inputPath: string;
+  outputDirectory?: string;
+  mode: WatermarkMode;
+  position: WatermarkPosition;
+  opacity: number;
+  margin: number;
+  rotation: number;
+  offsetXRatio?: number;
+  offsetYRatio?: number;
+  text?: string;
+  fontSize?: number;
+  textColor?: string;
+  imagePath?: string;
+  imageScalePercent?: number;
+}
+
+export interface StartImageWatermarkResult {
+  taskId: string;
+  inputPath: string;
+  outputPath: string;
+  success: boolean;
+  error?: string;
+  originalWidth: number;
+  originalHeight: number;
+  outputWidth: number;
+  outputHeight: number;
+  backendUsed: string;
+}
+
+export interface ImageWatermarkProgressPayload {
   taskId: string;
   progress: number;
   stage: string;
@@ -220,6 +276,20 @@ export class TauriClient {
   }
 
   /**
+   * 读取本地图片并转换为可直接预览的 data URL。
+   */
+  public async getImagePreviewDataUrl(payload: GetImagePreviewPayload): Promise<GetImagePreviewResult> {
+    return this.call<GetImagePreviewResult>("get_image_preview_data_url", { payload });
+  }
+
+  /**
+   * 在系统文件管理器中打开指定目录。
+   */
+  public async openDirectoryInFileManager(payload: OpenDirectoryPayload): Promise<void> {
+    await this.call<void>("open_directory_in_file_manager", { payload });
+  }
+
+  /**
    * 执行单张图片高清放大。
    */
   public async startImageUpscale(payload: StartImageUpscalePayload): Promise<StartImageUpscaleResult> {
@@ -247,6 +317,22 @@ export class TauriClient {
    */
   public async onImageCompressProgress(handler: (payload: ImageCompressProgressPayload) => void): Promise<UnlistenFn> {
     return listen<ImageCompressProgressPayload>(IMAGE_COMPRESS_PROGRESS_EVENT, (event) => {
+      handler(event.payload);
+    });
+  }
+
+  /**
+   * 执行单张图片加水印。
+   */
+  public async startImageWatermark(payload: StartImageWatermarkPayload): Promise<StartImageWatermarkResult> {
+    return this.call<StartImageWatermarkResult>("start_image_watermark", { payload });
+  }
+
+  /**
+   * 监听 Rust 侧推送的图片加水印进度事件。
+   */
+  public async onImageWatermarkProgress(handler: (payload: ImageWatermarkProgressPayload) => void): Promise<UnlistenFn> {
+    return listen<ImageWatermarkProgressPayload>(IMAGE_WATERMARK_PROGRESS_EVENT, (event) => {
       handler(event.payload);
     });
   }

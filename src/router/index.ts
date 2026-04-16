@@ -4,6 +4,7 @@ import HomePage from "@/pages/HomePage.vue";
 import VideoConvertPage from "@/pages/VideoConvertPage.vue";
 import ImageCompressPage from "@/pages/ImageCompressPage.vue";
 import ImageUpscalePage from "@/pages/ImageUpscalePage.vue";
+import ImageWatermarkPage from "@/pages/ImageWatermarkPage.vue";
 import SettingsPage from "@/pages/SettingsPage.vue";
 import MembershipPage from "@/pages/MembershipPage.vue";
 
@@ -12,6 +13,7 @@ const routes: RouteRecordRaw[] = [
   { path: ROUTE_PATHS.videoConvert, name: "video-convert", component: VideoConvertPage },
   { path: ROUTE_PATHS.imageCompress, name: "image-compress", component: ImageCompressPage },
   { path: ROUTE_PATHS.imageUpscale, name: "image-upscale", component: ImageUpscalePage },
+  { path: ROUTE_PATHS.imageWatermark, name: "image-watermark", component: ImageWatermarkPage },
   { path: ROUTE_PATHS.settings, name: "settings", component: SettingsPage },
   { path: ROUTE_PATHS.membership, name: "membership", component: MembershipPage }
 ];

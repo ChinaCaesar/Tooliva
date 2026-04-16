@@ -17,6 +17,7 @@ export const ROUTE_PATHS = {
   videoConvert: "/video-convert",
   imageCompress: "/image-compress",
   imageUpscale: "/image-upscale",
+  imageWatermark: "/image-watermark",
   tools: "/tools",
   favorites: "/favorites",
   tasks: "/tasks",

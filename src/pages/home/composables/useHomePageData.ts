@@ -64,6 +64,12 @@ function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: st
       iconUrl: HOME_ASSETS.recentUpscale
     };
   }
+  if (toolKey === "image-watermark") {
+    return {
+      titleKey: "pages.home.tools.imageWatermark.shortTitle",
+      iconUrl: HOME_ASSETS.recentImage
+    };
+  }
   return {
     titleKey: "pages.home.tools.imageCompress.title",
     iconUrl: HOME_ASSETS.recentImage
@@ -76,6 +82,7 @@ function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: st
 function resolveToolLabelKey(toolKey: string): string {
   if (toolKey === "video-convert") return "pages.home.tools.videoConvert.shortTitle";
   if (toolKey === "image-upscale") return "pages.home.tools.imageUpscale.shortTitle";
+  if (toolKey === "image-watermark") return "pages.home.tools.imageWatermark.shortTitle";
   return "pages.home.tools.imageCompress.title";
 }
 
@@ -86,6 +93,7 @@ function resolveToolRoute(toolKey: string): string {
   if (toolKey === "video-convert") return ROUTE_PATHS.videoConvert;
   if (toolKey === "image-upscale") return ROUTE_PATHS.imageUpscale;
   if (toolKey === "image-compress") return ROUTE_PATHS.imageCompress;
+  if (toolKey === "image-watermark") return ROUTE_PATHS.imageWatermark;
   return ROUTE_PATHS.home;
 }
 

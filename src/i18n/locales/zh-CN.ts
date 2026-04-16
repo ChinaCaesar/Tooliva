@@ -62,6 +62,11 @@ export const zhCN = {
           shortTitle: "图片放大",
           description: "AI智能增强"
         },
+        imageWatermark: {
+          title: "图片加水印",
+          shortTitle: "图片水印",
+          description: "批量添加文字或 Logo 水印"
+        },
         comingSoon: "更多工具即将上线"
       },
       membership: {
@@ -373,6 +378,80 @@ export const zhCN = {
       scale: {
         title: "放大倍数",
         tip: "支持 2x / 4x。若放大后尺寸超过系统上限，会在任务列表中提示。"
+      },
+      upload: {
+        dropTitle: "拖拽图片到此处，或点击添加",
+        dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，自动去重并串行处理",
+        button: "添加图片"
+      },
+      status: {
+        idle: "待处理",
+        running: "处理中",
+        completed: "已完成",
+        failed: "失败"
+      },
+      result: {
+        title: "执行结果",
+        total: "总数",
+        success: "成功",
+        failed: "失败",
+        elapsed: "总用时"
+      }
+    },
+    imageWatermark: {
+      title: "图片加水印",
+      description: "支持批量导入，并为图片统一添加文字水印或品牌 Logo 水印。",
+      fileListTitle: "水印任务列表",
+      clearList: "清空列表",
+      remove: "移除",
+      start: "开始加水印",
+      processing: "水印处理中...",
+      listOverflowTip: "当前仅展示前 200 条，剩余 {count} 条将在后台继续处理。",
+      source: {
+        title: "输入来源",
+        pickImages: "添加图片",
+        pickDirectory: "选择目录夹",
+        directoryNotSelected: "未选择目录，支持直接拖入图片"
+      },
+      output: {
+        title: "输出目录",
+        pickDirectory: "指定输出目录",
+        defaultDirectory: "默认输出到上传图片所在目录下的 /water/ 文件夹",
+        openDirectory: "打开目录"
+      },
+      settings: {
+        title: "水印参数",
+        mode: "水印模式",
+        textMode: "文字水印",
+        imageMode: "图片水印",
+        text: "水印内容",
+        textPlaceholder: "请输入水印文字",
+        fontSize: "字号",
+        textColor: "文字颜色",
+        imageFile: "水印图片",
+        pickImageFile: "选择水印图片",
+        imageFileNotSelected: "未选择水印图片",
+        imageScale: "图片缩放比例(%)",
+        opacity: "透明度",
+        margin: "边距(px)",
+        rotation: "旋转角度",
+        position: "水印位置",
+        tip: "首版支持统一参数批量处理。文字水印建议选择浅色，Logo 水印建议使用透明背景 PNG。"
+      },
+      positions: {
+        topLeft: "左上",
+        topRight: "右上",
+        center: "居中",
+        bottomLeft: "左下",
+        bottomRight: "右下",
+        custom: "自定义"
+      },
+      preview: {
+        resetPosition: "重置位置",
+        imagePlaceholder: "请先选择水印图片",
+        emptyTitle: "暂无预览图片",
+        emptyDesc: "添加图片后即可在这里预览水印效果。",
+        noneSelected: "未选择图片"
       },
       upload: {
         dropTitle: "拖拽图片到此处，或点击添加",

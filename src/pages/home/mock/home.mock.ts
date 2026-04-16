@@ -36,6 +36,14 @@ export const HOME_CORE_TOOLS_MOCK: HomeToolCardItem[] = [
     descriptionKey: "pages.home.tools.imageUpscale.description",
     gradient: "linear-gradient(135deg, #059669 15%, #10b981 85%)",
     actionCode: "image-upscale"
+  },
+  {
+    id: "tool-image-watermark",
+    iconKey: "toolImageCompress",
+    titleKey: "pages.home.tools.imageWatermark.title",
+    descriptionKey: "pages.home.tools.imageWatermark.description",
+    gradient: "linear-gradient(135deg, #ea580c 15%, #f97316 85%)",
+    actionCode: "image-watermark"
   }
 ];
 

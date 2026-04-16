@@ -62,6 +62,11 @@ export const enUS = {
           shortTitle: "Image Enhance",
           description: "AI-powered enhancement"
         },
+        imageWatermark: {
+          title: "Image Watermark",
+          shortTitle: "Watermark",
+          description: "Batch add text or logo watermark"
+        },
         comingSoon: "More tools coming soon"
       },
       membership: {
@@ -373,6 +378,80 @@ export const enUS = {
       scale: {
         title: "Scale Factor",
         tip: "Supports 2x / 4x. When output size exceeds the system limit, inline warnings will be shown."
+      },
+      upload: {
+        dropTitle: "Drag images here or click to add",
+        dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported, auto dedupe with serial processing",
+        button: "Add Images"
+      },
+      status: {
+        idle: "Pending",
+        running: "Processing",
+        completed: "Completed",
+        failed: "Failed"
+      },
+      result: {
+        title: "Execution Result",
+        total: "Total",
+        success: "Success",
+        failed: "Failed",
+        elapsed: "Elapsed"
+      }
+    },
+    imageWatermark: {
+      title: "Image Watermark",
+      description: "Supports batch import and applies a unified text watermark or logo watermark to images.",
+      fileListTitle: "Watermark Tasks",
+      clearList: "Clear List",
+      remove: "Remove",
+      start: "Start Watermark",
+      processing: "Applying watermark...",
+      listOverflowTip: "Only first 200 items are displayed. Remaining {count} items will continue processing in background.",
+      source: {
+        title: "Input Source",
+        pickImages: "Add Images",
+        pickDirectory: "Choose Folder",
+        directoryNotSelected: "No folder selected, drag images directly is supported"
+      },
+      output: {
+        title: "Output Directory",
+        pickDirectory: "Specify Output Folder",
+        defaultDirectory: "Default output is /water/ under the uploaded image directory",
+        openDirectory: "Open Folder"
+      },
+      settings: {
+        title: "Watermark Settings",
+        mode: "Watermark Mode",
+        textMode: "Text Watermark",
+        imageMode: "Image Watermark",
+        text: "Watermark Text",
+        textPlaceholder: "Enter watermark text",
+        fontSize: "Font Size",
+        textColor: "Text Color",
+        imageFile: "Watermark Image",
+        pickImageFile: "Choose Watermark Image",
+        imageFileNotSelected: "No watermark image selected",
+        imageScale: "Image Scale (%)",
+        opacity: "Opacity",
+        margin: "Margin (px)",
+        rotation: "Rotation",
+        position: "Position",
+        tip: "The first release applies one shared config to all images. Use light text or a transparent PNG logo for best results."
+      },
+      positions: {
+        topLeft: "Top Left",
+        topRight: "Top Right",
+        center: "Center",
+        bottomLeft: "Bottom Left",
+        bottomRight: "Bottom Right",
+        custom: "Custom"
+      },
+      preview: {
+        resetPosition: "Reset Position",
+        imagePlaceholder: "Choose a watermark image first",
+        emptyTitle: "No Preview Image",
+        emptyDesc: "Add an image to preview the watermark effect here.",
+        noneSelected: "No image selected"
       },
       upload: {
         dropTitle: "Drag images here or click to add",

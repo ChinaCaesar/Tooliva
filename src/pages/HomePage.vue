@@ -32,6 +32,10 @@ function handleToolClick(actionCode: string): void {
   }
   if (actionCode === "image-upscale") {
     router.push(ROUTE_PATHS.imageUpscale);
+    return;
+  }
+  if (actionCode === "image-watermark") {
+    router.push(ROUTE_PATHS.imageWatermark);
   }
 }
 
@@ -55,7 +59,9 @@ const searchableTools = computed(() =>
         ? ROUTE_PATHS.videoConvert
         : item.actionCode === "image-compress"
           ? ROUTE_PATHS.imageCompress
-          : ROUTE_PATHS.imageUpscale
+          : item.actionCode === "image-upscale"
+            ? ROUTE_PATHS.imageUpscale
+            : ROUTE_PATHS.imageWatermark
   }))
 );
 
