@@ -1,4 +1,5 @@
 import { computed, onMounted, ref } from "vue";
+import type { HomeRecentUsagePayload } from "@/bridge/tauriClient";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { HOME_PAGE_CONFIG } from "@/pages/home/config/home.config";
 import { isTauri } from "@tauri-apps/api/core";
@@ -20,7 +21,7 @@ interface HomeRecentItemViewModel {
   titleKey: string;
   fileName: string;
   relativeTimeKey: string;
-  isEmpty: boolean;
+  isEmpty?: boolean;
   actionCode?: string;
 }
 
@@ -55,40 +56,77 @@ interface HomeChangelogEntryViewModel {
   summaryKey: string;
 }
 
-function createEmptyRecentRows(): HomeRecentItemViewModel[] {
-  const emptyBg = "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)";
-  return Array.from({ length: 3 }, (_, index) => ({
-    id: `empty-${index + 1}`,
-    iconUrl: HOME_ASSETS.pubIconPlusMore,
-    iconBackground: emptyBg,
-    titleKey: "pages.home.recent.emptyTitle",
-    fileName: "—",
-    relativeTimeKey: "pages.home.recent.emptyTime",
-    isEmpty: true,
-    actionCode: undefined
-  }));
+/** 与后端「每工具最近一次」语义对齐的防御性去重（兼容旧版返回多条同工具事件）。 */
+function dedupeRecentUsageByTool(items: HomeRecentUsagePayload[]): HomeRecentUsagePayload[] {
+  const best = new Map<string, HomeRecentUsagePayload>();
+  for (const item of items) {
+    const cur = best.get(item.toolKey);
+    if (!cur || item.usedAtTs > cur.usedAtTs || (item.usedAtTs === cur.usedAtTs && item.id > cur.id)) {
+      best.set(item.toolKey, item);
+    }
+  }
+  return Array.from(best.values())
+    .sort((a, b) => b.usedAtTs - a.usedAtTs || b.id - a.id)
+    .slice(0, 3);
 }
 
+function mapMockRecentToViewModels(): HomeRecentItemViewModel[] {
+  const seen = new Set<string>();
+  const out: HomeRecentItemViewModel[] = [];
+  for (const item of HOME_RECENT_ITEMS_MOCK) {
+    const key = item.toolKey ?? "image-compress";
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const meta = resolveRecentItemMeta(key);
+    out.push({
+      id: item.id,
+      iconUrl: HOME_ASSETS[item.iconKey],
+      iconBackground: meta.iconBackground,
+      titleKey: item.titleKey,
+      fileName: item.fileName,
+      relativeTimeKey: item.relativeTimeKey,
+      isEmpty: false,
+      actionCode: KNOWN_HOME_TOOL_KEYS.has(key) ? key : undefined
+    });
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+const KNOWN_HOME_TOOL_KEYS = new Set<string>([
+  "image-compress",
+  "image-watermark",
+  "image-watermark-removal",
+  "image-upscale"
+]);
+
 function accentForToolKey(toolKey: string): string {
-  if (toolKey === "video-convert") return "linear-gradient(135deg, #7c3aed 15%, #a855f7 85%)";
   if (toolKey === "image-watermark") return "linear-gradient(135deg, #ea580c 15%, #f97316 85%)";
+  if (toolKey === "image-watermark-removal") return "linear-gradient(135deg, #7c3aed 15%, #a78bfa 85%)";
   if (toolKey === "image-upscale") return "linear-gradient(135deg, #059669 15%, #10b981 85%)";
   return "linear-gradient(135deg, #1e40af 15%, #3b82f6 85%)";
 }
 
 function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: string; iconBackground: string } {
   const iconBackground = accentForToolKey(toolKey);
-  if (toolKey === "video-convert") {
+  if (!KNOWN_HOME_TOOL_KEYS.has(toolKey)) {
     return {
-      titleKey: "pages.home.tools.videoConvert.shortTitle",
-      iconUrl: HOME_ASSETS.pubIconVideo,
-      iconBackground
+      titleKey: "pages.home.tools.removedTool.shortTitle",
+      iconUrl: HOME_ASSETS.pubIconPlusMore,
+      iconBackground: "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
     };
   }
   if (toolKey === "image-upscale") {
     return {
       titleKey: "pages.home.tools.imageUpscale.shortTitle",
       iconUrl: HOME_ASSETS.toolImageUpscale,
+      iconBackground
+    };
+  }
+  if (toolKey === "image-watermark-removal") {
+    return {
+      titleKey: "pages.home.tools.imageWatermarkRemoval.shortTitle",
+      iconUrl: HOME_ASSETS.pubIconWatermark,
       iconBackground
     };
   }
@@ -127,22 +165,7 @@ function greetingTitleKeyFromHour(): string {
  * 首页数据装配层，后续可切换为 API 数据源。
  */
 export function useHomePageData() {
-  const recentItems = ref<HomeRecentItemViewModel[]>(
-    HOME_RECENT_ITEMS_MOCK.slice(0, 3).map((item) => {
-      const key = item.toolKey ?? "image-compress";
-      const meta = resolveRecentItemMeta(key);
-      return {
-        id: item.id,
-        iconUrl: HOME_ASSETS[item.iconKey],
-        iconBackground: meta.iconBackground,
-        titleKey: item.titleKey,
-        fileName: item.fileName,
-        relativeTimeKey: item.relativeTimeKey,
-        isEmpty: false,
-        actionCode: key
-      };
-    })
-  );
+  const recentItems = ref<HomeRecentItemViewModel[]>(mapMockRecentToViewModels());
 
   const greetingTitleKey = computed(() => greetingTitleKeyFromHour());
 
@@ -204,11 +227,12 @@ export function useHomePageData() {
     }
     try {
       const dashboard = await tauriClient.getHomeDashboard();
+      const deduped = dedupeRecentUsageByTool(dashboard.recentItems);
 
-      if (dashboard.recentItems.length === 0) {
-        recentItems.value = createEmptyRecentRows();
+      if (deduped.length === 0) {
+        recentItems.value = [];
       } else {
-        recentItems.value = dashboard.recentItems.slice(0, 3).map((item) => {
+        recentItems.value = deduped.map((item) => {
           const meta = resolveRecentItemMeta(item.toolKey);
           return {
             id: `recent-${item.id}`,
@@ -218,12 +242,12 @@ export function useHomePageData() {
             fileName: item.fileName,
             relativeTimeKey: mapRelativeTimeKey(item.usedAtTs),
             isEmpty: false,
-            actionCode: item.toolKey
+            actionCode: KNOWN_HOME_TOOL_KEYS.has(item.toolKey) ? item.toolKey : undefined
           };
         });
       }
     } catch {
-      recentItems.value = createEmptyRecentRows();
+      recentItems.value = [];
     }
   }
 

@@ -46,9 +46,13 @@ enum WatermarkMode {
 #[derive(Debug, Clone, Copy)]
 enum WatermarkPosition {
     TopLeft,
+    TopCenter,
     TopRight,
+    MiddleLeft,
     Center,
+    MiddleRight,
     BottomLeft,
+    BottomCenter,
     BottomRight,
 }
 
@@ -210,9 +214,14 @@ fn normalize_mode(value: &str) -> Result<WatermarkMode, ImagePipelineError> {
 fn normalize_position(value: &str) -> WatermarkPosition {
     match value {
         "topLeft" => WatermarkPosition::TopLeft,
+        "topCenter" => WatermarkPosition::TopCenter,
         "topRight" => WatermarkPosition::TopRight,
+        "middleLeft" => WatermarkPosition::MiddleLeft,
         "center" => WatermarkPosition::Center,
+        "middleRight" => WatermarkPosition::MiddleRight,
         "bottomLeft" => WatermarkPosition::BottomLeft,
+        "bottomCenter" => WatermarkPosition::BottomCenter,
+        "bottomRight" => WatermarkPosition::BottomRight,
         _ => WatermarkPosition::BottomRight,
     }
 }
@@ -341,9 +350,13 @@ fn resolve_position(
     }
     match position {
         WatermarkPosition::TopLeft => (margin.min(max_x), margin.min(max_y)),
+        WatermarkPosition::TopCenter => (max_x / 2, margin.min(max_y)),
         WatermarkPosition::TopRight => (max_x.saturating_sub(margin.min(max_x)), margin.min(max_y)),
+        WatermarkPosition::MiddleLeft => (margin.min(max_x), max_y / 2),
         WatermarkPosition::Center => (max_x / 2, max_y / 2),
+        WatermarkPosition::MiddleRight => (max_x.saturating_sub(margin.min(max_x)), max_y / 2),
         WatermarkPosition::BottomLeft => (margin.min(max_x), max_y.saturating_sub(margin.min(max_y))),
+        WatermarkPosition::BottomCenter => (max_x / 2, max_y.saturating_sub(margin.min(max_y))),
         WatermarkPosition::BottomRight => (
             max_x.saturating_sub(margin.min(max_x)),
             max_y.saturating_sub(margin.min(max_y)),

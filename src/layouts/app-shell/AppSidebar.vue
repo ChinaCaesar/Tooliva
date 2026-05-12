@@ -2,15 +2,23 @@
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { Crown } from "@lucide/vue";
 import { message } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
-import { HOME_PAGE_CONFIG } from "@/pages/home/config/home.config";
 import { HOME_FEATURED_TOOLS_MOCK } from "@/pages/home/mock/home.mock";
 import { resolveHomeToolRoute } from "@/pages/home/config/homeToolRoutes";
 import { APP_NAV_SECONDARY_ITEMS, type AppNavSecondaryItem } from "@/layouts/app-shell/appNav.config";
 import type { HomeFeaturedToolCardDef } from "@/pages/home/types/home";
+
+defineProps<{
+  collapsed: boolean;
+}>();
+
+const emit = defineEmits<{
+  toggleCollapse: [];
+}>();
 
 const route = useRoute();
 const router = useRouter();
@@ -77,66 +85,189 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
 </script>
 
 <template>
-  <aside class="app-sidebar" :aria-label="t('layout.appShell.sidebarAria')">
-    <nav class="app-sidebar__nav app-sidebar__nav--primary" :aria-label="t('layout.appShell.primaryNavAria')">
+  <aside
+    class="app-sidebar"
+    :class="{ 'app-sidebar--collapsed': collapsed }"
+    :aria-label="t('layout.appShell.sidebarAria')"
+  >
+    <div class="app-sidebar__toolbar">
       <button
         type="button"
-        class="app-sidebar__link app-sidebar__link--home"
-        :aria-label="t('common.backToHome')"
-        @click="goHome"
+        class="app-sidebar__collapse-btn"
+        :aria-expanded="!collapsed"
+        aria-controls="app-sidebar-nav"
+        :aria-label="collapsed ? t('layout.appShell.expandSidebar') : t('layout.appShell.collapseSidebar')"
+        @click="emit('toggleCollapse')"
       >
-        <span class="app-sidebar__back-icon-wrap" aria-hidden="true">
-          <svg viewBox="0 0 24 24" class="app-sidebar__back-icon">
+        <span class="app-sidebar__collapse-icon-wrap" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="app-sidebar__collapse-icon" :class="{ 'app-sidebar__collapse-icon--collapsed': collapsed }">
             <path
               fill="currentColor"
-              d="M10.78 4.97a.75.75 0 0 1 0 1.06L5.81 11h13.44a.75.75 0 0 1 0 1.5H5.81l4.97 4.97a.75.75 0 1 1-1.06 1.06l-6.25-6.25a.75.75 0 0 1 0-1.06l6.25-6.25a.75.75 0 0 1 1.06 0"
+              d="M14.71 6.71a.996.996 0 000-1.41L13.3 3.88a.996.996 0 00-1.41 0L8.29 7.46a.996.996 0 000 1.41l3.59 3.59-3.59 3.59a.996.996 0 000 1.41l1.41 1.41a.996.996 0 001.41 0l4.59-4.59a.996.996 0 000-1.41L14.71 6.71z"
             />
           </svg>
         </span>
-        <span>{{ t("common.backToHome") }}</span>
       </button>
+    </div>
 
-      <button
-        v-for="item in featuredToolsNav"
-        :key="item.id"
-        type="button"
-        class="app-sidebar__link app-sidebar__link--tool"
-        :class="{ 'app-sidebar__link--active': isFeaturedToolActive(item) }"
-        @click="onFeaturedClick(item)"
-      >
-        <img :src="HOME_ASSETS[item.iconKey]" alt="" class="app-sidebar__tool-icon" />
-        <span class="app-sidebar__tool-label">{{ t(item.titleKey) }}</span>
-      </button>
-    </nav>
+    <div id="app-sidebar-nav" class="app-sidebar__regions">
+      <nav class="app-sidebar__nav app-sidebar__nav--primary" :aria-label="t('layout.appShell.primaryNavAria')">
+        <button
+          type="button"
+          class="app-sidebar__link app-sidebar__link--home"
+          :aria-label="t('common.backToHome')"
+          @click="goHome"
+        >
+          <span class="app-sidebar__back-icon-wrap" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="app-sidebar__back-icon">
+              <path
+                fill="currentColor"
+                d="M10.78 4.97a.75.75 0 0 1 0 1.06L5.81 11h13.44a.75.75 0 0 1 0 1.5H5.81l4.97 4.97a.75.75 0 1 1-1.06 1.06l-6.25-6.25a.75.75 0 0 1 0-1.06l6.25-6.25a.75.75 0 0 1 1.06 0"
+              />
+            </svg>
+          </span>
+          <span class="app-sidebar__label-text">{{ t("common.backToHome") }}</span>
+        </button>
 
-    <div class="app-sidebar__spacer" />
+        <button
+          v-for="item in featuredToolsNav"
+          :key="item.id"
+          type="button"
+          class="app-sidebar__link app-sidebar__link--tool"
+          :class="{ 'app-sidebar__link--active': isFeaturedToolActive(item) }"
+          @click="onFeaturedClick(item)"
+        >
+          <img :src="HOME_ASSETS[item.iconKey]" alt="" class="app-sidebar__tool-icon" />
+          <span class="app-sidebar__tool-label app-sidebar__label-text">{{ t(item.titleKey) }}</span>
+        </button>
+      </nav>
 
-    <nav class="app-sidebar__nav app-sidebar__nav--secondary" :aria-label="t('layout.appShell.secondaryNavAria')">
-      <button
-        v-for="item in APP_NAV_SECONDARY_ITEMS"
-        :key="item.id"
-        type="button"
-        class="app-sidebar__link"
-        :class="{ 'app-sidebar__link--active': navSecondaryActive(item) }"
-        @click="onSecondaryClick(item)"
-      >
-        {{ t(item.labelKey) }}
-      </button>
-    </nav>
+      <div class="app-sidebar__spacer" />
+
+      <nav class="app-sidebar__nav app-sidebar__nav--secondary" :aria-label="t('layout.appShell.secondaryNavAria')">
+        <button
+          v-for="item in APP_NAV_SECONDARY_ITEMS"
+          :key="item.id"
+          type="button"
+          class="app-sidebar__link app-sidebar__link--secondary"
+          :class="{
+            'app-sidebar__link--active': navSecondaryActive(item),
+            'app-sidebar__link--membership-active': item.id === 'membership' && navSecondaryActive(item)
+          }"
+          :title="
+            collapsed && item.subtitleKey ? `${t(item.labelKey)} — ${t(item.subtitleKey)}` : undefined
+          "
+          :aria-label="
+            collapsed && item.subtitleKey ? `${t(item.labelKey)}. ${t(item.subtitleKey)}` : undefined
+          "
+          @click="onSecondaryClick(item)"
+        >
+          <span class="app-sidebar__sec-icon-wrap" aria-hidden="true">
+            <Crown v-if="item.id === 'membership'" :size="18" :stroke-width="2" class="app-sidebar__sec-lucide" />
+            <svg v-else-if="item.id === 'history'" viewBox="0 0 24 24" class="app-sidebar__sec-icon">
+              <path
+                fill="currentColor"
+                d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm.5-8H11V7h2v7l4.3 2.6-.9 1.5L12.5 12z"
+              />
+            </svg>
+            <svg v-else viewBox="0 0 24 24" class="app-sidebar__sec-icon">
+              <path
+                fill="currentColor"
+                d="M3 17v2h6v-2H3zm0-6v2h10v-2H3zm0-6v2h14V5H3zm16 14h-2v-4h2v4zm0-6h-2v-4h2v4zm0-6h-2V3h2v4z"
+              />
+            </svg>
+          </span>
+          <span class="app-sidebar__sec-col">
+            <span class="app-sidebar__sec-label app-sidebar__label-text">{{ t(item.labelKey) }}</span>
+            <span v-if="item.subtitleKey" class="app-sidebar__sec-sub app-sidebar__label-text">{{
+              t(item.subtitleKey)
+            }}</span>
+          </span>
+        </button>
+      </nav>
+    </div>
   </aside>
 </template>
 
 <style scoped>
 .app-sidebar {
-  width: 220px;
+  --app-sidebar-width-expanded: 220px;
+  --app-sidebar-width-collapsed: 60px;
+  width: var(--app-sidebar-width-expanded);
   flex-shrink: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 10px 10px 10px;
+  padding: 8px 10px 10px;
   border-right: 1px solid #e5e7eb;
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   box-sizing: border-box;
+  transition:
+    width 0.22s cubic-bezier(0.33, 1, 0.68, 1),
+    padding 0.22s cubic-bezier(0.33, 1, 0.68, 1);
+}
+.app-sidebar--collapsed {
+  width: var(--app-sidebar-width-collapsed);
+  padding: 8px 6px 10px;
+}
+.app-sidebar__toolbar {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+.app-sidebar--collapsed .app-sidebar__toolbar {
+  justify-content: center;
+}
+.app-sidebar__collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease-out,
+    color 0.18s ease-out,
+    transform 0.22s cubic-bezier(0.33, 1, 0.68, 1);
+}
+.app-sidebar__collapse-btn:hover {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+.app-sidebar__collapse-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+.app-sidebar__collapse-btn:active {
+  transform: scale(0.94);
+}
+.app-sidebar__collapse-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+.app-sidebar__collapse-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  transition: transform 0.22s cubic-bezier(0.33, 1, 0.68, 1);
+}
+.app-sidebar__collapse-icon--collapsed {
+  transform: rotate(180deg);
+}
+.app-sidebar__regions {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .app-sidebar__nav {
   display: flex;
@@ -168,7 +299,10 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
   text-align: left;
   padding: 8px 10px;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    padding 0.22s cubic-bezier(0.33, 1, 0.68, 1);
 }
 .app-sidebar__link--home {
   display: flex;
@@ -194,6 +328,65 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
   align-items: center;
   gap: 8px;
 }
+.app-sidebar__link--secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.app-sidebar__sec-col {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.app-sidebar__sec-sub {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.app-sidebar__sec-lucide {
+  display: block;
+  color: inherit;
+}
+.app-sidebar__link--membership-active {
+  position: relative;
+  padding-left: 12px;
+  background: rgba(59, 130, 246, 0.12) !important;
+}
+.app-sidebar__link--membership-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: #3b82f6;
+}
+.app-sidebar__link--membership-active .app-sidebar__sec-sub {
+  color: #1e40af;
+}
+.app-sidebar__sec-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  color: #475569;
+}
+.app-sidebar__sec-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
 .app-sidebar__tool-icon {
   width: 20px;
   height: 20px;
@@ -204,17 +397,50 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
   min-width: 0;
   flex: 1;
 }
+.app-sidebar__sec-label {
+  min-width: 0;
+  flex: 1;
+}
+.app-sidebar__label-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    opacity 0.2s cubic-bezier(0.33, 1, 0.68, 1),
+    max-width 0.22s cubic-bezier(0.33, 1, 0.68, 1);
+  max-width: 200px;
+  opacity: 1;
+}
+.app-sidebar--collapsed .app-sidebar__label-text,
+.app-sidebar--collapsed .app-sidebar__sec-label {
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.app-sidebar--collapsed .app-sidebar__link--home,
+.app-sidebar--collapsed .app-sidebar__link--tool,
+.app-sidebar--collapsed .app-sidebar__link--secondary {
+  justify-content: center;
+  gap: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+  min-height: 40px;
+}
 .app-sidebar__link:hover {
   background: rgba(37, 99, 235, 0.08);
   color: #1d4ed8;
 }
-.app-sidebar__link:hover .app-sidebar__back-icon-wrap {
+.app-sidebar__link:hover .app-sidebar__back-icon-wrap,
+.app-sidebar__link:hover .app-sidebar__sec-icon-wrap {
   color: #1d4ed8;
 }
 .app-sidebar__link--active {
   background: rgba(37, 99, 235, 0.12);
   color: #1d4ed8;
   font-weight: 600;
+}
+.app-sidebar__link--active .app-sidebar__sec-icon-wrap {
+  color: #1d4ed8;
 }
 .app-sidebar__link:focus-visible {
   outline: 2px solid #2563eb;
@@ -225,5 +451,21 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
   font-size: 11px;
   color: #94a3b8;
   flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar,
+  .app-sidebar__link,
+  .app-sidebar__collapse-btn,
+  .app-sidebar__collapse-icon,
+  .app-sidebar__label-text {
+    transition-duration: 0.01ms !important;
+  }
+  .app-sidebar__collapse-icon--collapsed {
+    transform: none;
+  }
+  .app-sidebar__collapse-btn:active {
+    transform: none;
+  }
 }
 </style>

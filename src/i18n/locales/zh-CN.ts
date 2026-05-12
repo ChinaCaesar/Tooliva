@@ -40,25 +40,26 @@ export const zhCN = {
       minimizeAria: "最小化窗口",
       maximizeAria: "最大化或还原窗口",
       closeAria: "关闭窗口",
+      collapseSidebar: "收起侧栏",
+      expandSidebar: "展开侧栏",
       nav: {
         backToPrevious: "返回上一级",
         home: "首页",
         allTools: "全部工具",
         categoryImage: "图片工具",
         categoryVideo: "视频工具",
-        categoryScreen: "录屏工具",
         categoryAudio: "音频工具",
         categoryCopy: "文案工具",
         categoryFile: "文件工具",
         categoryEfficiency: "效率工具",
         moreTools: "更多工具",
         membership: "会员中心",
+        membershipSubtitle: "尊享全部高级功能",
         history: "历史记录",
         settings: "设置"
       },
       placeholders: {
         allTools: "全部工具列表将在后续版本提供。",
-        screenRecord: "录屏工具尚未接入，敬请期待。",
         audio: "音频工具尚未接入，敬请期待。",
         copywriting: "文案工具尚未接入，敬请期待。",
         file: "文件工具尚未接入，敬请期待。",
@@ -85,7 +86,7 @@ export const zhCN = {
       topBar: {
         appName: "工具箱",
         tagline: "自媒体创作好帮手",
-        searchPlaceholder: "搜索工具（例如：图片压缩、视频转换）",
+        searchPlaceholder: "搜索工具（例如：图片压缩、高清放大）",
         searchShortcut: "Ctrl K",
         searchShortcutMac: "⌘ K",
         memberCta: "开通会员",
@@ -145,13 +146,12 @@ export const zhCN = {
             },
             v090: {
               date: "2026-04-12",
-              summary: "完善图片压缩与视频转换流程。"
+              summary: "完善图片压缩与首页工具入口体验。"
             }
           }
         }
       },
       placeholders: {
-        screenRecord: "录屏工具即将推出，敬请期待。",
         moreTools: "更多工具陆续上架中。",
         viewAllRecent: "完整历史将在任务中心提供。"
       },
@@ -160,24 +160,23 @@ export const zhCN = {
           title: "图片压缩",
           description: "快速无损压缩"
         },
-        videoConvert: {
-          title: "视频格式转换",
-          shortTitle: "视频转换",
-          description: "支持多种格式"
+        removedTool: {
+          shortTitle: "历史记录（已下线工具）"
         },
         imageUpscale: {
           title: "图片高清放大",
           shortTitle: "图片放大",
-          description: "AI智能增强"
+          description: "本地超分辨率能力规划中，当前可从首页进入查看说明。"
         },
         imageWatermark: {
           title: "图片加水印",
           shortTitle: "图片水印",
           description: "批量添加文字或 Logo 水印"
         },
-        screenRecord: {
-          title: "屏幕录制",
-          description: "高清流畅，一键导出"
+        imageWatermarkRemoval: {
+          title: "图片去水印",
+          shortTitle: "去水印",
+          description: "识别并弱化图片中的水印区域（规划中）"
         },
         moreTools: {
           title: "探索更多",
@@ -203,8 +202,8 @@ export const zhCN = {
         justNow: "刚刚",
         usedJustNow: "刚刚使用",
         usedYesterday: "昨天",
-        emptyTitle: "暂无使用记录",
-        emptyTime: "等待首次使用"
+        emptyStateTitle: "还没有最近使用记录",
+        emptyStateHint: "在下方选择任意工具处理文件后，这里会显示你最近用过的工具。所有处理均在本地完成。"
       },
       quickActions: {
         history: "历史记录",
@@ -407,139 +406,201 @@ export const zhCN = {
     },
     membership: {
       title: "会员中心",
-      description: "后续可接入授权策略和会员能力。"
-    },
-    videoConvert: {
-      title: "视频格式转换",
-      searchPlaceholder: "搜索转换记录...",
-      upload: {
-        title: "上传Webm格式视频文件",
-        dropTitle: "拖拽视频文件到这里或点击上传",
-        dropDesc: "最大支持2GB，建议使用1080p及以下分辨率",
-        button: "选择文件"
+      description: "后续可接入授权策略和会员能力。",
+      backToHome: "返回首页",
+      hero: {
+        title: "会员中心",
+        subtitle: "开通会员，尊享全部高级功能",
+        benefit1: "无限制使用全部工具",
+        benefit2: "批量处理更高效",
+        benefit3: "去除所有工具广告",
+        benefit4: "专属客服优先支持",
+        benefit5: "新功能优先体验",
+        benefit6: "更多会员专属权益",
+        visualAlt: "会员权益主题插画占位：皇冠与创作工具元素"
       },
-      outputFormatTitle: "选择输出格式",
-      fileListTitle: "转换文件列表",
-      saveAs: "另存为",
-      saveAsTarget: "另存为目标",
-      retry: "重新转换",
-      cancel: "取消",
-      remove: "移除",
-      converting: "转换中...",
-      outputFormat: {
-        groupLabel: "输出格式选择",
-        mp4: "H.264编码",
-        movAlpha: "ProRes 4444（含 Alpha 透明通道）",
-        avi: "通用格式",
-        mov: "QuickTime",
-        mkv: "高清容器",
-        wmv: "Windows",
-        flv: "流媒体"
+      userCard: {
+        notLoggedIn: "未登录",
+        syncHint: "登录后同步会员权益",
+        loginCta: "立即登录",
+        loginPlaceholderTitle: "提示",
+        loginPlaceholder: "登录与账号体系将在后续版本接入，当前为示意。"
       },
-      outputMode: {
-        groupLabel: "输出目录选择",
-        sameAsInput: "输出到源文件目录",
-        sameAsInputDesc: "转换完成后，文件会保存到每个原始视频所在的目录。",
-        globalDirectory: "输出到统一目录",
-        globalDirectoryDesc: "将全部转换结果集中保存到一个指定目录，便于管理。",
-        chooseDirectory: "选择目录",
-        notSelected: "未选择输出目录"
+      plans: {
+        sectionTitle: "选择会员套餐",
+        badgeRecommended: "推荐",
+        badgeSave16: "省16%",
+        badgeSave46: "省46%",
+        badgeValue: "超值",
+        monthly: "月度会员",
+        quarterly: "季度会员",
+        annual: "年度会员",
+        lifetime: "永久会员",
+        monthlySub: "适合短期使用",
+        quarterlySub: "适合季度使用",
+        annualSub: "适合长期使用",
+        lifetimeSub: "一次购买，永久使用",
+        priceMonthly: "¥ 19.90",
+        priceQuarterly: "¥ 49.90",
+        priceAnnual: "¥ 129.90",
+        priceLifetime: "¥ 299.00",
+        cycleMonth: "/ 月",
+        cycleQuarter: "/ 季度",
+        cycleYear: "/ 年",
+        monthlySecondary: "¥19.90 每月自动续费",
+        quarterlySecondary: "¥16.63 / 月",
+        annualSecondary: "¥10.83 / 月",
+        lifetimeSecondary: "无需续费，一次买断",
+        cta: "立即开通",
+        subscribePlaceholderTitle: "提示",
+        subscribePlaceholder: "您选择的「{plan}」：支付与订单尚未接入，当前不会扣款。后续版本将支持安全支付。"
       },
-      status: {
-        idle: "待转换",
-        running: "转换中",
-        completed: "已完成",
-        failed: "失败",
-        cancelled: "已取消"
+      compare: {
+        title: "会员权益对比",
+        colFeature: "功能特权",
+        colFree: "免费版",
+        colMember: "会员版",
+        colLifetime: "终身会员",
+        rows: {
+          unlimited: "不限次数使用",
+          batch: "批量处理",
+          ads: "免广告",
+          support: "优先客服",
+          early: "抢先体验",
+          exclusive: "专属功能"
+        },
+        free: {
+          limited: "每日有限额度",
+          partial: "单次少量",
+          withAds: "含推广位",
+          standard: "工单排队"
+        },
+        member: {
+          partialExclusive: "部分开放"
+        },
+        dash: "—",
+        included: "包含该项权益"
       },
-      result: {
-        title: "执行结果",
-        total: "总数",
-        success: "成功",
-        failed: "失败",
-        elapsed: "总用时"
+      aside: {
+        ariaLabel: "会员中心补充说明",
+        paymentTitle: "支付安全",
+        paymentBody: "加密支付，多重校验，保障您的交易安全。",
+        faqTitle: "常见问题",
+        faqViewAll: "查看全部问题",
+        faqExpand: "展开说明",
+        contactTitle: "联系我们",
+        contactHours: "客服时间：工作日 9:00–18:00",
+        contactEmailLabel: "邮箱：",
+        contactEmail: "support@toolbox.com"
       },
-      convertSettingsTitle: "转换参数设置",
-      convertSettings: {
-        resolution: "分辨率",
-        bitrate: "视频码率",
-        frameRate: "帧率",
-        audioQuality: "音频质量",
-        bitrateValue: "8000 kbps",
-        bitrateLow: "低",
-        bitrateHigh: "高",
-        frameRateValue: "30 fps",
-        audioQualityValue: "192 kbps",
-        resolution4k: "4K (3840x2160)",
-        resolution1080: "1080p (1920x1080)",
-        resolution720: "720p (1280x720)",
-        resolution480: "480p (854x480)"
+      faq: {
+        q1: {
+          q: "开通后是否自动续费？",
+          a: "可在后续版本中在账户中心管理续费与发票；当前页面为展示示意。"
+        },
+        q2: {
+          q: "支持哪些支付方式？",
+          a: "计划支持微信、支付宝等主流渠道，以实际上线为准。"
+        },
+        q3: {
+          q: "会员可以在几台设备上使用？",
+          a: "具体设备数与授权策略将在账号体系上线后公布。"
+        },
+        q4: {
+          q: "购买后可以退款吗？",
+          a: "退款规则将遵循支付渠道与平台政策，请以订单页说明为准。"
+        }
       },
-      startConvert: "开始转换",
-      quickPreset: {
-        title: "快速设置",
-        high: { title: "高质量", desc: "最佳画质" },
-        standard: { title: "标准质量", desc: "平衡选择" },
-        small: { title: "小文件", desc: "节省空间" }
-      },
-      history: {
-        title: "转换历史",
-        viewAll: "查看全部"
-      },
-      tips: {
-        title: "转换小贴士",
-        item1: "MP4格式兼容性最好",
-        item2: "1080p适合大多数场景",
-        item3: "码率越高画质越好",
-        item4: "建议保持原始帧率"
-      },
-      progress: {
-        title: "转换进度",
-        status: "处理中...",
-        done: "65% 完成",
-        remaining: "预计剩余 2分15秒",
-        fileName: "sample_video.avi → sample_video.mp4",
-        speed: "转换速度: 1.2x",
-        time: "已用时间: 3分45秒",
-        size: "文件大小: 245MB → 预估 180MB"
-      },
-      footer: {
-        left: "© 2024 工具箱",
-        version: "版本 v1.0.0",
-        formatGuide: "格式说明",
-        advanced: "高级设置"
-      }
+      faqViewAllPlaceholder: "完整常见问题列表将在后续版本提供，当前为占位提示。"
     },
     imageCompress: {
       title: "图片压缩",
       description: "支持批量导入、质量调节与格式输出，默认输出到源目录下的 /compress/ 文件夹。",
       fileListTitle: "压缩任务列表",
       clearList: "清空列表",
-      remove: "移除",
+      deleteSelected: "删除选中",
+      remove: "删除",
       start: "开始压缩",
       processing: "压缩处理中...",
+      taskRunning: "图片压缩中",
+      taskDone: "处理完成",
       listOverflowTip: "当前仅展示前 200 条，剩余 {count} 条将在后台继续处理。",
       source: {
         title: "输入来源",
         pickImages: "添加图片",
-        pickDirectory: "选择目录夹",
+        pickDirectory: "选择文件夹",
+        dragHint: "支持将图片或文件夹直接拖入下方区域。",
         directoryNotSelected: "未选择目录，支持直接拖入图片"
       },
       output: {
         title: "输出目录",
         pickDirectory: "指定输出目录",
+        hint: "默认写入每个文件源目录下的 /compress/ 文件夹。",
         defaultDirectory: "默认输出到每个文件源目录下的 /compress/ 文件夹"
       },
+      footer: {
+        saveTo: "保存至：",
+        changeOutput: "更改",
+        customOutput: "已指定输出目录",
+        defaultOutput: "各文件源目录 /compress/"
+      },
       settings: {
-        title: "压缩参数",
+        title: "压缩设置",
         quality: "压缩质量",
+        qualityLow: "体积小",
+        qualityHigh: "质量高",
         format: "输出格式",
         tip: "质量越高画质越好但体积更大；建议先用 JPG 80 或 WEBP 80。"
       },
+      advanced: {
+        title: "高级设置",
+        resolution: "分辨率调整",
+        resolutionOriginal: "保持原始尺寸",
+        resolutionBounded: "限制最大输出像素",
+        maxWidth: "最大宽度",
+        maxHeight: "最大高度",
+        noLimit: "不限制",
+        sharpen: "图片锐化",
+        sharpenHint: "轻微锐化可在压缩后提升观感清晰度。",
+        exif: "保留 EXIF 信息",
+        exifHint: "保留拍摄时间、设备等信息。",
+        notWired: "当前版本后端未开放此选项，控件已禁用。",
+        reset: "重置设置"
+      },
       upload: {
-        dropTitle: "拖拽图片到此处，或点击添加",
-        dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，自动去重并串行处理",
-        button: "添加图片"
+        dropTitle: "拖拽图片到此处，或点击空白区域添加",
+        dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，多格式可混合批量处理。",
+        formatsLine: "PNG / JPG / JPEG / WEBP / BMP，多格式可混合批量处理",
+        button: "添加图片",
+        addFolder: "添加文件夹"
+      },
+      empty: {
+        title: "暂无图片",
+        desc: "添加图片后即可开始压缩。"
+      },
+      table: {
+        selectAll: "全选当前列表",
+        selectRow: "选择该行",
+        fileName: "文件名",
+        originalSize: "原始大小",
+        resolution: "分辨率",
+        compressedSize: "压缩后大小",
+        status: "状态",
+        operation: "操作",
+        progress: "进度",
+        dash: "—"
+      },
+      hints: {
+        dragNoPath: "拖拽未获取到有效本地路径，请使用「添加图片」或桌面端窗口内拖拽。",
+        unsupportedFormat: "仅支持 PNG / JPG / JPEG / WEBP / BMP 格式",
+        duplicateFiles: "所选文件已在任务列表中"
+      },
+      errors: {
+        pickImagesFailed: "选择图片失败：{message}",
+        pickImagesDialog: "无法打开图片选择器",
+        scanDirectoryFailed: "扫描目录失败：{message}",
+        scanDirectory: "扫描目录失败",
+        genericFailed: "处理失败"
       },
       status: {
         idle: "待处理",
@@ -559,46 +620,67 @@ export const zhCN = {
     },
     imageUpscale: {
       title: "图片高清放大",
-      description: "支持单图、拖拽与目录批量导入，默认输出到源目录下的 /compress/ 文件夹。",
-      fileListTitle: "处理任务列表",
-      clearList: "清空列表",
-      remove: "移除",
-      start: "开始放大",
-      processing: "放大处理中...",
-      listOverflowTip: "当前仅展示前 200 条，剩余 {count} 条将在后台继续处理。",
-      source: {
-        title: "输入来源",
-        pickImages: "添加图片",
-        pickDirectory: "选择目录夹",
-        directoryNotSelected: "未选择目录，支持直接拖入图片"
+      description: "本工具将提供本地可离线使用的图片清晰度提升能力；当前版本尚未开放处理入口。",
+      comingSoon: "功能开发中，后续版本将接入模型与批量任务。"
+    },
+    imageWatermarkRemoval: {
+      title: "图片去水印",
+      description: "本工具将支持在本地识别并处理图片中的水印区域；当前版本尚未开放处理入口。",
+      comingSoon: "功能开发中，后续版本将接入算法与批量任务。"
+    },
+    login: {
+      chromeAria: "登录页顶部操作区",
+      brandName: "工具箱",
+      brandTagline: "自媒体创作好帮手",
+      heroTitlePrefix: "高效创作，",
+      heroTitleAccent: "轻松出彩",
+      heroSubtitle: "一站式自媒体工具箱，助力创作者更高效",
+      feature1Title: "本地处理",
+      feature1Desc: "文件不上传服务器",
+      feature2Title: "保护隐私",
+      feature2Desc: "你的数据只在本地",
+      feature3Title: "高效稳定",
+      feature3Desc: "极速处理，性能强劲",
+      cardTitle: "欢迎登录工具箱",
+      cardSubtitle: "登录后同步会员权益，解锁更多功能",
+      tabsAria: "登录方式",
+      tabSms: "验证码登录",
+      tabPassword: "密码登录",
+      phoneLabel: "手机号",
+      phonePlaceholder: "请输入手机号",
+      codeLabel: "验证码",
+      codePlaceholder: "请输入验证码",
+      passwordLabel: "密码",
+      passwordPlaceholder: "请输入密码",
+      getCode: "获取验证码",
+      agreePrefix: "我已阅读并同意",
+      terms: "用户协议",
+      agreeMid: "和",
+      privacy: "隐私政策",
+      agreeHint: "未勾选协议时无法点击「立即登录」。",
+      submit: "立即登录",
+      otherMethods: "其他登录方式",
+      wechatLogin: "微信登录",
+      noAccount: "还没有账号？",
+      registerNow: "立即注册",
+      footerSafe: "所有工具均在本地运行，安全可靠",
+      errors: {
+        phoneRequired: "请输入手机号",
+        phoneInvalid: "请输入以 1 开头的 11 位中国大陆手机号",
+        codeRequired: "请输入验证码",
+        passwordRequired: "请输入密码"
       },
-      output: {
-        title: "输出目录",
-        pickDirectory: "指定输出目录",
-        defaultDirectory: "默认输出到每个文件源目录下的 /compress/ 文件夹"
-      },
-      scale: {
-        title: "放大倍数",
-        tip: "支持 2x / 4x。若放大后尺寸超过系统上限，会在任务列表中提示。"
-      },
-      upload: {
-        dropTitle: "拖拽图片到此处，或点击添加",
-        dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，自动去重并串行处理",
-        button: "添加图片"
-      },
-      status: {
-        idle: "待处理",
-        running: "处理中",
-        completed: "已完成",
-        failed: "失败"
-      },
-      result: {
-        title: "执行结果",
-        total: "总数",
-        success: "成功",
-        failed: "失败",
-        elapsed: "总用时"
-      }
+      submitSuccessTitle: "模拟登录成功",
+      submitSuccessMessage: "正在进入首页（未接入真实鉴权，仅前端模拟）。",
+      otpPlaceholderTitle: "获取验证码",
+      otpPlaceholderMessage: "短信验证码能力尚未接入，后续版本将开放。",
+      wechatPlaceholderTitle: "微信登录",
+      wechatPlaceholderMessage: "微信登录尚未接入，敬请期待。",
+      registerPlaceholderTitle: "注册",
+      registerPlaceholderMessage: "注册流程尚未开放，敬请期待。",
+      termsPlaceholderTitle: "用户协议",
+      privacyPlaceholderTitle: "隐私政策",
+      policyPlaceholderMessage: "协议全文将在后续版本提供链接。"
     },
     imageWatermark: {
       title: "图片加水印",
@@ -606,6 +688,29 @@ export const zhCN = {
       fileListTitle: "水印任务列表",
       clearList: "清空列表",
       remove: "移除",
+      list: {
+        title: "图片列表",
+        emptyTitle: "暂无图片",
+        emptyDesc: "添加图片后即可开始批量加水印。",
+        deleteSelected: "删除选中",
+        deleteSelectedHint: "当前版本不支持多选，请逐条移除或使用清空列表",
+        table: {
+          fileName: "文件名",
+          dimensions: "尺寸",
+          fileSize: "大小",
+          fileSizeHint: "文件体积暂未展示；列占位与效果图对齐",
+          watermarkType: "水印类型",
+          preview: "预览",
+          status: "状态",
+          action: "操作"
+        }
+      },
+      bottom: {
+        outputLabel: "输出目录",
+        changeOutput: "更改",
+        namingLabel: "文件命名",
+        namingGoSettings: "去设置修改"
+      },
       start: "开始加水印",
       processing: "水印处理中...",
       listOverflowTip: "当前仅展示前 200 条，剩余 {count} 条将在后台继续处理。",
@@ -622,7 +727,17 @@ export const zhCN = {
         openDirectory: "打开目录"
       },
       settings: {
+        sidebarTitle: "水印设置",
         title: "水印参数",
+        sectionWatermarkType: "水印类型",
+        sectionContent: "水印内容",
+        sectionTypography: "字体与字号",
+        sectionWatermarkImage: "水印图片",
+        sectionAppearance: "透明度",
+        sectionLayout: "位置与边距",
+        fontFamilyLabel: "字体",
+        fontFamilyValue: "思源黑体（默认）",
+        fontFamilyHint: "当前使用应用默认字体渲染",
         mode: "水印模式",
         textMode: "文字水印",
         imageMode: "图片水印",
@@ -635,16 +750,20 @@ export const zhCN = {
         imageFileNotSelected: "未选择水印图片",
         imageScale: "图片缩放比例(%)",
         opacity: "透明度",
-        margin: "边距(px)",
+        margin: "边距",
         rotation: "旋转角度",
         position: "水印位置",
         tip: "首版支持统一参数批量处理。文字水印建议选择浅色，Logo 水印建议使用透明背景 PNG。"
       },
       positions: {
         topLeft: "左上",
+        topCenter: "上中",
         topRight: "右上",
+        middleLeft: "左中",
         center: "居中",
+        middleRight: "右中",
         bottomLeft: "左下",
+        bottomCenter: "下中",
         bottomRight: "右下",
         custom: "自定义"
       },
@@ -685,6 +804,14 @@ export const zhCN = {
     imageResize: {
       name: "图片尺寸调整",
       description: "批量调整图片尺寸。"
+    },
+    imageUpscale: {
+      name: "图片高清放大",
+      description: "规划中：本地清晰度提升，当前无可用处理入口。"
+    },
+    imageWatermarkRemoval: {
+      name: "图片去水印",
+      description: "规划中：本地去水印与修复，当前无可用处理入口。"
     }
   }
 } as const;

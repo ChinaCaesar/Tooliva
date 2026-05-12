@@ -79,6 +79,8 @@ async function handleChangelogViewAll(): Promise<void> {
               :title="t(pageConfig.sections.recentUsage.titleKey)"
               :view-all-label="t(pageConfig.sections.recentUsage.viewAllKey)"
               :items="recentItems"
+              empty-state-title-key="pages.home.recent.emptyStateTitle"
+              empty-state-hint-key="pages.home.recent.emptyStateHint"
               @recent-item-click="handleRecentItemClick"
               @view-all-recent="handlePlaceholder('pages.home.placeholders.viewAllRecent')"
             />

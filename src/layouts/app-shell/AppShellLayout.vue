@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, toRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ROUTE_PATHS } from "@/config/constants";
 import AppSidebar from "@/layouts/app-shell/AppSidebar.vue";
 import AppFooter from "@/layouts/app-shell/AppFooter.vue";
+import { useAppSidebarCollapse } from "@/layouts/app-shell/composables/useAppSidebarCollapse";
 import HomeTopBar from "@/pages/home/components/HomeTopBar.vue";
 import { useHomePageData } from "@/pages/home/composables/useHomePageData";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
@@ -14,11 +15,15 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { topBar, searchToolEntries, pageConfig } = useHomePageData();
+const appSidebarCollapse = useAppSidebarCollapse();
+const sidebarCollapsed = toRef(appSidebarCollapse, "collapsed");
 
-/** 首页不展示侧栏，仅设置、会员等壳内子页展示 */
+/** 首页不展示侧栏；其余壳内子页默认展示，除非路由 meta.hideAppSidebar 为 true */
 const showAppSidebar = computed(() => {
   const p = route.path;
-  return p !== ROUTE_PATHS.home && p !== "/" && p !== "";
+  if (p === ROUTE_PATHS.home || p === "/" || p === "") return false;
+  if (route.meta.hideAppSidebar === true) return false;
+  return true;
 });
 
 const isApplePlatform = computed(() => /Mac|iPhone|iPad|iPod/i.test(navigator.platform));
@@ -71,7 +76,11 @@ function goMembership(): void {
     />
 
     <div class="app-shell__body">
-      <AppSidebar v-if="showAppSidebar" />
+      <AppSidebar
+        v-if="showAppSidebar"
+        :collapsed="sidebarCollapsed"
+        @toggle-collapse="appSidebarCollapse.toggle"
+      />
       <main class="app-shell__main" :class="{ 'app-shell__main--full': !showAppSidebar }">
         <div class="app-shell__router">
           <RouterView v-slot="{ Component }">

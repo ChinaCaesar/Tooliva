@@ -47,9 +47,10 @@ export const DEFAULT_SETTINGS: UserSettings = {
 
 export const ROUTE_PATHS = {
   home: "/",
-  videoConvert: "/video-convert",
+  login: "/login",
   imageCompress: "/image-compress",
   imageUpscale: "/image-upscale",
+  imageWatermarkRemoval: "/image-watermark-removal",
   imageWatermark: "/image-watermark",
   tools: "/tools",
   favorites: "/favorites",

@@ -3,10 +3,8 @@ import search from "../../../../resources/home/search.svg";
 import avatar from "../../../../resources/home/avatar.svg";
 import settings from "../../../../resources/home/settings.svg";
 import toolImageCompress from "../../../../resources/home/tool-image-compress.svg";
-import toolVideoConvert from "../../../../resources/home/tool-video-convert.svg";
 import toolImageUpscale from "../../../../resources/home/tool-image-upscale.svg";
 import recentImage from "../../../../resources/home/recent-image.svg";
-import recentVideo from "../../../../resources/home/recent-video.svg";
 import recentUpscale from "../../../../resources/home/recent-upscale.svg";
 import quickHistory from "../../../../resources/home/quick-history.svg";
 import quickFavorites from "../../../../resources/home/quick-favorites.svg";
@@ -33,10 +31,8 @@ export const HOME_ASSETS: Record<HomeAssetKey, string> = {
   avatar,
   settings,
   toolImageCompress,
-  toolVideoConvert,
   toolImageUpscale,
   recentImage,
-  recentVideo,
   recentUpscale,
   quickHistory,
   quickFavorites,
@@ -49,8 +45,6 @@ export const HOME_ASSETS: Record<HomeAssetKey, string> = {
   pubSettings: homePublicResourceUrl("settings.png"),
   pubCrown: homePublicResourceUrl("crown_top.png"),
   pubIconCompress: homePublicResourceUrl("icon_image_compress.png"),
-  pubIconVideo: homePublicResourceUrl("icon_video_convert.png"),
-  pubIconScreenRecord: homePublicResourceUrl("icon_screen_record.png"),
   pubIconWatermark: homePublicResourceUrl("icon_image_watermark.png"),
   pubIconPlusMore: homePublicResourceUrl("icon_plus_more.png"),
   pubShield: homePublicResourceUrl("shield.png"),

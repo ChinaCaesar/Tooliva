@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { open } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
@@ -12,9 +12,17 @@ import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotificatio
 
 type CompressStatus = "idle" | "running" | "completed" | "failed";
 type CompressFormat = "jpg" | "png" | "webp";
+/** 分辨率策略：保持原始像素上限，或由最大宽高推导输出像素上限 */
+export type CompressResolutionPreset = "original" | "bounded";
 const SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
 const SAVED_SECONDS_PER_USAGE = 90;
 const MAX_VISIBLE_ITEMS = 200;
+const DEFAULT_QUALITY = 80;
+const DEFAULT_FORMAT: CompressFormat = "jpg";
+const DEFAULT_MAX_OUTPUT_PIXELS_CAP = 60_000_000;
+const DEFAULT_MAX_MEMORY_MB = 768;
+const DEFAULT_TILE_SIZE = 1024;
+const DEFAULT_TILE_OVERLAP = 16;
 
 interface CompressResultSummary {
   total: number;
@@ -94,6 +102,29 @@ function formatCompressionRatio(ratio: number): string {
 }
 
 /**
+ * 根据分辨率策略与最大宽高计算传给后端的像素上限。
+ */
+function computeMaxOutputPixels(
+  preset: CompressResolutionPreset,
+  maxW: number | null,
+  maxH: number | null
+): number {
+  if (preset === "original") {
+    return DEFAULT_MAX_OUTPUT_PIXELS_CAP;
+  }
+  if (maxW == null && maxH == null) {
+    return DEFAULT_MAX_OUTPUT_PIXELS_CAP;
+  }
+  if (maxW != null && maxH != null) {
+    return Math.min(DEFAULT_MAX_OUTPUT_PIXELS_CAP, Math.max(1, maxW * maxH));
+  }
+  if (maxW != null) {
+    return Math.min(DEFAULT_MAX_OUTPUT_PIXELS_CAP, Math.max(1, maxW * maxW * 2));
+  }
+  return Math.min(DEFAULT_MAX_OUTPUT_PIXELS_CAP, Math.max(1, (maxH as number) * (maxH as number) * 2));
+}
+
+/**
  * 图片压缩页的核心动作：导入、拖拽、串行压缩与结果汇总。
  */
 export function useImageCompressActions() {
@@ -108,19 +139,80 @@ export function useImageCompressActions() {
   const hintMessage = ref("");
   const outputDirectory = ref("");
   const sourceDirectory = ref("");
-  const quality = ref(80);
-  const targetFormat = ref<CompressFormat>("jpg");
+  const quality = ref(DEFAULT_QUALITY);
+  const targetFormat = ref<CompressFormat>(DEFAULT_FORMAT);
+  const resolutionPreset = ref<CompressResolutionPreset>("original");
+  const maxWidthBound = ref<number | null>(null);
+  const maxHeightBound = ref<number | null>(null);
   const resultSummary = ref<CompressResultSummary | null>(null);
+  const selectedIds = shallowRef(new Set<string>());
   let disposeDropListener: UnlistenFn | null = null;
   let disposeCompressProgressListener: UnlistenFn | null = null;
 
   const visibleItems = computed(() => items.value.slice(0, MAX_VISIBLE_ITEMS));
   const hiddenItemCount = computed(() => Math.max(0, items.value.length - visibleItems.value.length));
+  const allVisibleSelected = computed(
+    () => visibleItems.value.length > 0 && visibleItems.value.every((item) => selectedIds.value.has(item.id))
+  );
+  const someVisibleSelected = computed(() => visibleItems.value.some((item) => selectedIds.value.has(item.id)));
+  const selectedCount = computed(() => selectedIds.value.size);
   const canStart = computed(
     () =>
       !isProcessing.value &&
       (sourceDirectory.value.trim().length > 0 || items.value.some((item) => item.status === "idle" || item.status === "failed"))
   );
+
+  function isItemSelected(itemId: string): boolean {
+    return selectedIds.value.has(itemId);
+  }
+
+  function toggleItemSelected(itemId: string): void {
+    if (isProcessing.value) return;
+    const next = new Set(selectedIds.value);
+    if (next.has(itemId)) {
+      next.delete(itemId);
+    } else {
+      next.add(itemId);
+    }
+    selectedIds.value = next;
+  }
+
+  function toggleSelectAllVisible(): void {
+    if (isProcessing.value) return;
+    const visible = visibleItems.value;
+    const next = new Set(selectedIds.value);
+    if (allVisibleSelected.value) {
+      for (const v of visible) {
+        next.delete(v.id);
+      }
+    } else {
+      for (const v of visible) {
+        next.add(v.id);
+      }
+    }
+    selectedIds.value = next;
+  }
+
+  function clearSelection(): void {
+    selectedIds.value = new Set();
+  }
+
+  function removeSelected(): void {
+    if (isProcessing.value) return;
+    if (selectedIds.value.size === 0) return;
+    const drop = selectedIds.value;
+    items.value = items.value.filter((item) => !drop.has(item.id));
+    selectedIds.value = new Set();
+  }
+
+  function resetCompressSettings(): void {
+    quality.value = DEFAULT_QUALITY;
+    targetFormat.value = DEFAULT_FORMAT;
+    resolutionPreset.value = "original";
+    maxWidthBound.value = null;
+    maxHeightBound.value = null;
+    clearSelection();
+  }
 
   /**
    * 打开系统选择器导入图片。
@@ -136,7 +228,9 @@ export function useImageCompressActions() {
       appendImagePaths(imagePaths);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      hintMessage.value = message ? `选择图片失败：${message}` : "无法打开图片选择器";
+      hintMessage.value = message
+        ? t("pages.imageCompress.errors.pickImagesFailed", { message })
+        : t("pages.imageCompress.errors.pickImagesDialog");
     }
   }
 
@@ -173,7 +267,7 @@ export function useImageCompressActions() {
       if (path) imagePaths.push(path);
     }
     if (imagePaths.length === 0) {
-      hintMessage.value = "拖拽未获取到有效本地路径，请点击“添加图片”";
+      hintMessage.value = t("pages.imageCompress.hints.dragNoPath");
       return;
     }
     appendImagePaths(imagePaths);
@@ -218,6 +312,7 @@ export function useImageCompressActions() {
     items.value = [];
     resultSummary.value = null;
     hintMessage.value = "";
+    selectedIds.value = new Set();
   }
 
   /**
@@ -226,6 +321,9 @@ export function useImageCompressActions() {
   function removeItem(itemId: string): void {
     if (isProcessing.value) return;
     items.value = items.value.filter((item) => item.id !== itemId);
+    const next = new Set(selectedIds.value);
+    next.delete(itemId);
+    selectedIds.value = next;
   }
 
   /**
@@ -255,7 +353,7 @@ export function useImageCompressActions() {
         };
         if (event.stage === "failed") {
           progressPatch.status = "failed";
-          progressPatch.error = event.message || "处理失败";
+          progressPatch.error = event.message || t("pages.imageCompress.errors.genericFailed");
         }
         updateItem(event.taskId, progressPatch);
       });
@@ -294,22 +392,23 @@ export function useImageCompressActions() {
   }> {
     const task = taskStore.createTask("image-compress", "image-compress");
     updateItem(current.id, { status: "running", progress: 0, error: undefined });
-    taskStore.updateTaskProgress(task.id, 1, "图片压缩中");
+    taskStore.updateTaskProgress(task.id, 1, t("pages.imageCompress.taskRunning"));
     try {
+      const maxPx = computeMaxOutputPixels(resolutionPreset.value, maxWidthBound.value, maxHeightBound.value);
       const result = await tauriClient.startImageCompress({
         taskId: current.id,
         inputPath: current.inputPath,
         quality: quality.value,
         outputDirectory: outputDirectory.value || undefined,
         targetFormat: targetFormat.value,
-        maxOutputPixels: 60_000_000,
-        maxMemoryMb: 768,
-        tileSize: 1024,
-        tileOverlap: 16
+        maxOutputPixels: maxPx,
+        maxMemoryMb: DEFAULT_MAX_MEMORY_MB,
+        tileSize: DEFAULT_TILE_SIZE,
+        tileOverlap: DEFAULT_TILE_OVERLAP
       });
       applyResult(current.id, result);
       if (result.success) {
-        taskStore.completeTask(task.id, "处理完成");
+        taskStore.completeTask(task.id, t("pages.imageCompress.taskDone"));
         try {
           await tauriClient.recordToolUsage({
             toolKey: "image-compress",
@@ -321,10 +420,10 @@ export function useImageCompressActions() {
         }
         return { inputBytes: result.inputBytes, outputBytes: result.outputBytes, successCount: 1, failedCount: 0 };
       }
-      taskStore.failTask(task.id, result.error || "处理失败");
+      taskStore.failTask(task.id, result.error || t("pages.imageCompress.errors.genericFailed"));
       return { inputBytes: result.inputBytes, outputBytes: result.outputBytes, successCount: 0, failedCount: 1 };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "处理失败";
+      const message = error instanceof Error ? error.message : t("pages.imageCompress.errors.genericFailed");
       updateItem(current.id, { status: "failed", progress: 100, error: message });
       taskStore.failTask(task.id, message);
       return { inputBytes: 0, outputBytes: 0, successCount: 0, failedCount: 1 };
@@ -355,7 +454,7 @@ export function useImageCompressActions() {
       originalBytes: formatBytes(result.inputBytes),
       outputBytes: result.outputBytes > 0 ? formatBytes(result.outputBytes) : undefined,
       compressionRatio: result.outputBytes > 0 ? formatCompressionRatio(result.compressionRatio) : undefined,
-      error: result.error || "处理失败"
+      error: result.error || t("pages.imageCompress.errors.genericFailed")
     });
   }
 
@@ -372,13 +471,13 @@ export function useImageCompressActions() {
       .filter((path) => path.length > 0)
       .filter((path) => SUPPORTED_IMAGE_EXTENSIONS.some((ext) => path.toLowerCase().endsWith(ext)));
     if (normalized.length === 0) {
-      hintMessage.value = "仅支持 PNG/JPG/JPEG/WEBP/BMP 格式";
+      hintMessage.value = t("pages.imageCompress.hints.unsupportedFormat");
       return;
     }
     const existing = new Set(items.value.map((item) => item.inputPath.toLowerCase()));
     const unique = normalized.filter((path) => !existing.has(path.toLowerCase()));
     if (unique.length === 0) {
-      hintMessage.value = "文件已在任务列表中";
+      hintMessage.value = t("pages.imageCompress.hints.duplicateFiles");
       return;
     }
     const newItems: CompressItem[] = unique.map((path) => ({
@@ -413,7 +512,9 @@ export function useImageCompressActions() {
         result.matchedCount === 0 ? t("common.sourceDirectoryNoMatch") : t("common.sourceDirectoryNoNewFiles");
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      hintMessage.value = message ? `扫描目录失败：${message}` : "扫描目录失败";
+      hintMessage.value = message
+        ? t("pages.imageCompress.errors.scanDirectoryFailed", { message })
+        : t("pages.imageCompress.errors.scanDirectory");
     }
   }
 
@@ -457,17 +558,30 @@ export function useImageCompressActions() {
     sourceDirectory,
     quality,
     targetFormat,
+    resolutionPreset,
+    maxWidthBound,
+    maxHeightBound,
     resultSummary,
     canStart,
+    allVisibleSelected,
+    someVisibleSelected,
+    selectedCount,
     formatElapsed,
     formatBytes,
     formatCompressionRatio,
     pickImages,
     pickSourceDirectory,
+    pickAddFolder: pickSourceDirectory,
     pickOutputDirectory,
     startCompress,
     clearItems,
     removeItem,
+    removeSelected,
+    toggleItemSelected,
+    toggleSelectAllVisible,
+    clearSelection,
+    isItemSelected,
+    resetCompressSettings,
     handleDrop,
     onDragOver,
     onDragLeave

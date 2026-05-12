@@ -14,8 +14,8 @@
       {
         "label": "main",
         "title": "Desktop Toolbox",
-        "width": 1200,
-        "height": 720,
+        "width": 1100,
+        "height": 900,
         "resizable": true
       }
     ],

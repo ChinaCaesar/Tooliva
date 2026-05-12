@@ -12,6 +12,7 @@
     "tauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:Path = \\\"$env:USERPROFILE\\\\.cargo\\\\bin;$env:Path\\\"; tauri build\""
   },
   "dependencies": {
+    "@lucide/vue": "^1.14.0",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "pinia": "^2.1.7",

@@ -40,25 +40,26 @@ export const enUS = {
       minimizeAria: "Minimize window",
       maximizeAria: "Maximize or restore window",
       closeAria: "Close window",
+      collapseSidebar: "Collapse sidebar",
+      expandSidebar: "Expand sidebar",
       nav: {
         backToPrevious: "Go back",
         home: "Home",
         allTools: "All tools",
         categoryImage: "Image",
         categoryVideo: "Video",
-        categoryScreen: "Screen recording",
         categoryAudio: "Audio",
         categoryCopy: "Copywriting",
         categoryFile: "Files",
         categoryEfficiency: "Productivity",
         moreTools: "More tools",
         membership: "Membership",
+        membershipSubtitle: "Unlock all premium features",
         history: "History",
         settings: "Settings"
       },
       placeholders: {
         allTools: "The full tools directory will arrive in a future release.",
-        screenRecord: "Screen recording is not available yet.",
         audio: "Audio tools are not available yet.",
         copywriting: "Copywriting tools are not available yet.",
         file: "File utilities are not available yet.",
@@ -145,13 +146,12 @@ export const enUS = {
             },
             v090: {
               date: "2026-04-12",
-              summary: "Improved image compression and video conversion flows."
+              summary: "Improved image compression and home entry experience."
             }
           }
         }
       },
       placeholders: {
-        screenRecord: "Screen recording is coming soon.",
         moreTools: "More tools are on the way.",
         viewAllRecent: "Full history will live in the task center."
       },
@@ -160,24 +160,23 @@ export const enUS = {
           title: "Image Compression",
           description: "Fast and lossless compression"
         },
-        videoConvert: {
-          title: "Video Format Convert",
-          shortTitle: "Video Convert",
-          description: "Support multiple formats"
+        removedTool: {
+          shortTitle: "History (removed tool)"
         },
         imageUpscale: {
           title: "Image Upscale",
           shortTitle: "Image Enhance",
-          description: "AI-powered enhancement"
+          description: "Local upscaling is planned; you can open this page for the current notice."
         },
         imageWatermark: {
           title: "Image Watermark",
           shortTitle: "Watermark",
           description: "Batch add text or logo watermark"
         },
-        screenRecord: {
-          title: "Screen recording",
-          description: "Smooth capture with one-click export"
+        imageWatermarkRemoval: {
+          title: "Remove watermark",
+          shortTitle: "Remove watermark",
+          description: "Detect and soften watermark regions locally (planned)"
         },
         moreTools: {
           title: "Explore more",
@@ -203,8 +202,8 @@ export const enUS = {
         justNow: "Just now",
         usedJustNow: "Used just now",
         usedYesterday: "Yesterday",
-        emptyTitle: "No usage records yet",
-        emptyTime: "Waiting for first run"
+        emptyStateTitle: "No recent usage yet",
+        emptyStateHint: "Pick any tool below and run a task — your latest tools will show up here. Everything stays on your device."
       },
       quickActions: {
         history: "History",
@@ -407,139 +406,201 @@ export const enUS = {
     },
     membership: {
       title: "Membership Center",
-      description: "Authorization and membership capabilities can be added later."
-    },
-    videoConvert: {
-      title: "Video Format Convert",
-      searchPlaceholder: "Search conversion history...",
-      upload: {
-        title: "Upload Video Files",
-        dropTitle: "Drag video files here or click to upload",
-        dropDesc: "Supports up to 2GB, 1080p and below is recommended",
-        button: "Select File"
+      description: "Authorization and membership capabilities can be added later.",
+      backToHome: "Back to Home",
+      hero: {
+        title: "Membership Center",
+        subtitle: "Go premium to unlock every advanced feature",
+        benefit1: "Unlimited use of all tools",
+        benefit2: "More efficient batch processing",
+        benefit3: "Remove ads across tools",
+        benefit4: "Priority support from dedicated customer service",
+        benefit5: "Early access to new features",
+        benefit6: "More exclusive member benefits",
+        visualAlt: "Decorative illustration placeholder: crown and creator tools"
       },
-      outputFormatTitle: "Choose Output Format",
-      fileListTitle: "Conversion File List",
-      saveAs: "Save As",
-      saveAsTarget: "Save As Target",
-      retry: "Retry",
-      cancel: "Cancel",
-      remove: "Remove",
-      converting: "Converting...",
-      outputFormat: {
-        groupLabel: "Output Format Selection",
-        mp4: "H.264 Encode",
-        movAlpha: "ProRes 4444 (with Alpha)",
-        avi: "General Format",
-        mov: "QuickTime",
-        mkv: "HD Container",
-        wmv: "Windows",
-        flv: "Streaming"
+      userCard: {
+        notLoggedIn: "Not signed in",
+        syncHint: "Sign in to sync your membership benefits",
+        loginCta: "Sign in",
+        loginPlaceholderTitle: "Notice",
+        loginPlaceholder: "Sign-in will ship in a future release. This is a preview."
       },
-      outputMode: {
-        groupLabel: "Output Directory Selection",
-        sameAsInput: "Output to source directory",
-        sameAsInputDesc: "Save each converted file next to its original input video.",
-        globalDirectory: "Output to selected directory",
-        globalDirectoryDesc: "Save all converted files in one central directory for easier management.",
-        chooseDirectory: "Choose Directory",
-        notSelected: "No output directory selected"
+      plans: {
+        sectionTitle: "Choose a plan",
+        badgeRecommended: "Popular",
+        badgeSave16: "Save 16%",
+        badgeSave46: "Save 46%",
+        badgeValue: "Best value",
+        monthly: "Monthly",
+        quarterly: "Quarterly",
+        annual: "Annual",
+        lifetime: "Lifetime",
+        monthlySub: "Best for short-term use",
+        quarterlySub: "Best for quarterly use",
+        annualSub: "Best for long-term use",
+        lifetimeSub: "One-time purchase, use forever",
+        priceMonthly: "¥ 19.90",
+        priceQuarterly: "¥ 49.90",
+        priceAnnual: "¥ 129.90",
+        priceLifetime: "¥ 299.00",
+        cycleMonth: "/ month",
+        cycleQuarter: "/ quarter",
+        cycleYear: "/ year",
+        monthlySecondary: "¥19.90 billed monthly (auto-renew)",
+        quarterlySecondary: "¥16.63 / month equivalent",
+        annualSecondary: "¥10.83 / month equivalent",
+        lifetimeSecondary: "No renewals — one-time purchase",
+        cta: "Subscribe",
+        subscribePlaceholderTitle: "Notice",
+        subscribePlaceholder: "Plan: {plan}. Payments are not connected yet—no charge will be made."
       },
-      status: {
-        idle: "Pending",
-        running: "Converting",
-        completed: "Completed",
-        failed: "Failed",
-        cancelled: "Cancelled"
+      compare: {
+        title: "Compare benefits",
+        colFeature: "Features",
+        colFree: "Free",
+        colMember: "Member",
+        colLifetime: "Lifetime",
+        rows: {
+          unlimited: "Unlimited usage",
+          batch: "Batch processing",
+          ads: "Ad-free",
+          support: "Priority support",
+          early: "Early access",
+          exclusive: "Exclusive features"
+        },
+        free: {
+          limited: "Daily quota",
+          partial: "Small batches only",
+          withAds: "Includes promotions",
+          standard: "Standard queue"
+        },
+        member: {
+          partialExclusive: "Partial access"
+        },
+        dash: "—",
+        included: "Included"
       },
-      result: {
-        title: "Execution Result",
-        total: "Total",
-        success: "Success",
-        failed: "Failed",
-        elapsed: "Elapsed"
+      aside: {
+        ariaLabel: "Membership supplements",
+        paymentTitle: "Secure payments",
+        paymentBody: "Encrypted checkout with extra checks to keep every transaction safe.",
+        faqTitle: "FAQ",
+        faqViewAll: "View all",
+        faqExpand: "Show answer",
+        contactTitle: "Contact us",
+        contactHours: "Support hours: weekdays 9:00–18:00",
+        contactEmailLabel: "Email: ",
+        contactEmail: "support@toolbox.com"
       },
-      convertSettingsTitle: "Conversion Settings",
-      convertSettings: {
-        resolution: "Resolution",
-        bitrate: "Video Bitrate",
-        frameRate: "Frame Rate",
-        audioQuality: "Audio Quality",
-        bitrateValue: "8000 kbps",
-        bitrateLow: "Low",
-        bitrateHigh: "High",
-        frameRateValue: "30 fps",
-        audioQualityValue: "192 kbps",
-        resolution4k: "4K (3840x2160)",
-        resolution1080: "1080p (1920x1080)",
-        resolution720: "720p (1280x720)",
-        resolution480: "480p (854x480)"
+      faq: {
+        q1: {
+          q: "Is subscription auto-renewing?",
+          a: "You will manage renewals and invoices in Account settings in a future release—this page is a preview."
+        },
+        q2: {
+          q: "Which payment methods are supported?",
+          a: "We plan to support major local methods—subject to what ships at launch."
+        },
+        q3: {
+          q: "How many devices can I use?",
+          a: "Device limits and licensing will be announced when accounts go live."
+        },
+        q4: {
+          q: "Can I get a refund?",
+          a: "Refunds follow processor and platform policies shown on the order page."
+        }
       },
-      startConvert: "Start Convert",
-      quickPreset: {
-        title: "Quick Presets",
-        high: { title: "High Quality", desc: "Best visual quality" },
-        standard: { title: "Standard", desc: "Balanced choice" },
-        small: { title: "Small Size", desc: "Save storage space" }
-      },
-      history: {
-        title: "Conversion History",
-        viewAll: "View All"
-      },
-      tips: {
-        title: "Conversion Tips",
-        item1: "MP4 has the best compatibility",
-        item2: "1080p fits most use cases",
-        item3: "Higher bitrate means better quality",
-        item4: "Keep original frame rate when possible"
-      },
-      progress: {
-        title: "Conversion Progress",
-        status: "Processing...",
-        done: "65% done",
-        remaining: "Estimated 2m 15s remaining",
-        fileName: "sample_video.avi → sample_video.mp4",
-        speed: "Convert Speed: 1.2x",
-        time: "Elapsed: 3m 45s",
-        size: "File Size: 245MB → Estimated 180MB"
-      },
-      footer: {
-        left: "© 2024 Toolbox",
-        version: "Version v1.0.0",
-        formatGuide: "Format Guide",
-        advanced: "Advanced Settings"
-      }
+      faqViewAllPlaceholder: "A full FAQ page will ship in a future release—this is a placeholder."
     },
     imageCompress: {
       title: "Image Compression",
       description: "Supports batch import, quality tuning and format output. Default output is /compress/ under source folders.",
-      fileListTitle: "Compression Tasks",
-      clearList: "Clear List",
-      remove: "Remove",
-      start: "Start Compression",
+      fileListTitle: "Compression tasks",
+      clearList: "Clear list",
+      deleteSelected: "Delete selected",
+      remove: "Delete",
+      start: "Start compression",
       processing: "Compressing...",
+      taskRunning: "Compressing image",
+      taskDone: "Done",
       listOverflowTip: "Only first 200 items are displayed. Remaining {count} items will continue processing in background.",
       source: {
-        title: "Input Source",
-        pickImages: "Add Images",
-        pickDirectory: "Choose Folder",
-        directoryNotSelected: "No folder selected, drag images directly is supported"
+        title: "Input source",
+        pickImages: "Add images",
+        pickDirectory: "Choose folder",
+        dragHint: "You can drag images or folders into the area below.",
+        directoryNotSelected: "No folder selected; you can drag images directly"
       },
       output: {
-        title: "Output Directory",
-        pickDirectory: "Specify Output Folder",
+        title: "Output directory",
+        pickDirectory: "Specify output folder",
+        hint: "Defaults to /compress/ under each source file directory.",
         defaultDirectory: "Default output is /compress/ under each source image directory"
       },
+      footer: {
+        saveTo: "Save to:",
+        changeOutput: "Change",
+        customOutput: "Custom output folder",
+        defaultOutput: "Each file's source folder /compress/"
+      },
       settings: {
-        title: "Compression Settings",
+        title: "Compression settings",
         quality: "Quality",
-        format: "Output Format",
+        qualityLow: "Smaller file",
+        qualityHigh: "Higher quality",
+        format: "Output format",
         tip: "Higher quality preserves detail but increases file size. Start with JPG 80 or WEBP 80."
       },
+      advanced: {
+        title: "Advanced",
+        resolution: "Resolution",
+        resolutionOriginal: "Keep original size",
+        resolutionBounded: "Cap max output pixels",
+        maxWidth: "Max width",
+        maxHeight: "Max height",
+        noLimit: "No limit",
+        sharpen: "Sharpen",
+        sharpenHint: "Light sharpening can improve perceived sharpness after compression.",
+        exif: "Keep EXIF",
+        exifHint: "Keep capture time, device and other metadata.",
+        notWired: "Not supported by the backend in this version; control is disabled.",
+        reset: "Reset settings"
+      },
       upload: {
-        dropTitle: "Drag images here or click to add",
-        dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported, auto dedupe with serial processing",
-        button: "Add Images"
+        dropTitle: "Drag images here, or click the empty area to add",
+        dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported; mixed formats in one batch.",
+        formatsLine: "PNG / JPG / JPEG / WEBP / BMP — mixed formats supported",
+        button: "Add images",
+        addFolder: "Add folder"
+      },
+      empty: {
+        title: "No images yet",
+        desc: "Add images to start compression."
+      },
+      table: {
+        selectAll: "Select all visible rows",
+        selectRow: "Select this row",
+        fileName: "Filename",
+        originalSize: "Original size",
+        resolution: "Resolution",
+        compressedSize: "Compressed size",
+        status: "Status",
+        operation: "Actions",
+        progress: "Progress",
+        dash: "—"
+      },
+      hints: {
+        dragNoPath: "No valid local paths from drag-and-drop. Use Add images or drag inside the desktop window.",
+        unsupportedFormat: "Only PNG / JPG / JPEG / WEBP / BMP are supported",
+        duplicateFiles: "Selected files are already in the task list"
+      },
+      errors: {
+        pickImagesFailed: "Failed to pick images: {message}",
+        pickImagesDialog: "Could not open the image picker",
+        scanDirectoryFailed: "Failed to scan folder: {message}",
+        scanDirectory: "Failed to scan folder",
+        genericFailed: "Processing failed"
       },
       status: {
         idle: "Pending",
@@ -548,57 +609,80 @@ export const enUS = {
         failed: "Failed"
       },
       result: {
-        title: "Execution Result",
+        title: "Execution result",
         total: "Total",
         success: "Success",
         failed: "Failed",
         elapsed: "Elapsed",
-        ratio: "Overall Compression",
-        sizeChange: "Size Change"
+        ratio: "Overall compression",
+        sizeChange: "Size change"
       }
     },
     imageUpscale: {
       title: "Image Upscale",
-      description: "Supports single-image, drag-drop, and folder batch input. Output defaults to /compress/ under source folders.",
-      fileListTitle: "Processing Tasks",
-      clearList: "Clear List",
-      remove: "Remove",
-      start: "Start Upscale",
-      processing: "Upscaling...",
-      listOverflowTip: "Only first 200 items are displayed. Remaining {count} items will continue processing in background.",
-      source: {
-        title: "Input Source",
-        pickImages: "Add Images",
-        pickDirectory: "Choose Folder",
-        directoryNotSelected: "No folder selected, drag images directly is supported"
+      description:
+        "This tool will offer offline-friendly image clarity improvements; the current release does not expose processing yet.",
+      comingSoon: "Under development. Models and batch jobs will arrive in a future update."
+    },
+    imageWatermarkRemoval: {
+      title: "Remove watermark",
+      description:
+        "This tool will detect and process watermark regions on-device; the current release does not expose processing yet.",
+      comingSoon: "Under development. Algorithms and batch jobs will arrive in a future update."
+    },
+    login: {
+      chromeAria: "Login page header actions",
+      brandName: "Toolbox",
+      brandTagline: "A helpful companion for self-media creators",
+      heroTitlePrefix: "Create efficiently, ",
+      heroTitleAccent: "stand out with ease",
+      heroSubtitle: "One-stop self-media toolbox to help creators work faster",
+      feature1Title: "Local processing",
+      feature1Desc: "Files are not uploaded to servers",
+      feature2Title: "Privacy first",
+      feature2Desc: "Your data stays on this device",
+      feature3Title: "Fast and stable",
+      feature3Desc: "Quick processing with strong performance",
+      cardTitle: "Welcome to Toolbox",
+      cardSubtitle: "Sign in to sync membership benefits and unlock more features",
+      tabsAria: "Sign-in method",
+      tabSms: "SMS code",
+      tabPassword: "Password",
+      phoneLabel: "Phone number",
+      phonePlaceholder: "Enter phone number",
+      codeLabel: "Verification code",
+      codePlaceholder: "Enter verification code",
+      passwordLabel: "Password",
+      passwordPlaceholder: "Enter password",
+      getCode: "Get code",
+      agreePrefix: "I have read and agree to the ",
+      terms: "User Agreement",
+      agreeMid: " and ",
+      privacy: "Privacy Policy",
+      agreeHint: "You must accept the agreement before tapping “Sign in now”.",
+      submit: "Sign in now",
+      otherMethods: "Other sign-in methods",
+      wechatLogin: "WeChat",
+      noAccount: "No account yet? ",
+      registerNow: "Register",
+      footerSafe: "All tools run locally — safe and reliable",
+      errors: {
+        phoneRequired: "Please enter your phone number",
+        phoneInvalid: "Enter a valid 11-digit China mainland mobile number starting with 1",
+        codeRequired: "Please enter the verification code",
+        passwordRequired: "Please enter your password"
       },
-      output: {
-        title: "Output Directory",
-        pickDirectory: "Specify Output Folder",
-        defaultDirectory: "Default output is /compress/ under each source image directory"
-      },
-      scale: {
-        title: "Scale Factor",
-        tip: "Supports 2x / 4x. When output size exceeds the system limit, inline warnings will be shown."
-      },
-      upload: {
-        dropTitle: "Drag images here or click to add",
-        dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported, auto dedupe with serial processing",
-        button: "Add Images"
-      },
-      status: {
-        idle: "Pending",
-        running: "Processing",
-        completed: "Completed",
-        failed: "Failed"
-      },
-      result: {
-        title: "Execution Result",
-        total: "Total",
-        success: "Success",
-        failed: "Failed",
-        elapsed: "Elapsed"
-      }
+      submitSuccessTitle: "Simulated sign-in",
+      submitSuccessMessage: "Taking you home (no real auth yet — frontend simulation only).",
+      otpPlaceholderTitle: "Verification code",
+      otpPlaceholderMessage: "SMS verification is not available yet — coming in a future release.",
+      wechatPlaceholderTitle: "WeChat sign-in",
+      wechatPlaceholderMessage: "WeChat sign-in is not available yet.",
+      registerPlaceholderTitle: "Registration",
+      registerPlaceholderMessage: "Registration is not available yet.",
+      termsPlaceholderTitle: "User Agreement",
+      privacyPlaceholderTitle: "Privacy Policy",
+      policyPlaceholderMessage: "Full policy links will be provided in a future release."
     },
     imageWatermark: {
       title: "Image Watermark",
@@ -606,6 +690,29 @@ export const enUS = {
       fileListTitle: "Watermark Tasks",
       clearList: "Clear List",
       remove: "Remove",
+      list: {
+        title: "Image list",
+        emptyTitle: "No images yet",
+        emptyDesc: "Add images to start batch watermarking.",
+        deleteSelected: "Delete selected",
+        deleteSelectedHint: "Multi-select is not available yet. Remove items one by one or clear the list.",
+        table: {
+          fileName: "Filename",
+          dimensions: "Dimensions",
+          fileSize: "Size",
+          fileSizeHint: "File size is not shown yet; column reserved for layout parity",
+          watermarkType: "Watermark type",
+          preview: "Preview",
+          status: "Status",
+          action: "Action"
+        }
+      },
+      bottom: {
+        outputLabel: "Output directory",
+        changeOutput: "Change",
+        namingLabel: "File naming",
+        namingGoSettings: "Change in Settings"
+      },
       start: "Start Watermark",
       processing: "Applying watermark...",
       listOverflowTip: "Only first 200 items are displayed. Remaining {count} items will continue processing in background.",
@@ -622,7 +729,17 @@ export const enUS = {
         openDirectory: "Open Folder"
       },
       settings: {
+        sidebarTitle: "Watermark settings",
         title: "Watermark Settings",
+        sectionWatermarkType: "Watermark type",
+        sectionContent: "Watermark content",
+        sectionTypography: "Font & size",
+        sectionWatermarkImage: "Watermark image",
+        sectionAppearance: "Opacity",
+        sectionLayout: "Position & spacing",
+        fontFamilyLabel: "Font",
+        fontFamilyValue: "Source Han Sans (default)",
+        fontFamilyHint: "Uses the app default font for rendering",
         mode: "Watermark Mode",
         textMode: "Text Watermark",
         imageMode: "Image Watermark",
@@ -642,9 +759,13 @@ export const enUS = {
       },
       positions: {
         topLeft: "Top Left",
+        topCenter: "Top Center",
         topRight: "Top Right",
+        middleLeft: "Middle Left",
         center: "Center",
+        middleRight: "Middle Right",
         bottomLeft: "Bottom Left",
+        bottomCenter: "Bottom Center",
         bottomRight: "Bottom Right",
         custom: "Custom"
       },
@@ -685,6 +806,14 @@ export const enUS = {
     imageResize: {
       name: "Image Resize",
       description: "Batch resize image dimensions."
+    },
+    imageUpscale: {
+      name: "Image Upscale",
+      description: "Planned: local clarity enhancement; no processing entry in this build."
+    },
+    imageWatermarkRemoval: {
+      name: "Remove watermark",
+      description: "Planned: local watermark removal and repair; no processing entry in this build."
     }
   }
 } as const;

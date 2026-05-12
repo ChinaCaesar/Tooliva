@@ -55,6 +55,10 @@ pub struct HomeStatsPayload {
     pub today_saved_minutes: i64,
 }
 
+/// 单条「最近使用」展示记录，对应某工具一次代表性使用事件。
+///
+/// 当该结构出现在 `HomeDashboardPayload.recent_items` 中时，数组内 `tool_key` 互不相同，
+/// 每项均为该工具在 `usage_events` 中最近一次活动；整体按 `used_at_ts` 降序、`id` 降序，至多 3 条。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HomeRecentUsagePayload {
@@ -68,6 +72,7 @@ pub struct HomeRecentUsagePayload {
 #[serde(rename_all = "camelCase")]
 pub struct HomeDashboardPayload {
     pub stats: HomeStatsPayload,
+    /// 最近使用：`recent_items` 中每个 `tool_key` 至多一条，为各工具最近一次活动，按 `used_at` 降序，至多 3 条。
     pub recent_items: Vec<HomeRecentUsagePayload>,
     pub top_tools: Vec<HomeTopToolPayload>,
 }
@@ -152,10 +157,22 @@ pub fn get_home_dashboard(app: AppHandle) -> Result<HomeDashboardPayload, String
         })
         .map_err(|err| format!("读取统计数据失败：{err}"))?;
 
+    // 按工具去重：每个 tool_key 仅保留最近一次事件，再取全局最近的 3 个工具（需 SQLite 窗口函数支持）。
     let mut recent_stmt = conn
         .prepare(
             "SELECT id, tool_key, file_name, used_at
-             FROM usage_events
+             FROM (
+                 SELECT id,
+                        tool_key,
+                        file_name,
+                        used_at,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY tool_key
+                            ORDER BY used_at DESC, id DESC
+                        ) AS rn
+                 FROM usage_events
+             ) ranked
+             WHERE rn = 1
              ORDER BY used_at DESC, id DESC
              LIMIT 3",
         )

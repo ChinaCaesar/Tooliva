@@ -16,6 +16,8 @@ defineProps<{
   title: string;
   viewAllLabel: string;
   items: RecentUsageItemViewModel[];
+  emptyStateTitleKey: string;
+  emptyStateHintKey: string;
 }>();
 
 const emit = defineEmits<{
@@ -39,7 +41,11 @@ function handleChipClick(item: RecentUsageItemViewModel): void {
         {{ viewAllLabel }}
       </button>
     </header>
-    <div class="recent-strip__track">
+    <div v-if="items.length === 0" class="recent-strip__empty">
+      <p class="recent-strip__empty-title">{{ t(emptyStateTitleKey) }}</p>
+      <p class="recent-strip__empty-hint">{{ t(emptyStateHintKey) }}</p>
+    </div>
+    <div v-else class="recent-strip__track">
       <button
         v-for="item in items"
         :key="item.id"
@@ -113,6 +119,27 @@ function handleChipClick(item: RecentUsageItemViewModel): void {
   outline-offset: 2px;
   border-radius: 4px;
 }
+.recent-strip__empty {
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  padding: clamp(16px, 2.5vw, 20px) clamp(16px, 2vw, 20px);
+  color: #0f172a;
+}
+.recent-strip__empty-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: #0f172a;
+}
+.recent-strip__empty-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: #475569;
+}
 .recent-strip__track {
   display: flex;
   flex-direction: row;
@@ -139,6 +166,11 @@ function handleChipClick(item: RecentUsageItemViewModel): void {
   cursor: pointer;
   text-align: left;
   transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .recent-chip {
+    transition: none;
+  }
 }
 .recent-chip:hover:not(:disabled) {
   border-color: #dbeafe;
@@ -227,6 +259,10 @@ function handleChipClick(item: RecentUsageItemViewModel): void {
 .recent-chip--more:hover {
   border-color: #cbd5e1;
   background: #f8fafc;
+}
+.recent-chip--more:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 .recent-chip__dots {
   font-size: 16px;

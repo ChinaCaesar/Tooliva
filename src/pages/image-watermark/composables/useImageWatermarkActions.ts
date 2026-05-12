@@ -128,30 +128,50 @@ function resolvePresetRatios(
   const maxY = Math.max(0, previewRect.height - overlayRect.height);
   const clampedMarginX = Math.min(marginPx, maxX);
   const clampedMarginY = Math.min(marginPx, maxY);
-  const left =
-    positionValue === "topLeft"
-      ? clampedMarginX
-      : positionValue === "topRight"
-        ? maxX - clampedMarginX
-        : positionValue === "center"
-          ? maxX / 2
-          : positionValue === "bottomLeft"
-            ? clampedMarginX
-            : positionValue === "bottomRight"
-              ? maxX - clampedMarginX
-              : maxX / 2;
-  const top =
-    positionValue === "topLeft"
-      ? clampedMarginY
-      : positionValue === "topRight"
-        ? clampedMarginY
-        : positionValue === "center"
-          ? maxY / 2
-          : positionValue === "bottomLeft"
-            ? maxY - clampedMarginY
-            : positionValue === "bottomRight"
-              ? maxY - clampedMarginY
-              : maxY / 2;
+
+  let left: number;
+  let top: number;
+  switch (positionValue) {
+    case "topLeft":
+      left = clampedMarginX;
+      top = clampedMarginY;
+      break;
+    case "topCenter":
+      left = maxX / 2;
+      top = clampedMarginY;
+      break;
+    case "topRight":
+      left = maxX - clampedMarginX;
+      top = clampedMarginY;
+      break;
+    case "middleLeft":
+      left = clampedMarginX;
+      top = maxY / 2;
+      break;
+    case "center":
+      left = maxX / 2;
+      top = maxY / 2;
+      break;
+    case "middleRight":
+      left = maxX - clampedMarginX;
+      top = maxY / 2;
+      break;
+    case "bottomLeft":
+      left = clampedMarginX;
+      top = maxY - clampedMarginY;
+      break;
+    case "bottomCenter":
+      left = maxX / 2;
+      top = maxY - clampedMarginY;
+      break;
+    case "bottomRight":
+      left = maxX - clampedMarginX;
+      top = maxY - clampedMarginY;
+      break;
+    default:
+      left = maxX / 2;
+      top = maxY / 2;
+  }
 
   return {
     x: maxX > 0 ? left / maxX : 0,

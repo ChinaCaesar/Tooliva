@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { useRouter } from "vue-router";
+import { ref, watchEffect, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { ROUTE_PATHS } from "@/config/constants";
-import ToolPageTopBar from "@/components/common/ToolPageTopBar.vue";
 import { useImageCompressActions } from "@/pages/image-compress/composables/useImageCompressActions";
 
-const router = useRouter();
 const { t } = useI18n();
 const {
   items,
@@ -18,182 +15,360 @@ const {
   sourceDirectory,
   quality,
   targetFormat,
+  resolutionPreset,
+  maxWidthBound,
+  maxHeightBound,
   resultSummary,
   canStart,
+  allVisibleSelected,
+  someVisibleSelected,
+  selectedCount,
   formatElapsed,
   formatBytes,
   formatCompressionRatio,
   pickImages,
   pickSourceDirectory,
+  pickAddFolder,
   pickOutputDirectory,
   startCompress,
   clearItems,
   removeItem,
+  removeSelected,
+  toggleItemSelected,
+  toggleSelectAllVisible,
+  isItemSelected,
+  resetCompressSettings,
   handleDrop,
   onDragOver,
   onDragLeave
 } = useImageCompressActions();
 
-/**
- * 返回首页，保持工具页统一入口行为。
- */
-function backToHome(): void {
-  router.push(ROUTE_PATHS.home);
+const selectAllCheckboxRef = ref<HTMLInputElement | null>(null);
+
+watchEffect(() => {
+  const el = selectAllCheckboxRef.value;
+  if (!el) return;
+  el.indeterminate = someVisibleSelected.value && !allVisibleSelected.value;
+});
+
+function dash(): string {
+  return t("pages.imageCompress.table.dash");
 }
 
-/**
- * 打开设置页，复用全局设置入口。
- */
-function goToSettings(): void {
-  router.push(ROUTE_PATHS.settings);
+function resolutionCell(item: { originalSize?: string }): string {
+  return item.originalSize ?? dash();
 }
+
+function onMaxWidthInput(event: Event): void {
+  const raw = (event.target as HTMLInputElement).value;
+  maxWidthBound.value = raw === "" ? null : Math.max(1, Number.parseInt(raw, 10) || 1);
+}
+
+function onMaxHeightInput(event: Event): void {
+  const raw = (event.target as HTMLInputElement).value;
+  maxHeightBound.value = raw === "" ? null : Math.max(1, Number.parseInt(raw, 10) || 1);
+}
+
+const outputSummaryLine = computed(() =>
+  outputDirectory.value.trim().length > 0
+    ? t("pages.imageCompress.footer.customOutput")
+    : t("pages.imageCompress.footer.defaultOutput")
+);
 </script>
 
 <template>
   <div class="image-compress-page">
-    <ToolPageTopBar title-key="common.backToHome" variant="compact" @back-home="backToHome" @open-settings="goToSettings" />
-    <main class="image-compress-page__content">
-      <section class="upload-panel">
-        <h2>{{ t("pages.imageCompress.title") }}</h2>
-        <p class="panel-desc">{{ t("pages.imageCompress.description") }}</p>
+    <div class="page-shell">
+      <div class="page-main">
+        <div class="workspace-grid">
+          <div class="main-column">
+            <header class="workspace-head">
+              <div class="workspace-head__text">
+                <h2 class="workspace-head__title">{{ t("pages.imageCompress.title") }}</h2>
+                <p class="workspace-head__desc">{{ t("pages.imageCompress.description") }}</p>
+              </div>
+            </header>
 
-        <div class="control-grid">
-          <div class="control-card">
-            <div class="control-card__title">{{ t("pages.imageCompress.source.title") }}</div>
-            <div class="control-card__actions">
-              <button type="button" class="secondary-btn" @click="pickImages">{{ t("pages.imageCompress.source.pickImages") }}</button>
-              <button type="button" class="secondary-btn" @click="pickSourceDirectory">
-                {{ t("pages.imageCompress.source.pickDirectory") }}
-              </button>
+            <div class="main-column__body">
+            
+
+              <div
+                class="upload-zone"
+                :class="{ 'upload-zone--active': isDropActive }"
+                @click.self="pickImages"
+                @drop="handleDrop"
+                @dragover="onDragOver"
+                @dragleave="onDragLeave"
+              >
+                <div class="upload-zone__icon" aria-hidden="true">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25">
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <path d="M7 15l3-3 2 2 4-4" />
+                    <circle cx="8.5" cy="9.5" r="1" fill="currentColor" stroke="none" />
+                  </svg>
+                </div>
+                <p class="upload-zone__title">{{ t("pages.imageCompress.upload.dropTitle") }}</p>
+                <p class="upload-zone__desc">{{ t("pages.imageCompress.upload.formatsLine") }}</p>
+                <div class="upload-zone__actions">
+                  <button type="button" class="primary-btn primary-btn--sm btn-touch" @click.stop="pickImages">
+                    {{ t("pages.imageCompress.upload.button") }}
+                  </button>
+                  <button type="button" class="secondary-btn btn-touch" @click.stop="pickAddFolder">
+                    {{ t("pages.imageCompress.upload.addFolder") }}
+                  </button>
+                </div>
+                <p v-if="hintMessage" class="hint">{{ hintMessage }}</p>
+              </div>
+
+              <section class="task-section" :aria-label="t('pages.imageCompress.fileListTitle')">
+                <div class="task-toolbar">
+                  <h3 class="task-toolbar__title">{{ t("pages.imageCompress.fileListTitle") }} ({{ items.length }})</h3>
+                  <div class="task-toolbar__actions">
+                    <button type="button" class="secondary-btn btn-touch" :disabled="isProcessing" @click="clearItems">
+                      {{ t("pages.imageCompress.clearList") }}
+                    </button>
+                    <button
+                      type="button"
+                      class="toolbar-danger btn-touch"
+                      :disabled="isProcessing || selectedCount === 0"
+                      @click="removeSelected"
+                    >
+                      {{ t("pages.imageCompress.deleteSelected") }}
+                    </button>
+                  </div>
+                </div>
+                <p v-if="hiddenItemCount > 0" class="list-tip">
+                  {{ t("pages.imageCompress.listOverflowTip", { count: hiddenItemCount }) }}
+                </p>
+
+                <div v-if="items.length === 0" class="task-empty">
+                  <div class="task-empty__icon" aria-hidden="true">
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1">
+                      <path d="M4 6h16v12H4z" />
+                      <path d="M8 10h8M8 14h5" />
+                    </svg>
+                  </div>
+                  <p class="task-empty__title">{{ t("pages.imageCompress.empty.title") }}</p>
+                  <p class="task-empty__desc">{{ t("pages.imageCompress.empty.desc") }}</p>
+                </div>
+
+                <div v-else class="table-scroll">
+                  <table class="task-table">
+                    <thead>
+                      <tr>
+                        <th class="task-table__col-check" scope="col">
+                          <input
+                            ref="selectAllCheckboxRef"
+                            type="checkbox"
+                            class="task-table__checkbox"
+                            :checked="allVisibleSelected"
+                            :aria-label="t('pages.imageCompress.table.selectAll')"
+                            :disabled="isProcessing"
+                            @change="toggleSelectAllVisible"
+                          />
+                        </th>
+                        <th scope="col">{{ t("pages.imageCompress.table.fileName") }}</th>
+                        <th scope="col">{{ t("pages.imageCompress.table.originalSize") }}</th>
+                        <th scope="col">{{ t("pages.imageCompress.table.resolution") }}</th>
+                        <th scope="col">{{ t("pages.imageCompress.table.compressedSize") }}</th>
+                        <th scope="col">{{ t("pages.imageCompress.table.status") }}</th>
+                        <th scope="col">{{ t("pages.imageCompress.table.progress") }}</th>
+                        <th class="task-table__col-op" scope="col">{{ t("pages.imageCompress.table.operation") }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in visibleItems" :key="item.id">
+                        <td>
+                          <input
+                            type="checkbox"
+                            class="task-table__checkbox"
+                            :checked="isItemSelected(item.id)"
+                            :aria-label="t('pages.imageCompress.table.selectRow')"
+                            :disabled="isProcessing"
+                            @change="toggleItemSelected(item.id)"
+                          />
+                        </td>
+                        <td class="task-table__cell-name">{{ item.fileName }}</td>
+                        <td>{{ item.originalBytes ?? dash() }}</td>
+                        <td>{{ resolutionCell(item) }}</td>
+                        <td>{{ item.outputBytes ?? dash() }}</td>
+                        <td
+                          :class="{
+                            'task-table__status--ok': item.status === 'completed',
+                            'task-table__status--bad': item.status === 'failed'
+                          }"
+                        >
+                          {{ t(`pages.imageCompress.status.${item.status}`) }}
+                        </td>
+                        <td>
+                          <div class="progress-inline">
+                            <progress class="progress-native" :value="item.progress" max="100">
+                              {{ item.progress }}%
+                            </progress>
+                            <span class="progress-inline__pct">{{ item.progress }}%</span>
+                          </div>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            class="secondary-btn secondary-btn--compact btn-touch"
+                            :disabled="isProcessing"
+                            @click="removeItem(item.id)"
+                          >
+                            {{ t("pages.imageCompress.remove") }}
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section v-if="resultSummary" class="result-panel">
+                <h3>{{ t("pages.imageCompress.result.title") }}</h3>
+                <div class="result-grid">
+                  <div class="result-item">
+                    <span class="result-item__label">{{ t("pages.imageCompress.result.total") }}</span>
+                    <strong>{{ resultSummary.total }}</strong>
+                  </div>
+                  <div class="result-item">
+                    <span class="result-item__label">{{ t("pages.imageCompress.result.success") }}</span>
+                    <strong class="result-item__success">{{ resultSummary.success }}</strong>
+                  </div>
+                  <div class="result-item">
+                    <span class="result-item__label">{{ t("pages.imageCompress.result.failed") }}</span>
+                    <strong class="result-item__failed">{{ resultSummary.failed }}</strong>
+                  </div>
+                  <div class="result-item">
+                    <span class="result-item__label">{{ t("pages.imageCompress.result.elapsed") }}</span>
+                    <strong>{{ formatElapsed(resultSummary.elapsedMs) }}</strong>
+                  </div>
+                  <div class="result-item">
+                    <span class="result-item__label">{{ t("pages.imageCompress.result.ratio") }}</span>
+                    <strong>{{ formatCompressionRatio(resultSummary.compressionRatio) }}</strong>
+                  </div>
+                  <div class="result-item">
+                    <span class="result-item__label">{{ t("pages.imageCompress.result.sizeChange") }}</span>
+                    <strong>{{ formatBytes(resultSummary.totalInputBytes) }} → {{ formatBytes(resultSummary.totalOutputBytes) }}</strong>
+                  </div>
+                </div>
+              </section>
             </div>
-            <p class="path-tip">{{ sourceDirectory || t("pages.imageCompress.source.directoryNotSelected") }}</p>
           </div>
 
-          <div class="control-card">
-            <div class="control-card__title">{{ t("pages.imageCompress.output.title") }}</div>
-            <div class="control-card__actions">
-              <button type="button" class="secondary-btn" @click="pickOutputDirectory">
-                {{ t("pages.imageCompress.output.pickDirectory") }}
-              </button>
+          <aside class="settings-rail" :aria-label="t('pages.imageCompress.settings.title')">
+            <div class="settings-block">
+              <div class="settings-block__title">{{ t("pages.imageCompress.settings.title") }}</div>
+              <div class="quality-block">
+                <div class="quality-block__head">
+                  <span>{{ t("pages.imageCompress.settings.quality") }}</span>
+                  <span class="quality-block__value" aria-live="polite">{{ quality }}</span>
+                </div>
+                <div class="quality-block__slider-row">
+                  <span class="quality-block__edge">{{ t("pages.imageCompress.settings.qualityLow") }}</span>
+                  <input v-model.number="quality" class="quality-slider" type="range" min="1" max="100" :disabled="isProcessing" />
+                  <span class="quality-block__edge">{{ t("pages.imageCompress.settings.qualityHigh") }}</span>
+                </div>
+              </div>
+              <div class="format-block">
+                <span class="format-block__label">{{ t("pages.imageCompress.settings.format") }}</span>
+                <div class="format-row">
+                  <label class="format-option" :class="{ 'format-option--active': targetFormat === 'jpg' }">
+                    <input v-model="targetFormat" type="radio" value="jpg" :disabled="isProcessing" />
+                    <span>JPG</span>
+                  </label>
+                  <label class="format-option" :class="{ 'format-option--active': targetFormat === 'png' }">
+                    <input v-model="targetFormat" type="radio" value="png" :disabled="isProcessing" />
+                    <span>PNG</span>
+                  </label>
+                  <label class="format-option" :class="{ 'format-option--active': targetFormat === 'webp' }">
+                    <input v-model="targetFormat" type="radio" value="webp" :disabled="isProcessing" />
+                    <span>WEBP</span>
+                  </label>
+                </div>
+              </div>
+              <p class="scale-tip">{{ t("pages.imageCompress.settings.tip") }}</p>
             </div>
-            <p class="path-tip">{{ outputDirectory || t("pages.imageCompress.output.defaultDirectory") }}</p>
-          </div>
-        </div>
 
-        <div class="compress-settings">
-          <div class="compress-settings__title">{{ t("pages.imageCompress.settings.title") }}</div>
-          <div class="quality-row">
-            <span>{{ t("pages.imageCompress.settings.quality") }}</span>
-            <input v-model.number="quality" class="quality-slider" type="range" min="1" max="100" />
-            <strong>{{ quality }}</strong>
-          </div>
-          <div class="format-row">
-            <span>{{ t("pages.imageCompress.settings.format") }}</span>
-            <label class="format-option" :class="{ 'format-option--active': targetFormat === 'jpg' }">
-              <input v-model="targetFormat" type="radio" value="jpg" />
-              <span>JPG</span>
-            </label>
-            <label class="format-option" :class="{ 'format-option--active': targetFormat === 'png' }">
-              <input v-model="targetFormat" type="radio" value="png" />
-              <span>PNG</span>
-            </label>
-            <label class="format-option" :class="{ 'format-option--active': targetFormat === 'webp' }">
-              <input v-model="targetFormat" type="radio" value="webp" />
-              <span>WEBP</span>
-            </label>
-          </div>
-          <p class="scale-tip">{{ t("pages.imageCompress.settings.tip") }}</p>
-        </div>
+            <details class="advanced-block" open>
+              <summary class="advanced-block__summary">{{ t("pages.imageCompress.advanced.title") }}</summary>
+              <div class="advanced-block__body">
+                <label class="field-label" for="compress-resolution">{{ t("pages.imageCompress.advanced.resolution") }}</label>
+                <select id="compress-resolution" v-model="resolutionPreset" class="field-select" :disabled="isProcessing">
+                  <option value="original">{{ t("pages.imageCompress.advanced.resolutionOriginal") }}</option>
+                  <option value="bounded">{{ t("pages.imageCompress.advanced.resolutionBounded") }}</option>
+                </select>
 
-        <div class="upload-zone" :class="{ 'upload-zone--active': isDropActive }" @drop="handleDrop" @dragover="onDragOver" @dragleave="onDragLeave">
-          <p class="upload-zone__title">{{ t("pages.imageCompress.upload.dropTitle") }}</p>
-          <p class="upload-zone__desc">{{ t("pages.imageCompress.upload.dropDesc") }}</p>
-          <button type="button" class="primary-btn" @click="pickImages">{{ t("pages.imageCompress.upload.button") }}</button>
-          <p v-if="hintMessage" class="hint">{{ hintMessage }}</p>
-        </div>
-      </section>
+                <div class="bound-row">
+                  <label class="field-label" for="compress-max-w">{{ t("pages.imageCompress.advanced.maxWidth") }}</label>
+                  <div class="bound-input-wrap">
+                    <input
+                      id="compress-max-w"
+                      type="number"
+                      min="1"
+                      class="field-input"
+                      :placeholder="t('pages.imageCompress.advanced.noLimit')"
+                      :value="maxWidthBound ?? ''"
+                      :disabled="isProcessing || resolutionPreset !== 'bounded'"
+                      @input="onMaxWidthInput"
+                    />
+                    <span class="bound-suffix">px</span>
+                  </div>
+                </div>
+                <div class="bound-row">
+                  <label class="field-label" for="compress-max-h">{{ t("pages.imageCompress.advanced.maxHeight") }}</label>
+                  <div class="bound-input-wrap">
+                    <input
+                      id="compress-max-h"
+                      type="number"
+                      min="1"
+                      class="field-input"
+                      :placeholder="t('pages.imageCompress.advanced.noLimit')"
+                      :value="maxHeightBound ?? ''"
+                      :disabled="isProcessing || resolutionPreset !== 'bounded'"
+                      @input="onMaxHeightInput"
+                    />
+                    <span class="bound-suffix">px</span>
+                  </div>
+                </div>
 
-      <section v-if="resultSummary" class="result-panel">
-        <h3>{{ t("pages.imageCompress.result.title") }}</h3>
-        <div class="result-grid">
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageCompress.result.total") }}</span>
-            <strong>{{ resultSummary.total }}</strong>
-          </div>
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageCompress.result.success") }}</span>
-            <strong class="result-item__success">{{ resultSummary.success }}</strong>
-          </div>
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageCompress.result.failed") }}</span>
-            <strong class="result-item__failed">{{ resultSummary.failed }}</strong>
-          </div>
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageCompress.result.elapsed") }}</span>
-            <strong>{{ formatElapsed(resultSummary.elapsedMs) }}</strong>
-          </div>
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageCompress.result.ratio") }}</span>
-            <strong>{{ formatCompressionRatio(resultSummary.compressionRatio) }}</strong>
-          </div>
-          <div class="result-item">
-            <span class="result-item__label">{{ t("pages.imageCompress.result.sizeChange") }}</span>
-            <strong>{{ formatBytes(resultSummary.totalInputBytes) }} → {{ formatBytes(resultSummary.totalOutputBytes) }}</strong>
-          </div>
-        </div>
-      </section>
+                <p class="advanced-note">{{ t("pages.imageCompress.advanced.notWired") }}</p>
+                <div class="switch-row">
+                  <label class="switch-label" for="compress-sharpen">{{ t("pages.imageCompress.advanced.sharpen") }}</label>
+                  <input id="compress-sharpen" type="checkbox" disabled class="switch-input" :aria-label="t('pages.imageCompress.advanced.sharpen')" />
+                </div>
+                <p class="field-hint">{{ t("pages.imageCompress.advanced.sharpenHint") }}</p>
+                <div class="switch-row">
+                  <label class="switch-label" for="compress-exif">{{ t("pages.imageCompress.advanced.exif") }}</label>
+                  <input id="compress-exif" type="checkbox" disabled checked class="switch-input" :aria-label="t('pages.imageCompress.advanced.exif')" />
+                </div>
+                <p class="field-hint">{{ t("pages.imageCompress.advanced.exifHint") }}</p>
 
-      <section class="task-list">
-        <div class="task-list__head">
-          <h3>{{ t("pages.imageCompress.fileListTitle") }} ({{ items.length }})</h3>
-          <button type="button" class="secondary-btn" :disabled="isProcessing" @click="clearItems">
-            {{ t("pages.imageCompress.clearList") }}
-          </button>
+                <button type="button" class="reset-link btn-touch" :disabled="isProcessing" @click="resetCompressSettings">
+                  {{ t("pages.imageCompress.advanced.reset") }}
+                </button>
+              </div>
+            </details>
+          </aside>
         </div>
-        <p v-if="hiddenItemCount > 0" class="list-tip">
-          {{ t("pages.imageCompress.listOverflowTip", { count: hiddenItemCount }) }}
-        </p>
-        <div v-if="items.length === 0" class="task-empty">{{ t("common.noData") }}</div>
-        <article v-for="item in visibleItems" :key="item.id" class="task-item">
-          <div class="task-item__head">
-            <div class="task-item__name">{{ item.fileName }}</div>
-            <div
-              class="task-item__status"
-              :class="{
-                'task-item__status--completed': item.status === 'completed',
-                'task-item__status--failed': item.status === 'failed'
-              }"
-            >
-              {{ t(`pages.imageCompress.status.${item.status}`) }}
-            </div>
-          </div>
-          <div class="task-item__path">{{ item.inputPath }}</div>
-          <div class="progress-row">
-            <div class="progress-bar">
-              <span class="progress-bar__value" :style="{ width: `${item.progress}%` }"></span>
-            </div>
-            <span>{{ item.progress }}%</span>
-          </div>
-          <p v-if="item.originalSize || item.outputSize" class="task-item__size">
-            {{ item.originalSize || "-" }} → {{ item.outputSize || "-" }}
-          </p>
-          <p v-if="item.originalBytes || item.outputBytes" class="task-item__size">
-            {{ item.originalBytes || "-" }} → {{ item.outputBytes || "-" }}
-            <span v-if="item.compressionRatio" class="task-item__ratio">({{ item.compressionRatio }})</span>
-          </p>
-          <div v-if="item.outputPath" class="task-item__output">{{ item.outputPath }}</div>
-          <div v-if="item.error" class="task-item__error">{{ item.error }}</div>
-          <div class="task-item__actions">
-            <button type="button" class="secondary-btn" :disabled="isProcessing" @click="removeItem(item.id)">
-              {{ t("pages.imageCompress.remove") }}
-            </button>
-          </div>
-        </article>
-      </section>
-    </main>
+      </div>
+    </div>
+
     <div class="action-bar">
       <div class="action-bar__inner">
-        <button type="button" class="primary-btn primary-btn--confirm" :disabled="!canStart" @click="startCompress">
+        <div class="action-bar__left">
+          <span class="action-bar__summary">{{ t("pages.imageCompress.footer.saveTo") }} {{ outputSummaryLine }}</span>
+          <button type="button" class="linkish btn-touch" :disabled="isProcessing" @click="pickOutputDirectory">
+            {{ t("pages.imageCompress.footer.changeOutput") }}
+          </button>
+        </div>
+        <button
+          type="button"
+          class="primary-btn primary-btn--confirm btn-touch"
+          :disabled="!canStart"
+          :aria-busy="isProcessing"
+          @click="startCompress"
+        >
           {{ isProcessing ? t("pages.imageCompress.processing") : t("pages.imageCompress.start") }}
         </button>
       </div>
@@ -202,78 +377,816 @@ function goToSettings(): void {
 </template>
 
 <style scoped>
-.image-compress-page { background: #fff; border-radius: 16px; overflow: hidden; min-height: calc(100vh - 48px); padding-top: 74px; }
-.image-compress-page__content { padding: 24px 24px 104px; }
-.upload-panel { border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; background: #fff; }
-.upload-panel h2 { margin: 0; color: #111827; font-size: 20px; line-height: 28px; }
-.panel-desc { margin: 8px 0 0; color: #64748b; font-size: 14px; line-height: 22px; }
-.control-grid { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.control-card { border: 1px solid #dbeafe; border-radius: 12px; padding: 12px; background: #f8fafc; min-width: 0; }
-.control-card__title { color: #0f172a; font-size: 14px; font-weight: 600; line-height: 22px; }
-.control-card__actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
-.compress-settings { margin-top: 12px; border: 1px solid #dbeafe; border-radius: 12px; padding: 12px; background: #f8fafc; }
-.compress-settings__title { color: #0f172a; font-size: 14px; font-weight: 600; line-height: 22px; }
-.quality-row { margin-top: 8px; display: flex; align-items: center; gap: 8px; color: #334155; }
-.quality-slider { flex: 1; }
-.format-row { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #334155; }
-.format-option { border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 200ms ease; }
-.format-option--active { border-color: #0284c7; background: #ecfeff; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.14); }
-.scale-tip { margin: 8px 0 0; color: #475569; font-size: 12px; line-height: 18px; }
-.upload-zone { margin-top: 12px; border: 2px dashed #d1d5db; border-radius: 16px; background: #f9fafb; text-align: center; padding: 20px; }
-.upload-zone--active { border-color: #1d4ed8; background: #eff6ff; }
-.upload-zone__title { margin: 0; font-size: 16px; font-weight: 500; line-height: 24px; color: #0f172a; }
-.upload-zone__desc { margin: 4px 0 0; color: #64748b; line-height: 20px; }
-.primary-btn { margin-top: 12px; border: none; border-radius: 8px; padding: 10px 24px; color: #fff; font-weight: 500; line-height: 20px; background: linear-gradient(90deg, #1d4ed8 0%, #1e3a8a 100%); cursor: pointer; }
-.primary-btn--confirm { width: 100%; margin-top: 0; padding: 12px 0; font-size: 16px; font-weight: 700; line-height: 24px; }
-.primary-btn--confirm:disabled { opacity: 0.6; cursor: not-allowed; }
-.secondary-btn { border: 1px solid #d1d5db; background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
-.secondary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.hint { color: #b91c1c; margin: 8px 0 0; }
-.path-tip { margin: 8px 0 0; color: #475569; font-size: 12px; line-height: 18px; word-break: break-all; }
-.task-list { margin-top: 16px; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; }
-.task-list__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.task-list__head h3 { margin: 0; color: #111827; font-size: 16px; line-height: 24px; }
-.list-tip { margin: 8px 0 0; color: #1d4ed8; font-size: 12px; }
-.task-empty { margin-top: 10px; color: #6b7280; }
-.task-item { border: 1px solid #f1f5f9; border-radius: 12px; padding: 12px; margin-top: 12px; }
-.task-item__head { display: flex; justify-content: space-between; gap: 12px; }
-.task-item__name { color: #111827; font-weight: 600; min-width: 0; word-break: break-all; }
-.task-item__status { color: #475569; font-size: 12px; white-space: nowrap; }
-.task-item__status--completed { color: #16a34a; font-weight: 600; }
-.task-item__status--failed { color: #b91c1c; font-weight: 600; }
-.task-item__path { color: #6b7280; font-size: 12px; margin-top: 6px; word-break: break-all; }
-.progress-row { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
-.progress-bar { flex: 1; height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
-.progress-bar__value { display: block; height: 100%; background: #2563eb; }
-.task-item__size { margin-top: 6px; color: #475569; font-size: 12px; }
-.task-item__ratio { color: #0f766e; font-weight: 600; margin-left: 4px; }
-.task-item__error { margin-top: 8px; color: #b91c1c; font-size: 12px; }
-.task-item__output { margin-top: 8px; color: #047857; font-size: 12px; word-break: break-all; }
-.task-item__actions { margin-top: 8px; display: flex; gap: 8px; }
-.result-panel { margin-top: 16px; border: 1px solid #dcfce7; border-radius: 16px; background: rgba(240, 253, 244, 0.95); padding: 16px; position: sticky; top: 86px; z-index: 20; backdrop-filter: blur(4px); box-shadow: 0 8px 20px rgba(22, 101, 52, 0.08); }
-.result-panel h3 { margin: 0; color: #166534; font-size: 16px; line-height: 24px; }
-.result-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.result-item { border: 1px solid #bbf7d0; background: #fff; border-radius: 10px; padding: 10px; min-width: 0; }
-.result-item__label { color: #475569; font-size: 12px; display: block; margin-bottom: 4px; }
-.result-item__success { color: #15803d; }
-.result-item__failed { color: #b91c1c; }
-.action-bar { position: fixed; left: 0; right: 0; bottom: 12px; z-index: 40; pointer-events: none; }
-.action-bar__inner { max-width: calc(100% - 48px); margin: 0 auto; padding: 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.9); border: 1px solid #dbeafe; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); backdrop-filter: blur(8px); pointer-events: auto; }
-.image-compress-page :deep(.tool-top-bar) {
-  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
+.image-compress-page {
+  --surface-muted: #f5f7fa;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-muted);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.page-shell {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 12px 20px 120px;
+  box-sizing: border-box;
+}
+
+.page-main {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-grid {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 16px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.main-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+  flex: 1;
+}
+
+.workspace-head__title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.workspace-head__desc {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-muted);
+}
+
+.workspace-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.main-column__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  min-width: 0;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.control-card {
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 14px;
+  background: #f8fafc;
+  min-width: 0;
+}
+
+.control-card__title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.control-card__actions {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.path-tip {
+  margin: 8px 0 0;
+  color: #475569;
+  font-size: 12px;
+  line-height: 18px;
+  word-break: break-word;
+}
+
+.path-tip--muted {
+  color: #64748b;
+}
+
+.upload-zone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  text-align: center;
+  padding: 22px 16px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.upload-zone:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.upload-zone--active {
+  border-color: var(--primary-dark);
+  background: #eff6ff;
+}
+
+.upload-zone__icon {
+  display: flex;
+  justify-content: center;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.upload-zone__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  color: var(--text);
+}
+
+.upload-zone__desc {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.upload-zone__actions {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.hint {
+  color: #b91c1c;
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+
+.task-section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+  min-width: 0;
+}
+
+.task-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-toolbar__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.task-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.toolbar-danger {
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.toolbar-danger:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.08);
+}
+
+.toolbar-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.list-tip {
+  margin: 8px 0 0;
+  color: var(--primary-dark);
+  font-size: 12px;
+}
+
+.task-empty {
+  margin-top: 16px;
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.task-empty__icon {
+  display: flex;
+  justify-content: center;
+  color: #cbd5e1;
+  margin-bottom: 10px;
+}
+
+.task-empty__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.task-empty__desc {
+  margin: 6px 0 16px;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.table-scroll {
+  margin-top: 12px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.task-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: #334155;
+}
+
+.task-table th,
+.task-table td {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 10px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.task-table th {
+  font-weight: 600;
+  color: #0f172a;
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
+.task-table__col-check {
+  width: 40px;
+}
+
+.task-table__col-op {
+  white-space: nowrap;
+}
+
+.task-table__cell-name {
+  font-weight: 600;
+  color: #111827;
+  word-break: break-word;
+  max-width: 220px;
+}
+
+.task-table__checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.task-table__status--ok {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.task-table__status--bad {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.progress-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.progress-native {
+  flex: 1;
+  height: 10px;
+  border: none;
+  border-radius: 999px;
+  overflow: hidden;
+  accent-color: var(--primary);
+}
+
+.progress-native::-webkit-progress-bar {
+  background: #e2e8f0;
+  border-radius: 999px;
+}
+
+.progress-native::-webkit-progress-value {
+  background: var(--primary);
+  border-radius: 999px;
+}
+
+.progress-native::-moz-progress-bar {
+  background: var(--primary);
+  border-radius: 999px;
+}
+
+.progress-inline__pct {
+  font-size: 12px;
+  color: #64748b;
+  min-width: 36px;
+  text-align: right;
+}
+
+.settings-rail {
+  position: sticky;
+  top: 86px;
+  align-self: start;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.settings-block__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.quality-block__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #334155;
+}
+
+.quality-block__value {
+  min-width: 36px;
+  text-align: center;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: var(--text);
+  background: #f8fafc;
+}
+
+.quality-block__slider-row {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.quality-block__edge {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 52px;
+  line-height: 1.2;
+}
+
+.quality-slider {
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+.format-block {
+  margin-top: 14px;
+}
+
+.format-block__label {
+  font-size: 13px;
+  color: #334155;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.format-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.format-option {
+  position: relative;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.format-option--active {
+  border-color: #0284c7;
+  background: #ecfeff;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.14);
+}
+
+.format-option input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.scale-tip {
+  margin: 10px 0 0;
+  color: #475569;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.advanced-block {
+  margin-top: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0 12px 12px;
+  background: #fafbfc;
+}
+
+.advanced-block__summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 12px 0;
+  color: var(--text);
+  list-style: none;
+}
+
+.advanced-block__summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-block__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.field-select,
+.field-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  min-height: 44px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.bound-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bound-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bound-suffix {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.advanced-note {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: #64748b;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.switch-label {
+  font-size: 13px;
+  color: #334155;
+}
+
+.switch-input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary);
+}
+
+.field-hint {
+  margin: -4px 0 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: #94a3b8;
+}
+
+.reset-link {
+  margin-top: 4px;
+  border: none;
+  background: transparent;
+  color: var(--primary-dark);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.reset-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  color: #fff;
+  font-weight: 600;
+  line-height: 20px;
+  background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.primary-btn--sm {
+  padding: 10px 18px;
+  font-size: 14px;
+}
+
+.primary-btn--confirm {
+  min-width: 160px;
+  padding: 12px 24px;
+  font-size: 15px;
+}
+
+.primary-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.secondary-btn {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #334155;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.secondary-btn--compact {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.secondary-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-touch {
+  min-height: 44px;
+}
+
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.action-bar__inner {
+  max-width: min(1480px, 100% - 40px);
+  margin: 0 auto;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #dbeafe;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.action-bar__left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 13px;
+  color: #475569;
+}
+
+.action-bar__summary {
+  word-break: break-word;
+}
+
+.linkish {
+  border: none;
+  background: transparent;
+  color: var(--primary-dark);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 6px 8px;
+}
+
+.linkish:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.result-panel {
+  margin-top: 4px;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  background: rgba(240, 253, 244, 0.95);
+  padding: 14px;
+}
+
+.result-panel h3 {
+  margin: 0;
+  color: #166534;
+  font-size: 15px;
+}
+
+.result-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.result-item {
+  border: 1px solid #bbf7d0;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  min-width: 0;
+}
+
+.result-item__label {
+  color: #475569;
+  font-size: 12px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.result-item__success {
+  color: #15803d;
+}
+
+.result-item__failed {
+  color: #b91c1c;
+}
+
+@media (max-width: 1023px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-rail {
+    position: static;
+    order: 2;
+  }
+
+  .main-column {
+    order: 1;
+  }
 }
 
 @media (max-width: 1024px) {
-  .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .result-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
-  .image-compress-page__content { padding: 16px 16px 96px; }
-  .upload-panel { padding: 16px; }
-  .control-grid { grid-template-columns: 1fr; }
-  .task-list__head { flex-direction: column; align-items: flex-start; }
-  .result-grid { grid-template-columns: 1fr; }
-  .action-bar { bottom: 8px; }
-  .action-bar__inner { max-width: calc(100% - 24px); }
+  .page-shell {
+    padding: 10px 12px 112px;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-bar {
+    bottom: 8px;
+  }
+
+  .action-bar__inner {
+    max-width: calc(100% - 20px);
+  }
+
+  .primary-btn--confirm {
+    width: 100%;
+    min-width: 0;
+  }
 }
 </style>

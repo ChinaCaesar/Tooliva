@@ -25,20 +25,20 @@ export const HOME_CORE_TOOLS_MOCK: HomeToolCardItem[] = [
     actionCode: "image-compress"
   },
   {
-    id: "tool-video-convert",
-    iconKey: "toolVideoConvert",
-    titleKey: "pages.home.tools.videoConvert.title",
-    descriptionKey: "pages.home.tools.videoConvert.description",
-    gradient: "linear-gradient(135deg, #7c3aed 15%, #a855f7 85%)",
-    actionCode: "video-convert"
-  },
-  {
     id: "tool-image-upscale",
     iconKey: "toolImageUpscale",
     titleKey: "pages.home.tools.imageUpscale.title",
     descriptionKey: "pages.home.tools.imageUpscale.description",
     gradient: "linear-gradient(135deg, #059669 15%, #10b981 85%)",
     actionCode: "image-upscale"
+  },
+  {
+    id: "tool-image-watermark-removal",
+    iconKey: "pubIconWatermark",
+    titleKey: "pages.home.tools.imageWatermarkRemoval.title",
+    descriptionKey: "pages.home.tools.imageWatermarkRemoval.description",
+    gradient: "linear-gradient(135deg, #7c3aed 15%, #a78bfa 85%)",
+    actionCode: "image-watermark-removal"
   },
   {
     id: "tool-image-watermark",
@@ -62,22 +62,22 @@ export const HOME_FEATURED_TOOLS_MOCK: HomeFeaturedToolCardDef[] = [
     actionCode: "image-compress"
   },
   {
-    id: "feat-video-convert",
+    id: "feat-image-upscale",
     cardType: "tool",
-    iconKey: "pubIconVideo",
-    titleKey: "pages.home.tools.videoConvert.title",
-    descriptionKey: "pages.home.tools.videoConvert.description",
-    gradient: "linear-gradient(135deg, #7c3aed 15%, #a855f7 85%)",
-    actionCode: "video-convert"
+    iconKey: "toolImageUpscale",
+    titleKey: "pages.home.tools.imageUpscale.title",
+    descriptionKey: "pages.home.tools.imageUpscale.description",
+    gradient: "linear-gradient(135deg, #059669 15%, #10b981 85%)",
+    actionCode: "image-upscale"
   },
   {
-    id: "feat-screen-record",
-    cardType: "placeholder",
-    iconKey: "pubIconScreenRecord",
-    titleKey: "pages.home.tools.screenRecord.title",
-    descriptionKey: "pages.home.tools.screenRecord.description",
-    gradient: "linear-gradient(135deg, #059669 15%, #10b981 85%)",
-    placeholderMessageKey: "pages.home.placeholders.screenRecord"
+    id: "feat-image-watermark-removal",
+    cardType: "tool",
+    iconKey: "pubIconWatermark",
+    titleKey: "pages.home.tools.imageWatermarkRemoval.title",
+    descriptionKey: "pages.home.tools.imageWatermarkRemoval.description",
+    gradient: "linear-gradient(135deg, #7c3aed 15%, #a78bfa 85%)",
+    actionCode: "image-watermark-removal"
   },
   {
     id: "feat-image-watermark",
@@ -176,12 +176,12 @@ export const HOME_RECENT_ITEMS_MOCK: HomeRecentItem[] = [
   },
   {
     id: "recent-2",
-    iconKey: "pubIconVideo",
-    titleKey: "pages.home.tools.videoConvert.shortTitle",
-    fileName: "video_demo.mp4",
+    iconKey: "toolImageUpscale",
+    titleKey: "pages.home.tools.imageUpscale.shortTitle",
+    fileName: "photo_enlarge.png",
     relativeTimeKey: "pages.home.relativeTime.oneHourAgo",
     taskId: "task-1002",
-    toolKey: "video-convert"
+    toolKey: "image-upscale"
   },
   {
     id: "recent-3",
@@ -262,7 +262,11 @@ export const HOME_FOOTER_LINKS_MOCK: HomeFooterLinkItem[] = [
 /** 顶栏搜索候选（与路由工具集合一致，可含首页横向条未展示的工具）。 */
 export const HOME_SEARCH_TOOL_ENTRIES_MOCK: { id: string; titleKey: string; actionCode: string }[] = [
   { id: "search-compress", titleKey: "pages.home.tools.imageCompress.title", actionCode: "image-compress" },
-  { id: "search-video", titleKey: "pages.home.tools.videoConvert.title", actionCode: "video-convert" },
   { id: "search-upscale", titleKey: "pages.home.tools.imageUpscale.title", actionCode: "image-upscale" },
+  {
+    id: "search-watermark-removal",
+    titleKey: "pages.home.tools.imageWatermarkRemoval.title",
+    actionCode: "image-watermark-removal"
+  },
   { id: "search-watermark", titleKey: "pages.home.tools.imageWatermark.title", actionCode: "image-watermark" }
 ];

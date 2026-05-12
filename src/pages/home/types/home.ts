@@ -10,7 +10,7 @@ export interface HomeToolCardItem {
   actionCode: string;
 }
 
-/** 主推工具卡：可跳转工具或占位（录屏、更多等）。 */
+/** 主推工具卡：可跳转工具或占位（更多等）。 */
 export type HomeFeaturedToolCardType = "tool" | "placeholder";
 
 export interface HomeFeaturedToolCardDef {
@@ -116,10 +116,8 @@ export type HomeAssetKey =
   | "avatar"
   | "settings"
   | "toolImageCompress"
-  | "toolVideoConvert"
   | "toolImageUpscale"
   | "recentImage"
-  | "recentVideo"
   | "recentUpscale"
   | "quickHistory"
   | "quickFavorites"
@@ -131,8 +129,6 @@ export type HomeAssetKey =
   | "pubSettings"
   | "pubCrown"
   | "pubIconCompress"
-  | "pubIconVideo"
-  | "pubIconScreenRecord"
   | "pubIconWatermark"
   | "pubIconPlusMore"
   | "pubShield"
