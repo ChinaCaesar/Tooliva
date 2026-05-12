@@ -13,16 +13,27 @@ function goBackHome(): void {
 </script>
 
 <template>
-  <section class="panel">
-    <button type="button" class="back-btn" @click="goBackHome">
-      {{ $t("common.backToHome") }}
-    </button>
-    <h1>{{ $t("pages.membership.title") }}</h1>
-    <p>{{ $t("pages.membership.description") }}</p>
+  <section class="membership-page">
+    <div class="membership-page__inner panel">
+      <button type="button" class="back-btn" @click="goBackHome">
+        {{ $t("common.backToHome") }}
+      </button>
+      <h1>{{ $t("pages.membership.title") }}</h1>
+      <p>{{ $t("pages.membership.description") }}</p>
+    </div>
   </section>
 </template>
 
 <style scoped>
+.membership-page {
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+}
+.membership-page__inner {
+  max-width: 720px;
+}
 .back-btn {
   border: 1px solid #d1d5db;
   border-radius: 8px;

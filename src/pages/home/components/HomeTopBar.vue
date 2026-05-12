@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
+import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 
 interface SearchToolItem {
   id: string;
@@ -9,65 +13,101 @@ interface SearchToolItem {
   route: string;
 }
 
-const props = defineProps<{
-  logoUrl: string;
-  appName: string;
-  searchIconUrl: string;
-  searchPlaceholder: string;
-  settingsIconUrl: string;
-  searchTools: SearchToolItem[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    logoUrl: string;
+    appName: string;
+    tagline: string;
+    searchIconUrl: string;
+    searchPlaceholder: string;
+    searchShortcutLabel: string;
+    settingsIconUrl: string;
+    settingsAriaLabel: string;
+    memberCtaLabel: string;
+    crownIconUrl: string;
+    searchTools: SearchToolItem[];
+    /** 是否在顶栏右侧展示窗口控制（Tauri 桌面端）。 */
+    showWindowControls?: boolean;
+  }>(),
+  { showWindowControls: false }
+);
 
 const emit = defineEmits<{
   searchSelect: [route: string];
+  memberCta: [];
 }>();
 
+const { t } = useI18n();
 const router = useRouter();
 const searchKeyword = ref("");
 const isSearchFocused = ref(false);
+const searchInputRef = ref<HTMLInputElement | null>(null);
 
-/**
- * 基于关键字执行工具名模糊匹配，返回前 6 条候选结果。
- */
 const filteredTools = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase();
   if (!keyword) {
     return props.searchTools.slice(0, 6);
   }
-  return props.searchTools
-    .filter((item) => item.title.toLowerCase().includes(keyword))
-    .slice(0, 6);
+  return props.searchTools.filter((item) => item.title.toLowerCase().includes(keyword)).slice(0, 6);
 });
 
-/**
- * 控制搜索结果面板展示，避免空数据时出现空白浮层。
- */
 const shouldShowSearchResults = computed(() => isSearchFocused.value && filteredTools.value.length > 0);
 
-/**
- * 跳转到设置页面，后续可在此增加权限校验。
- */
 function goToSettingsPage(): void {
   router.push(ROUTE_PATHS.settings);
 }
 
-/**
- * 选择搜索结果后通知父组件执行页面跳转。
- */
+async function minimizeWindow(): Promise<void> {
+  if (!isTauri()) return;
+  await getCurrentWindow().minimize();
+}
+
+async function toggleMaximizeWindow(): Promise<void> {
+  if (!isTauri()) return;
+  const win = getCurrentWindow();
+  const maximized = await win.isMaximized();
+  if (maximized) {
+    await win.unmaximize();
+  } else {
+    await win.maximize();
+  }
+}
+
+async function closeWindow(): Promise<void> {
+  if (!isTauri()) return;
+  await getCurrentWindow().close();
+}
+
 function handleSelectTool(route: string): void {
   searchKeyword.value = "";
   isSearchFocused.value = false;
   emit("searchSelect", route);
 }
 
-/**
- * 输入框失焦时延迟关闭，确保点击结果项能够触发。
- */
 function handleSearchBlur(): void {
   globalThis.setTimeout(() => {
     isSearchFocused.value = false;
   }, 120);
 }
+
+function focusSearch(): void {
+  searchInputRef.value?.focus();
+}
+
+function onGlobalKeydown(e: KeyboardEvent): void {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+    e.preventDefault();
+    focusSearch();
+  }
+}
+
+onMounted(() => {
+  globalThis.addEventListener("keydown", onGlobalKeydown);
+});
+
+onUnmounted(() => {
+  globalThis.removeEventListener("keydown", onGlobalKeydown);
+});
 </script>
 
 <template>
@@ -76,20 +116,26 @@ function handleSearchBlur(): void {
       <div class="home-top-bar__logo-wrap">
         <img :src="logoUrl" alt="" class="home-top-bar__logo" />
       </div>
-      <strong class="home-top-bar__app-name">{{ appName }}</strong>
+      <div class="home-top-bar__titles">
+        <strong class="home-top-bar__app-name">{{ appName }}</strong>
+        <span class="home-top-bar__tagline">{{ tagline }}</span>
+      </div>
     </div>
 
     <div class="home-top-bar__search-wrap">
       <div class="home-top-bar__search">
         <img :src="searchIconUrl" alt="" class="home-top-bar__search-icon" />
         <input
+          ref="searchInputRef"
           v-model="searchKeyword"
-          type="text"
+          type="search"
           class="home-top-bar__search-input"
           :placeholder="searchPlaceholder"
+          autocomplete="off"
           @focus="isSearchFocused = true"
           @blur="handleSearchBlur"
         />
+        <kbd class="home-top-bar__kbd" aria-hidden="true">{{ searchShortcutLabel }}</kbd>
       </div>
       <div v-if="shouldShowSearchResults" class="home-top-bar__search-results">
         <button
@@ -104,9 +150,41 @@ function handleSearchBlur(): void {
       </div>
     </div>
 
-    <button type="button" class="home-top-bar__setting-btn" @click="goToSettingsPage" :aria-label="appName + ' settings'">
-      <img :src="settingsIconUrl" alt="" class="home-top-bar__setting-icon" />
-    </button>
+    <div class="home-top-bar__actions">
+      <button type="button" class="home-top-bar__member" @click="emit('memberCta')">
+        <img :src="crownIconUrl" alt="" class="home-top-bar__crown" />
+        {{ memberCtaLabel }}
+      </button>
+      <button type="button" class="home-top-bar__setting-btn" @click="goToSettingsPage" :aria-label="settingsAriaLabel">
+        <img :src="settingsIconUrl" alt="" class="home-top-bar__setting-icon" />
+      </button>
+      <div v-if="props.showWindowControls && isTauri()" class="home-top-bar__window-ctrl" role="group" :aria-label="t('layout.appShell.windowControlsAria')">
+        <button
+          type="button"
+          class="home-top-bar__win-btn"
+          :aria-label="t('layout.appShell.minimizeAria')"
+          @click="minimizeWindow"
+        >
+          <img :src="HOME_ASSETS.pubMinimize" alt="" class="home-top-bar__win-icon" />
+        </button>
+        <button
+          type="button"
+          class="home-top-bar__win-btn"
+          :aria-label="t('layout.appShell.maximizeAria')"
+          @click="toggleMaximizeWindow"
+        >
+          <img :src="HOME_ASSETS.pubMaximize" alt="" class="home-top-bar__win-icon" />
+        </button>
+        <button
+          type="button"
+          class="home-top-bar__win-btn home-top-bar__win-btn--close"
+          :aria-label="t('layout.appShell.closeAria')"
+          @click="closeWindow"
+        >
+          <img :src="HOME_ASSETS.pubClose" alt="" class="home-top-bar__win-icon" />
+        </button>
+      </div>
+    </div>
   </header>
 </template>
 
@@ -115,9 +193,8 @@ function handleSearchBlur(): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 14px 24px;
+  gap: 16px;
+  padding: 10px 20px;
   border-bottom: 1px solid #e5e7eb;
   background: #ffffff;
   position: fixed;
@@ -126,40 +203,91 @@ function handleSearchBlur(): void {
   right: 0;
   width: 100%;
   z-index: 80;
+  flex-wrap: nowrap;
 }
-.home-top-bar__brand { display: flex; align-items: center; gap: 12px; }
+.home-top-bar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
 .home-top-bar__logo-wrap {
-  width: 40px; height: 40px; border-radius: 8px;
-  background: linear-gradient(135deg, #3b82f6 15%, #1e40af 85%);
-  display: flex; align-items: center; justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.home-top-bar__logo { width: 24px; height: 24px; }
-.home-top-bar__app-name { font-size: 24px; color: #111827; }
-.home-top-bar__search {
-  flex: 1; max-width: 400px; min-width: 220px;
-  border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;
-  display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+.home-top-bar__logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+.home-top-bar__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.home-top-bar__app-name {
+  font-size: 18px;
+  line-height: 24px;
+  color: #111827;
+}
+.home-top-bar__tagline {
+  font-size: 12px;
+  line-height: 16px;
+  color: #64748b;
 }
 .home-top-bar__search-wrap {
   position: relative;
   flex: 1;
-  max-width: 400px;
-  min-width: 220px;
+  max-width: 520px;
+  min-width: 0;
+}
+.home-top-bar__search {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+.home-top-bar__search-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 .home-top-bar__search-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   color: #111827;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 20px;
   outline: none;
 }
-.home-top-bar__search-input::placeholder { color: #9ca3af; }
-.home-top-bar__search-icon { width: 20px; height: 20px; }
+.home-top-bar__search-input::placeholder {
+  color: #9ca3af;
+}
+.home-top-bar__kbd {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
 .home-top-bar__search-results {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
   border: 1px solid #e5e7eb;
@@ -180,49 +308,90 @@ function handleSearchBlur(): void {
   cursor: pointer;
   transition: background-color 200ms ease;
 }
-.home-top-bar__search-result:last-child { border-bottom: none; }
-.home-top-bar__search-result:hover { background: #f8fafc; }
+.home-top-bar__search-result:last-child {
+  border-bottom: none;
+}
+.home-top-bar__search-result:hover {
+  background: #f8fafc;
+}
+.home-top-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.home-top-bar__member {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #78350f;
+  cursor: pointer;
+  background: linear-gradient(180deg, #fde68a 0%, #fbbf24 100%);
+  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.2);
+  white-space: nowrap;
+}
+.home-top-bar__member:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+.home-top-bar__crown {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
 .home-top-bar__setting-btn {
-  width: 40px; height: 40px; border-radius: 8px; border: 1px solid #e5e7eb;
-  background: #f9fafb; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
-.home-top-bar__setting-icon { width: 20px; height: 20px; }
-@media (max-width: 1180px) {
-  .home-top-bar {
-    gap: 16px;
-  }
-  .home-top-bar__app-name {
-    font-size: 20px;
-  }
-  .home-top-bar__search-wrap {
-    max-width: none;
-  }
-  .home-top-bar__search {
-    max-width: none;
-  }
+.home-top-bar__setting-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
-@media (max-width: 768px) {
-  .home-top-bar {
-    padding: 12px 16px;
-  }
-  .home-top-bar__brand {
-    width: calc(100% - 56px);
-    min-width: 0;
-  }
-  .home-top-bar__app-name {
-    min-width: 0;
-    font-size: 18px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .home-top-bar__search-wrap {
-    order: 3;
-    flex: 0 0 100%;
-    min-width: 0;
-  }
-  .home-top-bar__search {
-    min-width: 0;
-  }
+.home-top-bar__setting-icon {
+  width: 18px;
+  height: 18px;
+}
+.home-top-bar__window-ctrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding-left: 8px;
+  border-left: 1px solid #e5e7eb;
+}
+.home-top-bar__win-btn {
+  width: 34px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.home-top-bar__win-btn:hover {
+  background: #f1f5f9;
+}
+.home-top-bar__win-btn--close:hover {
+  background: #fee2e2;
+}
+.home-top-bar__win-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
 }
 </style>

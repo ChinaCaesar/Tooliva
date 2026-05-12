@@ -6,6 +6,28 @@ import { localStorageService } from "@/storage/localStorage";
 import { tauriClient } from "@/bridge/tauriClient";
 import type { AppLanguage, AppWindowSize, UserSettings } from "@/types/settings";
 
+function buildSettingsPayload(store: UserSettings): UserSettings {
+  return {
+    language: store.language,
+    theme: store.theme,
+    windowSize: store.windowSize,
+    favoriteToolIds: [...store.favoriteToolIds],
+    defaultOutputDirectory: store.defaultOutputDirectory,
+    taskDoneNotificationEnabled: store.taskDoneNotificationEnabled,
+    launchOnStartup: store.launchOnStartup,
+    minimizeToTray: store.minimizeToTray,
+    confirmOnClose: store.confirmOnClose,
+    cacheDirectory: store.cacheDirectory,
+    outputFileNamingRule: store.outputFileNamingRule,
+    maxConcurrentTasks: store.maxConcurrentTasks,
+    autoCheckUpdates: store.autoCheckUpdates,
+    updateMethod: store.updateMethod,
+    checkFrequency: store.checkFrequency,
+    privacyUxImprovement: store.privacyUxImprovement,
+    errorReportingEnabled: store.errorReportingEnabled
+  };
+}
+
 export const useSettingsStore = defineStore("settings", {
   state: (): UserSettings => ({ ...DEFAULT_SETTINGS }),
   actions: {
@@ -32,6 +54,10 @@ export const useSettingsStore = defineStore("settings", {
       this.defaultOutputDirectory = path;
       void this.persist();
     },
+    setCacheDirectory(path: string): void {
+      this.cacheDirectory = path;
+      void this.persist();
+    },
     /**
      * 控制批量任务完成后是否展示右上角提醒。
      */
@@ -47,6 +73,18 @@ export const useSettingsStore = defineStore("settings", {
       }
       void this.persist();
     },
+    patchSettings(partial: Partial<UserSettings>): void {
+      this.$patch(partial);
+      void this.persist();
+    },
+    /**
+     * 将本地偏好恢复为默认值并写回持久化层（用于「清除本地数据」确认后）。
+     */
+    async resetToDefaultSettings(): Promise<void> {
+      this.$patch({ ...DEFAULT_SETTINGS });
+      i18n.global.locale.value = this.language;
+      await this.persist();
+    },
     async hydrate(): Promise<void> {
       const saved = await this.loadPersistedSettings();
       const normalized = { ...DEFAULT_SETTINGS, ...saved };
@@ -54,14 +92,7 @@ export const useSettingsStore = defineStore("settings", {
       i18n.global.locale.value = normalized.language;
     },
     async persist(): Promise<void> {
-      const payload = {
-        language: this.language,
-        theme: this.theme,
-        windowSize: this.windowSize,
-        favoriteToolIds: this.favoriteToolIds,
-        defaultOutputDirectory: this.defaultOutputDirectory,
-        taskDoneNotificationEnabled: this.taskDoneNotificationEnabled
-      };
+      const payload = buildSettingsPayload(this.$state);
       if (!isTauri()) {
         localStorageService.set(SETTINGS_STORAGE_KEY, payload);
         return;

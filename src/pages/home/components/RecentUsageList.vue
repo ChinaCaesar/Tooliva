@@ -4,180 +4,235 @@ import { useI18n } from "vue-i18n";
 interface RecentUsageItemViewModel {
   id: string;
   iconUrl: string;
+  iconBackground: string;
   titleKey: string;
   fileName: string;
   relativeTimeKey: string;
   isEmpty?: boolean;
+  actionCode?: string;
 }
 
-interface FrequentToolViewModel {
-  id: string;
-  labelKey: string;
-  usageCount: number;
-  route: string;
-  actionCode: string;
-  isEmpty?: boolean;
-}
-
-const props = defineProps<{
+defineProps<{
   title: string;
-  frequentToolsTitle: string;
-  timesUnitLabel: string;
+  viewAllLabel: string;
   items: RecentUsageItemViewModel[];
-  frequentTools: FrequentToolViewModel[];
 }>();
+
 const emit = defineEmits<{
-  (event: "frequent-tool-click", route: string): void;
+  (event: "view-all-recent"): void;
+  (event: "recent-item-click", actionCode: string): void;
 }>();
 
 const { t } = useI18n();
+
+function handleChipClick(item: RecentUsageItemViewModel): void {
+  if (item.isEmpty || !item.actionCode) return;
+  emit("recent-item-click", item.actionCode);
+}
 </script>
 
 <template>
-  <section class="recent-list">
-    <div class="recent-list__split">
-      <div class="recent-list__column recent-list__column--left">
-        <h3 class="recent-list__title">{{ title }}</h3>
-        <article v-for="item in props.items" :key="item.id" class="recent-list__item" :class="{ 'recent-list__item--empty': item.isEmpty }">
-          <div class="recent-list__left">
-            <div class="recent-list__icon-wrap">
-              <img :src="item.iconUrl" alt="" class="recent-list__icon" />
-            </div>
-            <div>
-              <div class="recent-list__name">{{ t(item.titleKey) }}</div>
-              <div class="recent-list__file">{{ item.fileName }}</div>
-            </div>
+  <section class="recent-strip">
+    <header class="recent-strip__head">
+      <h3 class="recent-strip__title">{{ title }}</h3>
+      <button type="button" class="recent-strip__view-all" @click="emit('view-all-recent')">
+        {{ viewAllLabel }}
+      </button>
+    </header>
+    <div class="recent-strip__track">
+      <button
+        v-for="item in items"
+        :key="item.id"
+        type="button"
+        class="recent-chip"
+        :class="{ 'recent-chip--empty': item.isEmpty }"
+        :disabled="item.isEmpty || !item.actionCode"
+        @click="handleChipClick(item)"
+      >
+        <div class="recent-chip__swatch" :style="{ background: item.iconBackground }">
+          <img :src="item.iconUrl" alt="" class="recent-chip__icon" />
+        </div>
+        <div class="recent-chip__body">
+          <div class="recent-chip__name">{{ t(item.titleKey) }}</div>
+          <div class="recent-chip__meta">
+            <span class="recent-chip__time">{{ t(item.relativeTimeKey) }}</span>
+            <span v-if="item.fileName && item.fileName !== '—'" class="recent-chip__dot" aria-hidden="true">·</span>
+            <span v-if="item.fileName && item.fileName !== '—'" class="recent-chip__file">{{ item.fileName }}</span>
           </div>
-          <div class="recent-list__time">{{ t(item.relativeTimeKey) }}</div>
-        </article>
-      </div>
-
-      <div class="recent-list__divider" aria-hidden="true"></div>
-
-      <div class="recent-list__column recent-list__column--right">
-        <h3 class="recent-list__title">{{ frequentToolsTitle }}</h3>
-        <button
-          v-for="item in props.frequentTools"
-          :key="item.id"
-          type="button"
-          class="frequent-item"
-          :class="{ 'frequent-item--empty': item.isEmpty }"
-          :disabled="item.isEmpty"
-          @click="emit('frequent-tool-click', item.route)"
-        >
-          <div class="frequent-item__left">
-            <span class="frequent-item__name">{{ t(item.labelKey) }}</span>
-            <span class="frequent-item__action" v-if="!item.isEmpty">{{ item.actionCode }}</span>
-          </div>
-          <span class="frequent-item__count">{{ item.usageCount }} {{ timesUnitLabel }}</span>
-        </button>
-      </div>
+        </div>
+        <span class="recent-chip__chevron" aria-hidden="true">›</span>
+      </button>
+      <button
+        type="button"
+        class="recent-chip recent-chip--more"
+        :aria-label="viewAllLabel"
+        @click="emit('view-all-recent')"
+      >
+        <span class="recent-chip__dots" aria-hidden="true">···</span>
+      </button>
     </div>
   </section>
 </template>
 
 <style scoped>
-.recent-list {
-  margin-top: 24px; border-radius: 16px; background: #f9fafb; border: 1px solid #e5e7eb; padding: 24px;
+.recent-strip {
+  margin-top: 0;
 }
-.recent-list__split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 1px minmax(260px, 320px);
-  gap: 16px;
-}
-.recent-list__column { min-width: 0; }
-.recent-list__divider { background: #e5e7eb; border-radius: 999px; }
-.recent-list__title { margin: 0 0 12px; color: #111827; font-size: 18px; line-height: 28px; }
-.recent-list__item {
-  display: flex; align-items: center; justify-content: space-between;
-  background: #fff; border-radius: 8px; padding: 12px; margin-top: 8px;
-  min-height: 64px;
-}
-.recent-list__item--empty { opacity: 0.8; }
-.recent-list__left { display: flex; align-items: center; gap: 16px; }
-.recent-list__icon-wrap {
-  width: 40px; height: 40px; border-radius: 8px;
-  background: linear-gradient(135deg, #3b82f6 15%, #1e40af 85%);
-  display: flex; align-items: center; justify-content: center;
-}
-.recent-list__icon { width: 20px; height: 20px; }
-.recent-list__name { color: #111827; font-weight: 500; line-height: 20px; }
-.recent-list__file { color: #9ca3af; font-size: 12px; line-height: 16px; }
-.recent-list__time { color: #6b7280; font-size: 12px; line-height: 16px; }
-
-.frequent-item {
-  margin-top: 8px;
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  border-radius: 10px;
-  padding: 10px 12px;
+.recent-strip__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  margin-bottom: clamp(8px, 1vh, 12px);
+}
+.recent-strip__title {
+  margin: 0;
+  font-size: clamp(15px, 1.25vw, 16px);
+  line-height: 1.4;
+  font-weight: 700;
+  color: #0f172a;
+}
+.recent-strip__view-all {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+  padding: 6px 4px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
-.frequent-item:hover:not(:disabled) {
-  border-color: #93c5fd;
-  box-shadow: 0 8px 16px rgba(30, 64, 175, 0.08);
-  transform: translateY(-1px);
+.recent-strip__view-all:hover {
+  color: #2563eb;
 }
-.frequent-item:focus-visible {
+.recent-strip__view-all:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.recent-strip__track {
+  display: flex;
+  flex-direction: row;
+  gap: clamp(8px, 1vw, 12px);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+  align-items: stretch;
+}
+.recent-chip {
+  flex: 0 0 auto;
+  width: min(216px, 38vw);
+  min-width: 172px;
+  min-height: 48px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 10px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.recent-chip:hover:not(:disabled) {
+  border-color: #dbeafe;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+.recent-chip:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
-.frequent-item--empty {
+.recent-chip:disabled {
   cursor: default;
-  opacity: 0.8;
+  opacity: 0.85;
 }
-.frequent-item__left {
-  min-width: 0;
+.recent-chip--empty {
+  opacity: 0.88;
+}
+.recent-chip__swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-.frequent-item__name {
-  color: #0f172a;
+.recent-chip__icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+.recent-chip__body {
+  flex: 1;
+  min-width: 0;
+}
+.recent-chip__name {
   font-size: 14px;
   line-height: 20px;
-  text-align: left;
-}
-.frequent-item__action {
-  margin-top: 2px;
-  color: #64748b;
-  font-size: 11px;
-  line-height: 16px;
-  text-align: left;
-}
-.frequent-item__count {
-  color: #1e3a8a;
-  font-size: 12px;
-  line-height: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-@media (max-width: 1080px) {
-  .recent-list__split {
-    grid-template-columns: 1fr;
-  }
-  .recent-list__divider { display: none; }
+.recent-chip__meta {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
-@media (max-width: 720px) {
-  .recent-list {
-    padding: 18px;
-  }
-  .recent-list__item {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .recent-list__left {
-    width: 100%;
-    min-width: 0;
-  }
-  .recent-list__time {
-    padding-left: 56px;
-  }
+.recent-chip__time {
+  flex-shrink: 0;
+  color: #64748b;
+}
+.recent-chip__dot {
+  flex-shrink: 0;
+  color: #cbd5e1;
+}
+.recent-chip__file {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.recent-chip__chevron {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #d1d5db;
+  line-height: 1;
+  padding-left: 2px;
+}
+.recent-chip--more {
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  justify-content: center;
+  border-style: dashed;
+  border-color: #e2e8f0;
+  background: #fafbfc;
+}
+.recent-chip--more:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+.recent-chip__dots {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #94a3b8;
+  line-height: 1;
 }
 </style>

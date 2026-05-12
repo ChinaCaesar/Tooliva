@@ -10,6 +10,45 @@ export interface HomeToolCardItem {
   actionCode: string;
 }
 
+/** 主推工具卡：可跳转工具或占位（录屏、更多等）。 */
+export type HomeFeaturedToolCardType = "tool" | "placeholder";
+
+export interface HomeFeaturedToolCardDef {
+  id: string;
+  cardType: HomeFeaturedToolCardType;
+  iconKey: HomeAssetKey;
+  titleKey: string;
+  descriptionKey: string;
+  gradient: string;
+  /** 工具路由映射键，与 SQLite / 搜索一致 */
+  actionCode?: string;
+  /** 占位说明 i18n，用于弹窗或提示 */
+  placeholderMessageKey?: string;
+}
+
+/** 底部价值卖点横条单项。 */
+export interface HomeValuePropDef {
+  id: string;
+  iconKey: HomeAssetKey;
+  titleKey: string;
+  descriptionKey: string;
+}
+
+/** 侧栏列表项（安全/会员权益等）。 */
+export interface HomeSidebarBulletDef {
+  id: string;
+  labelKey: string;
+  checkStyle: "green" | "orange";
+}
+
+/** 更新日志一条。 */
+export interface HomeChangelogEntryDef {
+  id: string;
+  version: string;
+  dateKey: string;
+  summaryKey: string;
+}
+
 /**
  * 最近使用列表项，预留可追溯任务能力。
  */
@@ -20,6 +59,8 @@ export interface HomeRecentItem {
   fileName: string;
   relativeTimeKey: string;
   taskId?: string;
+  /** 用于图标底色，与主推工具 actionCode 一致 */
+  toolKey?: string;
 }
 
 /**
@@ -84,4 +125,25 @@ export type HomeAssetKey =
   | "quickFavorites"
   | "quickDocs"
   | "footerFeedback"
-  | "footerHelp";
+  | "footerHelp"
+  | "pubAppLogo"
+  | "pubSearch"
+  | "pubSettings"
+  | "pubCrown"
+  | "pubIconCompress"
+  | "pubIconVideo"
+  | "pubIconScreenRecord"
+  | "pubIconWatermark"
+  | "pubIconPlusMore"
+  | "pubShield"
+  | "pubGreenCheck"
+  | "pubOrangeCheck"
+  | "pubBottomLocal"
+  | "pubBottomPrivacy"
+  | "pubBottomOffline"
+  | "pubBottomSpeed"
+  | "pubBottomUpdates"
+  | "pubHeartFooter"
+  | "pubMinimize"
+  | "pubMaximize"
+  | "pubClose";

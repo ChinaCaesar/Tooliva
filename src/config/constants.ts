@@ -31,7 +31,18 @@ export const DEFAULT_SETTINGS: UserSettings = {
   windowSize: "medium",
   favoriteToolIds: [],
   defaultOutputDirectory: "",
-  taskDoneNotificationEnabled: true
+  taskDoneNotificationEnabled: true,
+  launchOnStartup: false,
+  minimizeToTray: false,
+  confirmOnClose: true,
+  cacheDirectory: "",
+  outputFileNamingRule: "original",
+  maxConcurrentTasks: 3,
+  autoCheckUpdates: true,
+  updateMethod: "stable",
+  checkFrequency: "daily",
+  privacyUxImprovement: true,
+  errorReportingEnabled: true
 };
 
 export const ROUTE_PATHS = {

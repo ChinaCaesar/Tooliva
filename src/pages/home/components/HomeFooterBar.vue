@@ -1,59 +1,57 @@
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
-
-interface FooterLinkViewModel {
-  id: string;
-  iconUrl: string;
-  labelKey: string;
-}
-
 defineProps<{
-  copyrightText: string;
   versionPrefix: string;
   version: string;
-  links: FooterLinkViewModel[];
+  slogan: string;
+  heartIconUrl: string;
 }>();
-
-const { t } = useI18n();
 </script>
 
 <template>
   <footer class="home-footer">
-    <p class="home-footer__copyright">{{ copyrightText }} {{ versionPrefix }} {{ version }}</p>
-    <div v-if="links.length > 0" class="home-footer__links">
-      <button v-for="item in links" :key="item.id" type="button" class="home-footer__link-btn">
-        <img :src="item.iconUrl" alt="" class="home-footer__icon" />
-        <span>{{ t(item.labelKey) }}</span>
-      </button>
-    </div>
+    <p class="home-footer__version">{{ versionPrefix }} {{ version }}</p>
+    <p class="home-footer__slogan">
+      <img :src="heartIconUrl" alt="" class="home-footer__heart" />
+      <span>{{ slogan }}</span>
+    </p>
+    <div class="home-footer__spacer" aria-hidden="true"></div>
   </footer>
 </template>
 
 <style scoped>
 .home-footer {
-  margin-top: 24px;
+  flex-shrink: 0;
   border-top: 1px solid #e5e7eb;
-  padding: 20px 24px;
-  display: flex;
+  padding: 10px 20px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff;
 }
-.home-footer__copyright { margin: 0; color: #9ca3af; }
-.home-footer__links { display: flex; align-items: center; gap: 12px; }
-.home-footer__link-btn {
-  border: none; background: transparent; color: #6b7280; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 6px; padding: 0;
+.home-footer__version {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  justify-self: start;
 }
-.home-footer__icon { width: 16px; height: 16px; }
-@media (max-width: 768px) {
-  .home-footer {
-    padding: 16px;
-  }
-  .home-footer__links {
-    width: 100%;
-    flex-wrap: wrap;
-  }
+.home-footer__slogan {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  justify-self: center;
+  text-align: center;
+}
+.home-footer__heart {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+.home-footer__spacer {
+  justify-self: end;
 }
 </style>

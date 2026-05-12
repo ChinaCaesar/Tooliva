@@ -18,7 +18,32 @@ pub struct AppSettingsPayload {
     #[serde(default = "default_window_size_value")]
     pub window_size: String,
     pub favorite_tool_ids: Vec<String>,
+    #[serde(default)]
     pub default_output_directory: String,
+    #[serde(default = "default_true")]
+    pub task_done_notification_enabled: bool,
+    #[serde(default)]
+    pub launch_on_startup: bool,
+    #[serde(default)]
+    pub minimize_to_tray: bool,
+    #[serde(default = "default_true")]
+    pub confirm_on_close: bool,
+    #[serde(default)]
+    pub cache_directory: String,
+    #[serde(default = "default_output_naming_rule")]
+    pub output_file_naming_rule: String,
+    #[serde(default = "default_max_concurrent_tasks")]
+    pub max_concurrent_tasks: u32,
+    #[serde(default = "default_true")]
+    pub auto_check_updates: bool,
+    #[serde(default = "default_update_method")]
+    pub update_method: String,
+    #[serde(default = "default_check_frequency")]
+    pub check_frequency: String,
+    #[serde(default = "default_true")]
+    pub privacy_ux_improvement: bool,
+    #[serde(default = "default_true")]
+    pub error_reporting_enabled: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -189,7 +214,39 @@ fn default_settings() -> AppSettingsPayload {
         window_size: "medium".to_string(),
         favorite_tool_ids: Vec::new(),
         default_output_directory: String::new(),
+        task_done_notification_enabled: true,
+        launch_on_startup: false,
+        minimize_to_tray: false,
+        confirm_on_close: true,
+        cache_directory: String::new(),
+        output_file_naming_rule: "original".to_string(),
+        max_concurrent_tasks: 3,
+        auto_check_updates: true,
+        update_method: "stable".to_string(),
+        check_frequency: "daily".to_string(),
+        privacy_ux_improvement: true,
+        error_reporting_enabled: true,
     }
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_output_naming_rule() -> String {
+    "original".to_string()
+}
+
+fn default_max_concurrent_tasks() -> u32 {
+    3
+}
+
+fn default_update_method() -> String {
+    "stable".to_string()
+}
+
+fn default_check_frequency() -> String {
+    "daily".to_string()
 }
 
 fn default_window_size_value() -> String {
@@ -212,6 +269,9 @@ pub fn load_saved_settings(app: &AppHandle) -> Result<AppSettingsPayload, String
         serde_json::from_str::<AppSettingsPayload>(&raw_value).map_err(|err| format!("解析设置失败：{err}"))?;
     if parsed.window_size.is_empty() {
         parsed.window_size = "medium".to_string();
+    }
+    if parsed.max_concurrent_tasks == 0 {
+        parsed.max_concurrent_tasks = 3;
     }
     Ok(parsed)
 }

@@ -30,11 +30,66 @@ export const enUS = {
     sourceDirectoryNoMatch: "No files supported by the current task were found in the selected folder.",
     sourceDirectoryNoNewFiles: "Folder scan finished, but no new supported files were found."
   },
+  layout: {
+    appShell: {
+      sidebarAria: "Main navigation",
+      primaryNavAria: "Features",
+      secondaryNavAria: "Account and system",
+      placeholderTitle: "Notice",
+      windowControlsAria: "Window controls",
+      minimizeAria: "Minimize window",
+      maximizeAria: "Maximize or restore window",
+      closeAria: "Close window",
+      nav: {
+        backToPrevious: "Go back",
+        home: "Home",
+        allTools: "All tools",
+        categoryImage: "Image",
+        categoryVideo: "Video",
+        categoryScreen: "Screen recording",
+        categoryAudio: "Audio",
+        categoryCopy: "Copywriting",
+        categoryFile: "Files",
+        categoryEfficiency: "Productivity",
+        moreTools: "More tools",
+        membership: "Membership",
+        history: "History",
+        settings: "Settings"
+      },
+      placeholders: {
+        allTools: "The full tools directory will arrive in a future release.",
+        screenRecord: "Screen recording is not available yet.",
+        audio: "Audio tools are not available yet.",
+        copywriting: "Copywriting tools are not available yet.",
+        file: "File utilities are not available yet.",
+        efficiency: "Productivity tools are not available yet.",
+        moreTools: "More tools will be available in a future release.",
+        history: "History center will be available in a future release."
+      }
+    }
+  },
   pages: {
     home: {
+      greeting: {
+        morning: "Good morning, creator! 👋",
+        afternoon: "Good afternoon, creator! 👋",
+        evening: "Good evening, creator! 👋",
+        night: "It's late — get some rest. 🌙"
+      },
+      dialogs: {
+        placeholderTitle: "Notice"
+      },
+      featured: {
+        useNow: "Use now"
+      },
       topBar: {
         appName: "Toolbox",
-        searchPlaceholder: "Search tools...",
+        tagline: "Your helper for creator workflows",
+        searchPlaceholder: "Search tools (e.g. image compress, video convert)",
+        searchShortcut: "Ctrl K",
+        searchShortcutMac: "⌘ K",
+        memberCta: "Go premium",
+        settingsAria: "Open settings",
         userName: "Username",
         userRole: "VIP Member"
       },
@@ -43,18 +98,62 @@ export const enUS = {
           title: "Core Tools",
           description: "Professional toolkits that improve your workflow efficiency"
         },
-        recentUsage: {
-          title: "Recent Usage"
+        greeting: {
+          subtitle: "Create efficiently — start with the right tools."
         },
-        frequentTools: {
-          title: "Frequent Tools"
+        valueProps: {
+          title: "Local-first, private, and efficient"
+        },
+        recentUsage: {
+          title: "Recent usage",
+          viewAll: "View all >"
         },
         usageStats: {
           title: "Usage Stats"
         },
         quickActions: {
           title: "Quick Actions"
+        },
+        sidebar: {
+          security: {
+            title: "Local processing, safer workflow",
+            points: {
+              local: "Media tasks run locally by default — not uploaded to the cloud",
+              files: "History and thumbnails stay in your local database",
+              offline: "Core tools remain usable offline once installed",
+              encryption: "Sensitive paths follow OS permissions and sandbox rules"
+            }
+          },
+          membership: {
+            title: "Member benefits",
+            learnMore: "Learn more",
+            cta: "Go premium",
+            points: {
+              priority: "Early access to new tools and templates",
+              templates: "Unlock advanced presets and batch flows",
+              batch: "Higher concurrency and queue priority (planned)",
+              support: "Priority support (planned)"
+            }
+          },
+          changelog: {
+            title: "Changelog",
+            viewAll: "View all",
+            viewAllHint: "Full release notes will arrive in a future update.",
+            v100: {
+              date: "2026-05-01",
+              summary: "Dashboard refresh with clearer local tool entry points."
+            },
+            v090: {
+              date: "2026-04-12",
+              summary: "Improved image compression and video conversion flows."
+            }
+          }
         }
+      },
+      placeholders: {
+        screenRecord: "Screen recording is coming soon.",
+        moreTools: "More tools are on the way.",
+        viewAllRecent: "Full history will live in the task center."
       },
       tools: {
         imageCompress: {
@@ -75,6 +174,16 @@ export const enUS = {
           title: "Image Watermark",
           shortTitle: "Watermark",
           description: "Batch add text or logo watermark"
+        },
+        screenRecord: {
+          title: "Screen recording",
+          description: "Smooth capture with one-click export"
+        },
+        moreTools: {
+          title: "Explore more",
+          description: "Coming soon",
+          exploreTitle: "Explore more tools…",
+          exploreSubtitle: "Stay tuned"
         }
       },
       membership: {
@@ -92,12 +201,10 @@ export const enUS = {
       },
       recent: {
         justNow: "Just now",
+        usedJustNow: "Used just now",
+        usedYesterday: "Yesterday",
         emptyTitle: "No usage records yet",
         emptyTime: "Waiting for first run"
-      },
-      frequent: {
-        emptyTool: "No frequent data yet",
-        timesUnit: "times"
       },
       quickActions: {
         history: "History",
@@ -111,9 +218,32 @@ export const enUS = {
       },
       footer: {
         copyright: "© 2024 Toolbox",
-        versionPrefix: "Version",
+        versionPrefix: "Current version",
+        slogan: "Make creation more efficient, make life simpler",
         feedback: "Feedback",
         helpCenter: "Help Center"
+      },
+      valueProps: {
+        local: {
+          title: "Local processing",
+          description: "Run media jobs offline by default"
+        },
+        privacy: {
+          title: "Privacy-first",
+          description: "Files stay within your machine"
+        },
+        offline: {
+          title: "Offline friendly",
+          description: "Core tools work without a network"
+        },
+        speed: {
+          title: "Fast and stable",
+          description: "Local compute, instant output"
+        },
+        updates: {
+          title: "Continuous updates",
+          description: "Tools and UX keep improving"
+        }
       }
     },
     tools: {
@@ -219,6 +349,60 @@ export const enUS = {
         crashDesc: "Automatically send crash and error reports",
         autoDeleteTitle: "Auto Delete Files",
         autoDeleteDesc: "Automatically delete source files after completion"
+      },
+      path: {
+        webNoPicker: "Directory picker is unavailable in the browser preview. Please use the desktop app.",
+        webOpenUnavailable: "Opening folders in Explorer is unavailable in the browser. Please use the desktop app."
+      },
+      dashboard: {
+        subtitle: "Manage language, theme, output folders, updates, and privacy preferences.",
+        sectionGeneral: "General",
+        sectionOutput: "Output",
+        sectionCache: "Cache",
+        sectionUpdates: "Updates",
+        themeTitle: "Theme",
+        themeDesc: "Choose light, dark, or follow the system appearance.",
+        themeFollowSystem: "Follow system",
+        themeLight: "Light",
+        themeDark: "Dark",
+        minimizeTrayTitle: "Minimize to tray",
+        minimizeTrayDesc: "Keep a tray icon after closing the main window (preference placeholder until wired).",
+        confirmCloseTitle: "Confirm before closing",
+        confirmCloseDesc: "Ask for confirmation when closing to avoid accidents (preference placeholder until wired).",
+        namingRuleTitle: "File naming rule",
+        namingRuleDesc: "Default naming strategy for exported files.",
+        namingOriginal: "Keep original file name",
+        namingTimestamp: "Timestamp prefix",
+        outputEmptyHint: "Choose a default output folder with “Change” first.",
+        cacheDirTitle: "Cache directory",
+        cacheDirDesc: "Location for temporary and preview cache files.",
+        cacheSizeTitle: "Cache size",
+        cacheSizeDesc: "Estimated about 256.8 MB (illustrative; real stats later).",
+        clearCache: "Clear cache",
+        clearCacheHint: "Cache cleanup will be wired in a future release. This is a placeholder notice.",
+        pathNotSet: "Not set",
+        openFolder: "Open",
+        pathHintTitle: "Path",
+        updateMethodTitle: "Update channel",
+        updateMethodDesc: "Stable or preview update source.",
+        updateStable: "Stable",
+        updateBeta: "Preview",
+        checkFrequencyTitle: "Check frequency",
+        checkFrequencyDesc: "How often to check for updates automatically.",
+        freqStartup: "On startup",
+        freqDaily: "Daily",
+        freqWeekly: "Weekly",
+        clearDataTitle: "Clear local data",
+        clearDataDesc: "Reset on-device preferences to defaults (does not delete exported files).",
+        clearData: "Clear local data",
+        clearDataConfirm: "Reset all local preferences to defaults? This cannot be undone.",
+        cacheEmptyHint: "Choose a cache folder with “Change” first.",
+        checkUpdatesHint: "Online update checks are not connected yet.",
+        terms: "Terms of use",
+        privacyPolicy: "Privacy policy",
+        termsPlaceholder: "Terms content will be linked or embedded in a future release.",
+        privacyPlaceholder: "Privacy policy content will be linked or embedded in a future release.",
+        copyright: "© Desktop Toolbox"
       }
     },
     membership: {

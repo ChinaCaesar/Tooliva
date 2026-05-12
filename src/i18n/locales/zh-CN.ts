@@ -30,11 +30,66 @@ export const zhCN = {
     sourceDirectoryNoMatch: "所选目录中未找到当前任务可处理的文件。",
     sourceDirectoryNoNewFiles: "目录扫描完成，没有发现新的可处理文件。"
   },
+  layout: {
+    appShell: {
+      sidebarAria: "应用主导航",
+      primaryNavAria: "功能导航",
+      secondaryNavAria: "账户与系统",
+      placeholderTitle: "提示",
+      windowControlsAria: "窗口控制",
+      minimizeAria: "最小化窗口",
+      maximizeAria: "最大化或还原窗口",
+      closeAria: "关闭窗口",
+      nav: {
+        backToPrevious: "返回上一级",
+        home: "首页",
+        allTools: "全部工具",
+        categoryImage: "图片工具",
+        categoryVideo: "视频工具",
+        categoryScreen: "录屏工具",
+        categoryAudio: "音频工具",
+        categoryCopy: "文案工具",
+        categoryFile: "文件工具",
+        categoryEfficiency: "效率工具",
+        moreTools: "更多工具",
+        membership: "会员中心",
+        history: "历史记录",
+        settings: "设置"
+      },
+      placeholders: {
+        allTools: "全部工具列表将在后续版本提供。",
+        screenRecord: "录屏工具尚未接入，敬请期待。",
+        audio: "音频工具尚未接入，敬请期待。",
+        copywriting: "文案工具尚未接入，敬请期待。",
+        file: "文件工具尚未接入，敬请期待。",
+        efficiency: "效率工具尚未接入，敬请期待。",
+        moreTools: "更多工具入口将在后续版本开放。",
+        history: "历史记录中心将在后续版本提供。"
+      }
+    }
+  },
   pages: {
     home: {
+      greeting: {
+        morning: "早上好，创作者！👋",
+        afternoon: "下午好，创作者！👋",
+        evening: "晚上好，创作者！👋",
+        night: "夜深了，注意休息！🌙"
+      },
+      dialogs: {
+        placeholderTitle: "提示"
+      },
+      featured: {
+        useNow: "立即使用"
+      },
       topBar: {
         appName: "工具箱",
-        searchPlaceholder: "搜索工具...",
+        tagline: "自媒体创作好帮手",
+        searchPlaceholder: "搜索工具（例如：图片压缩、视频转换）",
+        searchShortcut: "Ctrl K",
+        searchShortcutMac: "⌘ K",
+        memberCta: "开通会员",
+        settingsAria: "打开设置",
         userName: "用户名",
         userRole: "VIP会员"
       },
@@ -43,18 +98,62 @@ export const zhCN = {
           title: "核心工具",
           description: "专业级工具集合，提升您的工作效率"
         },
-        recentUsage: {
-          title: "最近使用"
+        greeting: {
+          subtitle: "高效创作，从合适的工具开始"
         },
-        frequentTools: {
-          title: "高频使用工具"
+        valueProps: {
+          title: "全本地处理，安全高效"
+        },
+        recentUsage: {
+          title: "最近使用",
+          viewAll: "查看全部 >"
         },
         usageStats: {
           title: "使用统计"
         },
         quickActions: {
           title: "快捷操作"
+        },
+        sidebar: {
+          security: {
+            title: "本地处理，安全高效",
+            points: {
+              local: "媒体文件默认在本地处理，不上传云端",
+              files: "处理记录与缩略图仅存于本机数据库",
+              offline: "断网环境下仍可使用已安装的工具能力",
+              encryption: "敏感路径访问受系统权限与沙箱约束"
+            }
+          },
+          membership: {
+            title: "会员权益",
+            learnMore: "了解更多",
+            cta: "开通会员",
+            points: {
+              priority: "优先体验新工具与模板",
+              templates: "解锁更多批量与高级参数预设",
+              batch: "更高并发与队列优先级（规划中）",
+              support: "专属客服与问题响应（规划中）"
+            }
+          },
+          changelog: {
+            title: "更新日志",
+            viewAll: "查看全部",
+            viewAllHint: "完整更新说明将在后续版本中提供。",
+            v100: {
+              date: "2026-05-01",
+              summary: "首页仪表盘改版，优化本地工具入口。"
+            },
+            v090: {
+              date: "2026-04-12",
+              summary: "完善图片压缩与视频转换流程。"
+            }
+          }
         }
+      },
+      placeholders: {
+        screenRecord: "录屏工具即将推出，敬请期待。",
+        moreTools: "更多工具陆续上架中。",
+        viewAllRecent: "完整历史将在任务中心提供。"
       },
       tools: {
         imageCompress: {
@@ -75,6 +174,16 @@ export const zhCN = {
           title: "图片加水印",
           shortTitle: "图片水印",
           description: "批量添加文字或 Logo 水印"
+        },
+        screenRecord: {
+          title: "屏幕录制",
+          description: "高清流畅，一键导出"
+        },
+        moreTools: {
+          title: "探索更多",
+          description: "即将推出",
+          exploreTitle: "探索更多工具…",
+          exploreSubtitle: "敬请期待"
         }
       },
       membership: {
@@ -92,12 +201,10 @@ export const zhCN = {
       },
       recent: {
         justNow: "刚刚",
+        usedJustNow: "刚刚使用",
+        usedYesterday: "昨天",
         emptyTitle: "暂无使用记录",
         emptyTime: "等待首次使用"
-      },
-      frequent: {
-        emptyTool: "暂无高频数据",
-        timesUnit: "次"
       },
       quickActions: {
         history: "历史记录",
@@ -111,9 +218,32 @@ export const zhCN = {
       },
       footer: {
         copyright: "© 2024 工具箱",
-        versionPrefix: "版本",
+        versionPrefix: "当前版本",
+        slogan: "让创作更高效，让生活更简单",
         feedback: "意见反馈",
         helpCenter: "帮助中心"
+      },
+      valueProps: {
+        local: {
+          title: "本地处理",
+          description: "默认离线完成媒体任务"
+        },
+        privacy: {
+          title: "隐私保护",
+          description: "文件不出本机可控范围"
+        },
+        offline: {
+          title: "离线可用",
+          description: "无网环境仍可使用核心能力"
+        },
+        speed: {
+          title: "高速稳定",
+          description: "本地算力直出结果"
+        },
+        updates: {
+          title: "持续更新",
+          description: "工具与体验迭代不停"
+        }
       }
     },
     tools: {
@@ -219,6 +349,60 @@ export const zhCN = {
         crashDesc: "自动发送崩溃和错误报告",
         autoDeleteTitle: "文件自动删除",
         autoDeleteDesc: "处理完成后自动删除原文件"
+      },
+      path: {
+        webNoPicker: "当前为浏览器预览环境，无法调用系统目录选择器。请在桌面版中使用。",
+        webOpenUnavailable: "浏览器环境无法在资源管理器中打开本地目录，请使用桌面版。"
+      },
+      dashboard: {
+        subtitle: "管理语言、主题、输出目录、更新与隐私相关选项。",
+        sectionGeneral: "常规设置",
+        sectionOutput: "输出设置",
+        sectionCache: "缓存设置",
+        sectionUpdates: "更新设置",
+        themeTitle: "主题模式",
+        themeDesc: "选择浅色、深色或跟随系统。",
+        themeFollowSystem: "跟随系统",
+        themeLight: "浅色",
+        themeDark: "深色",
+        minimizeTrayTitle: "最小化到系统托盘",
+        minimizeTrayDesc: "关闭主窗口后保留托盘图标（能力接入前为偏好占位）。",
+        confirmCloseTitle: "关闭前确认",
+        confirmCloseDesc: "点击关闭时弹出确认，避免误关（能力接入前为偏好占位）。",
+        namingRuleTitle: "文件命名规则",
+        namingRuleDesc: "输出文件的默认命名策略。",
+        namingOriginal: "保留原始文件名",
+        namingTimestamp: "时间戳前缀",
+        outputEmptyHint: "请先在上方点击「更改」选择默认输出目录。",
+        cacheDirTitle: "缓存目录",
+        cacheDirDesc: "临时文件与预览缓存存放位置。",
+        cacheSizeTitle: "缓存占用",
+        cacheSizeDesc: "当前估算约 256.8 MB（示意数据，后续可接入真实统计）。",
+        clearCache: "清除缓存",
+        clearCacheHint: "缓存清理能力将在后续版本接入，当前为占位提示。",
+        pathNotSet: "未设置",
+        openFolder: "打开",
+        pathHintTitle: "路径提示",
+        updateMethodTitle: "更新渠道",
+        updateMethodDesc: "选择稳定版或预览版更新来源。",
+        updateStable: "稳定版",
+        updateBeta: "预览版",
+        checkFrequencyTitle: "检查频率",
+        checkFrequencyDesc: "自动检查更新的节奏。",
+        freqStartup: "启动时",
+        freqDaily: "每天一次",
+        freqWeekly: "每周一次",
+        clearDataTitle: "清除本地数据",
+        clearDataDesc: "重置本机偏好为默认值（不影响已导出的文件）。",
+        clearData: "清除本地数据",
+        clearDataConfirm: "确定要将所有本地偏好恢复为默认值吗？此操作不可撤销。",
+        cacheEmptyHint: "请先在上方点击「更改」选择缓存目录。",
+        checkUpdatesHint: "更新服务尚未接入，后续版本将支持在线检查。",
+        terms: "用户协议",
+        privacyPolicy: "隐私政策",
+        termsPlaceholder: "用户协议正文将在后续版本提供链接或内嵌页面。",
+        privacyPlaceholder: "隐私政策正文将在后续版本提供链接或内嵌页面。",
+        copyright: "© 桌面工具箱"
       }
     },
     membership: {

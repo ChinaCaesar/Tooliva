@@ -1,167 +1,216 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ROUTE_PATHS } from "@/config/constants";
-import HomeTopBar from "@/pages/home/components/HomeTopBar.vue";
-import CoreToolGrid from "@/pages/home/components/CoreToolGrid.vue";
+import HomeGreetingHero from "@/pages/home/components/HomeGreetingHero.vue";
+import HomeFeaturedToolsRow from "@/pages/home/components/HomeFeaturedToolsRow.vue";
+import HomeValuePropsStrip from "@/pages/home/components/HomeValuePropsStrip.vue";
 import RecentUsageList from "@/pages/home/components/RecentUsageList.vue";
-import SideInfoPanel from "@/pages/home/components/SideInfoPanel.vue";
-import HomeFooterBar from "@/pages/home/components/HomeFooterBar.vue";
+import SidebarSecurityCard from "@/pages/home/components/SidebarSecurityCard.vue";
+import SidebarMembershipCard from "@/pages/home/components/SidebarMembershipCard.vue";
+import SidebarChangelogCard from "@/pages/home/components/SidebarChangelogCard.vue";
 import { useHomePageData } from "@/pages/home/composables/useHomePageData";
+import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
+import { resolveHomeToolRoute } from "@/pages/home/config/homeToolRoutes";
+import { showHomeInfoDialog } from "@/pages/home/utils/homeDialogs";
 
-/**
- * 首页组装容器，仅负责页面编排与多语言映射。
- */
 const { t } = useI18n();
 const router = useRouter();
-const { topBar, coreTools, recentItems, quickActions, footerLinks, stats, frequentTools, pageConfig } =
-  useHomePageData();
+const {
+  greetingTitleKey,
+  featuredTools,
+  valueProps,
+  securityBullets,
+  membershipBullets,
+  changelogEntries,
+  recentItems,
+  pageConfig
+} = useHomePageData();
 
-/**
- * 处理首页工具卡片点击事件。
- */
-function handleToolClick(actionCode: string): void {
-  if (actionCode === "video-convert") {
-    router.push(ROUTE_PATHS.videoConvert);
-    return;
-  }
-  if (actionCode === "image-compress") {
-    router.push(ROUTE_PATHS.imageCompress);
-    return;
-  }
-  if (actionCode === "image-upscale") {
-    router.push(ROUTE_PATHS.imageUpscale);
-    return;
-  }
-  if (actionCode === "image-watermark") {
-    router.push(ROUTE_PATHS.imageWatermark);
-  }
+function handleToolNavigate(actionCode: string): void {
+  const route = resolveHomeToolRoute(actionCode);
+  if (route) router.push(route);
 }
 
-/**
- * 处理首页高频工具点击跳转。
- */
-function handleFrequentToolClick(route: string): void {
-  if (!route) return;
-  router.push(route);
+function handleRecentItemClick(actionCode: string): void {
+  const route = resolveHomeToolRoute(actionCode);
+  if (route) router.push(route);
 }
 
-/**
- * 首页顶部搜索候选列表，统一由核心工具映射生成。
- */
-const searchableTools = computed(() =>
-  coreTools.value.map((item) => ({
-    id: item.id,
-    title: t(item.titleKey),
-    route:
-      item.actionCode === "video-convert"
-        ? ROUTE_PATHS.videoConvert
-        : item.actionCode === "image-compress"
-          ? ROUTE_PATHS.imageCompress
-          : item.actionCode === "image-upscale"
-            ? ROUTE_PATHS.imageUpscale
-            : ROUTE_PATHS.imageWatermark
-  }))
-);
+async function handlePlaceholder(messageKey: string): Promise<void> {
+  await showHomeInfoDialog(t(messageKey), t("pages.home.dialogs.placeholderTitle"));
+}
 
-/**
- * 处理顶部快捷搜索项点击，跳转到对应工具页。
- */
-function handleSearchSelect(route: string): void {
-  if (!route) return;
-  router.push(route);
+function goMembership(): void {
+  router.push(ROUTE_PATHS.membership).catch(() => {
+    /* 路由重复导航等可忽略 */
+  });
+}
+
+async function handleChangelogViewAll(): Promise<void> {
+  await showHomeInfoDialog(
+    t("pages.home.sections.sidebar.changelog.viewAllHint"),
+    t(pageConfig.value.sections.sidebar.changelog.titleKey)
+  );
 }
 </script>
 
 <template>
   <div class="home-page">
-    <HomeTopBar
-      :logo-url="topBar.logoUrl"
-      :app-name="t(topBar.appNameKey)"
-      :search-icon-url="topBar.searchIconUrl"
-      :search-placeholder="t(topBar.searchPlaceholderKey)"
-      :settings-icon-url="topBar.settingsIconUrl"
-      :search-tools="searchableTools"
-      @search-select="handleSearchSelect"
-    />
-
-    <section class="home-page__content">
+    <div class="home-page__body">
       <main class="home-page__main">
-        <CoreToolGrid
-          :title="t(pageConfig.sections.coreTools.titleKey)"
-          :description="t(pageConfig.sections.coreTools.descriptionKey)"
-          :cards="coreTools"
-          @tool-click="handleToolClick"
-        />
-        <RecentUsageList
-          :title="t(pageConfig.sections.recentUsage.titleKey)"
-          :frequent-tools-title="t('pages.home.sections.frequentTools.title')"
-          :times-unit-label="t('pages.home.frequent.timesUnit')"
-          :items="recentItems"
-          :frequent-tools="frequentTools"
-          @frequent-tool-click="handleFrequentToolClick"
-        />
+        <div class="home-page__main-scroll">
+          <div class="home-page__main-stack">
+            <HomeGreetingHero
+              class="home-page__hero"
+              :title="t(greetingTitleKey)"
+              :subtitle="t(pageConfig.sections.greeting.subtitleKey)"
+            />
+            <div class="home-page__featured-slot">
+              <HomeFeaturedToolsRow
+                :cards="featuredTools"
+                :cta-label="t('pages.home.featured.useNow')"
+                @tool-navigate="handleToolNavigate"
+                @placeholder="handlePlaceholder"
+              />
+            </div>
+            <RecentUsageList
+              class="home-page__recent-slot"
+              :title="t(pageConfig.sections.recentUsage.titleKey)"
+              :view-all-label="t(pageConfig.sections.recentUsage.viewAllKey)"
+              :items="recentItems"
+              @recent-item-click="handleRecentItemClick"
+              @view-all-recent="handlePlaceholder('pages.home.placeholders.viewAllRecent')"
+            />
+            <HomeValuePropsStrip
+              class="home-page__value-slot"
+              :section-title="t(pageConfig.sections.valueProps.titleKey)"
+              :items="valueProps"
+            />
+          </div>
+        </div>
       </main>
 
-      <SideInfoPanel
-        :stats-title="t(pageConfig.sections.usageStats.titleKey)"
-        :stats="stats"
-        :quick-actions-title="t(pageConfig.sections.quickActions.titleKey)"
-        :quick-actions="quickActions"
-      />
-    </section>
-
-    <HomeFooterBar
-      :copyright-text="t(pageConfig.footer.copyrightKey)"
-      :version-prefix="t(pageConfig.footer.versionPrefixKey)"
-      :version="pageConfig.footer.version"
-      :links="footerLinks"
-    />
+      <aside class="home-page__sidebar">
+        <div class="home-page__sidebar-scroll">
+          <div class="home-page__sidebar-pane">
+            <SidebarSecurityCard
+              :title="t(pageConfig.sections.sidebar.security.titleKey)"
+              :shield-url="HOME_ASSETS.pubShield"
+              :bullets="securityBullets"
+            />
+          </div>
+          <div class="home-page__sidebar-pane">
+            <SidebarMembershipCard
+              :title="t(pageConfig.sections.sidebar.membership.titleKey)"
+              :learn-more-label="t(pageConfig.sections.sidebar.membership.learnMoreKey)"
+              :bullets="membershipBullets"
+              :cta-label="t(pageConfig.sections.sidebar.membership.ctaKey)"
+              @learn-more="goMembership"
+              @cta="goMembership"
+            />
+          </div>
+          <div class="home-page__sidebar-pane">
+            <SidebarChangelogCard
+              :title="t(pageConfig.sections.sidebar.changelog.titleKey)"
+              :view-all-label="t(pageConfig.sections.sidebar.changelog.viewAllKey)"
+              :entries="changelogEntries"
+              @view-all="handleChangelogViewAll"
+            />
+          </div>
+        </div>
+      </aside>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .home-page {
-  border-radius: 16px;
-  background: #ffffff;
-  overflow: hidden;
-  min-height: calc(100vh - 48px);
-  padding-top: 72px;
-}
-.home-page__content {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  gap: 24px;
-  padding: 24px;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
 }
-.home-page__main { flex: 1; min-width: 0; }
-.home-page :deep(.side-panel) {
-  width: 320px;
+.home-page__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  gap: clamp(12px, 1.5vw, 18px);
+  padding: clamp(8px, 1.2vh, 14px) clamp(14px, 2vw, 22px) clamp(6px, 1vh, 10px);
+  overflow: hidden;
+}
+.home-page__main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.home-page__main-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.home-page__main-stack {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1vh, 12px);
+}
+.home-page__hero {
   flex-shrink: 0;
 }
-.home-page :deep(.home-top-bar) {
-  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
+.home-page__featured-slot {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
-@media (max-width: 1260px) {
-  .home-page__content { flex-direction: column; }
-  .home-page :deep(.side-panel) {
-    width: 100%;
-  }
+.home-page__recent-slot {
+  flex-shrink: 0;
 }
-@media (max-width: 1180px) {
-  .home-page__content {
-    gap: 20px;
-    padding: 20px;
-  }
+.home-page__value-slot {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: clamp(4px, 0.8vh, 10px);
 }
-@media (max-width: 768px) {
-  .home-page {
-    min-height: 100vh;
-    padding-top: 124px;
-  }
-  .home-page__content {
-    padding: 16px;
-    gap: 16px;
-  }
+.home-page__sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.home-page__sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1vh, 10px);
+  padding-bottom: 4px;
+}
+.home-page__sidebar-pane {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.home-page__sidebar-pane :deep(.side-card),
+.home-page__sidebar-pane :deep(.member-card),
+.home-page__sidebar-pane :deep(.changelog-card) {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
 }
 </style>

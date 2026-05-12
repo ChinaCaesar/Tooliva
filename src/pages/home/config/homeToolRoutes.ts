@@ -1,0 +1,12 @@
+import { ROUTE_PATHS } from "@/config/constants";
+
+/**
+ * 将首页工具 actionCode 映射到 Vue Router 路径；未实现功能返回 undefined。
+ */
+export function resolveHomeToolRoute(actionCode: string): string | undefined {
+  if (actionCode === "video-convert") return ROUTE_PATHS.videoConvert;
+  if (actionCode === "image-compress") return ROUTE_PATHS.imageCompress;
+  if (actionCode === "image-upscale") return ROUTE_PATHS.imageUpscale;
+  if (actionCode === "image-watermark") return ROUTE_PATHS.imageWatermark;
+  return undefined;
+}

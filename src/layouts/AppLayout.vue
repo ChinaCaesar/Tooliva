@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import AppNotificationContainer from "@/components/common/AppNotificationContainer.vue";
+import { useAppThemeSync } from "@/composables/useAppThemeSync";
+
+useAppThemeSync();
 </script>
 
 <template>

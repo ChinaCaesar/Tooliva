@@ -3,232 +3,207 @@ import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { HOME_PAGE_CONFIG } from "@/pages/home/config/home.config";
 import { isTauri } from "@tauri-apps/api/core";
 import { tauriClient } from "@/bridge/tauriClient";
-import { ROUTE_PATHS } from "@/config/constants";
 import {
-  HOME_CORE_TOOLS_MOCK,
-  HOME_FOOTER_LINKS_MOCK,
-  HOME_QUICK_ACTIONS_MOCK,
-  HOME_RECENT_ITEMS_MOCK
+  HOME_CHANGELOG_MOCK,
+  HOME_FEATURED_TOOLS_MOCK,
+  HOME_MEMBERSHIP_BULLETS_MOCK,
+  HOME_RECENT_ITEMS_MOCK,
+  HOME_SEARCH_TOOL_ENTRIES_MOCK,
+  HOME_SECURITY_BULLETS_MOCK,
+  HOME_VALUE_PROPS_MOCK
 } from "@/pages/home/mock/home.mock";
-
-interface HomeStatViewModel {
-  id: string;
-  labelKey: string;
-  value: string;
-  highlight: "primary" | "secondary" | "success" | "warning";
-}
 
 interface HomeRecentItemViewModel {
   id: string;
   iconUrl: string;
+  iconBackground: string;
   titleKey: string;
   fileName: string;
   relativeTimeKey: string;
   isEmpty: boolean;
+  actionCode?: string;
 }
 
-interface HomeFrequentToolViewModel {
+interface HomeFeaturedToolCardViewModel {
+  id: string;
+  cardType: "tool" | "placeholder";
+  iconUrl: string;
+  titleKey: string;
+  descriptionKey: string;
+  gradient: string;
+  actionCode?: string;
+  placeholderMessageKey?: string;
+}
+
+interface HomeValuePropViewModel {
+  id: string;
+  iconUrl: string;
+  titleKey: string;
+  descriptionKey: string;
+}
+
+interface HomeSidebarBulletViewModel {
   id: string;
   labelKey: string;
-  usageCount: number;
-  route: string;
-  actionCode: string;
-  isEmpty: boolean;
+  checkIconUrl: string;
 }
 
-/**
- * 统一构造最近使用空态占位，保证无数据时列表视觉稳定。
- */
+interface HomeChangelogEntryViewModel {
+  id: string;
+  version: string;
+  dateKey: string;
+  summaryKey: string;
+}
+
 function createEmptyRecentRows(): HomeRecentItemViewModel[] {
+  const emptyBg = "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)";
   return Array.from({ length: 3 }, (_, index) => ({
     id: `empty-${index + 1}`,
-    iconUrl: HOME_ASSETS.recentVideo,
+    iconUrl: HOME_ASSETS.pubIconPlusMore,
+    iconBackground: emptyBg,
     titleKey: "pages.home.recent.emptyTitle",
     fileName: "—",
     relativeTimeKey: "pages.home.recent.emptyTime",
-    isEmpty: true
+    isEmpty: true,
+    actionCode: undefined
   }));
 }
 
-function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: string } {
+function accentForToolKey(toolKey: string): string {
+  if (toolKey === "video-convert") return "linear-gradient(135deg, #7c3aed 15%, #a855f7 85%)";
+  if (toolKey === "image-watermark") return "linear-gradient(135deg, #ea580c 15%, #f97316 85%)";
+  if (toolKey === "image-upscale") return "linear-gradient(135deg, #059669 15%, #10b981 85%)";
+  return "linear-gradient(135deg, #1e40af 15%, #3b82f6 85%)";
+}
+
+function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: string; iconBackground: string } {
+  const iconBackground = accentForToolKey(toolKey);
   if (toolKey === "video-convert") {
     return {
       titleKey: "pages.home.tools.videoConvert.shortTitle",
-      iconUrl: HOME_ASSETS.recentVideo
+      iconUrl: HOME_ASSETS.pubIconVideo,
+      iconBackground
     };
   }
   if (toolKey === "image-upscale") {
     return {
       titleKey: "pages.home.tools.imageUpscale.shortTitle",
-      iconUrl: HOME_ASSETS.recentUpscale
+      iconUrl: HOME_ASSETS.toolImageUpscale,
+      iconBackground
     };
   }
   if (toolKey === "image-watermark") {
     return {
       titleKey: "pages.home.tools.imageWatermark.shortTitle",
-      iconUrl: HOME_ASSETS.recentImage
+      iconUrl: HOME_ASSETS.pubIconWatermark,
+      iconBackground
     };
   }
   return {
     titleKey: "pages.home.tools.imageCompress.title",
-    iconUrl: HOME_ASSETS.recentImage
+    iconUrl: HOME_ASSETS.pubIconCompress,
+    iconBackground
   };
 }
 
-/**
- * 将工具 key 映射到多语言标题 key，避免在组件层写分支。
- */
-function resolveToolLabelKey(toolKey: string): string {
-  if (toolKey === "video-convert") return "pages.home.tools.videoConvert.shortTitle";
-  if (toolKey === "image-upscale") return "pages.home.tools.imageUpscale.shortTitle";
-  if (toolKey === "image-watermark") return "pages.home.tools.imageWatermark.shortTitle";
-  return "pages.home.tools.imageCompress.title";
-}
-
-/**
- * 把工具标识映射为前端路由，保证跳转路径集中维护。
- */
-function resolveToolRoute(toolKey: string): string {
-  if (toolKey === "video-convert") return ROUTE_PATHS.videoConvert;
-  if (toolKey === "image-upscale") return ROUTE_PATHS.imageUpscale;
-  if (toolKey === "image-compress") return ROUTE_PATHS.imageCompress;
-  if (toolKey === "image-watermark") return ROUTE_PATHS.imageWatermark;
-  return ROUTE_PATHS.home;
-}
-
-/**
- * 把时间戳转成 i18n 相对时间键，减少首页重复计算开销。
- */
 function mapRelativeTimeKey(usedAtTs: number): string {
   const diffSeconds = Math.max(0, Math.floor(Date.now() / 1000) - usedAtTs);
-  if (diffSeconds < 300) return "pages.home.recent.justNow";
+  if (diffSeconds < 300) return "pages.home.recent.usedJustNow";
   if (diffSeconds < 3600) return "pages.home.relativeTime.fifteenMinutesAgo";
+  if (diffSeconds < 86400) return "pages.home.relativeTime.oneHourAgo";
+  if (diffSeconds < 172800) return "pages.home.recent.usedYesterday";
   return "pages.home.relativeTime.oneHourAgo";
 }
 
-/**
- * 生成高频工具空态，保持右侧模块高度与布局稳定。
- */
-function createEmptyFrequentTools(): HomeFrequentToolViewModel[] {
-  return Array.from({ length: 5 }, (_, index) => ({
-    id: `freq-empty-${index + 1}`,
-    labelKey: "pages.home.frequent.emptyTool",
-    usageCount: 0,
-    route: ROUTE_PATHS.tools,
-    actionCode: "",
-    isEmpty: true
-  }));
+function greetingTitleKeyFromHour(): string {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "pages.home.greeting.morning";
+  if (h >= 12 && h < 18) return "pages.home.greeting.afternoon";
+  if (h >= 18 && h < 22) return "pages.home.greeting.evening";
+  return "pages.home.greeting.night";
 }
 
 /**
  * 首页数据装配层，后续可切换为 API 数据源。
  */
 export function useHomePageData() {
-  const stats = ref<HomeStatViewModel[]>([
-    {
-      id: "stats-total-usage",
-      labelKey: "pages.home.stats.totalUsageCount",
-      value: "0",
-      highlight: "primary"
-    },
-    {
-      id: "stats-today-usage",
-      labelKey: "pages.home.stats.todayUsageCount",
-      value: "0",
-      highlight: "secondary"
-    },
-    {
-      id: "stats-total-saved",
-      labelKey: "pages.home.stats.totalSavedMinutes",
-      value: "0 min",
-      highlight: "success"
-    },
-    {
-      id: "stats-today-saved",
-      labelKey: "pages.home.stats.todaySavedMinutes",
-      value: "0 min",
-      highlight: "warning"
-    }
-  ]);
-
   const recentItems = ref<HomeRecentItemViewModel[]>(
-    HOME_RECENT_ITEMS_MOCK.slice(0, 3).map((item) => ({
-      id: item.id,
-      iconUrl: HOME_ASSETS[item.iconKey],
-      titleKey: item.titleKey,
-      fileName: item.fileName,
-      relativeTimeKey: item.relativeTimeKey,
-      isEmpty: false
-    }))
+    HOME_RECENT_ITEMS_MOCK.slice(0, 3).map((item) => {
+      const key = item.toolKey ?? "image-compress";
+      const meta = resolveRecentItemMeta(key);
+      return {
+        id: item.id,
+        iconUrl: HOME_ASSETS[item.iconKey],
+        iconBackground: meta.iconBackground,
+        titleKey: item.titleKey,
+        fileName: item.fileName,
+        relativeTimeKey: item.relativeTimeKey,
+        isEmpty: false,
+        actionCode: key
+      };
+    })
   );
-  const frequentTools = ref<HomeFrequentToolViewModel[]>(createEmptyFrequentTools());
+
+  const greetingTitleKey = computed(() => greetingTitleKeyFromHour());
 
   const topBar = computed(() => ({
     ...HOME_PAGE_CONFIG.topBar,
-    logoUrl: HOME_ASSETS.logo,
-    searchIconUrl: HOME_ASSETS.search,
-    avatarUrl: HOME_ASSETS.avatar,
-    settingsIconUrl: HOME_ASSETS.settings
+    logoUrl: HOME_ASSETS.pubAppLogo,
+    searchIconUrl: HOME_ASSETS.pubSearch,
+    settingsIconUrl: HOME_ASSETS.pubSettings,
+    crownIconUrl: HOME_ASSETS.pubCrown
   }));
 
-  const coreTools = computed(() =>
-    HOME_CORE_TOOLS_MOCK.map((item) => ({
-      ...item,
-      iconUrl: HOME_ASSETS[item.iconKey]
+  const featuredTools = computed<HomeFeaturedToolCardViewModel[]>(() =>
+    HOME_FEATURED_TOOLS_MOCK.map((item) => ({
+      id: item.id,
+      cardType: item.cardType,
+      iconUrl: HOME_ASSETS[item.iconKey],
+      titleKey: item.titleKey,
+      descriptionKey: item.descriptionKey,
+      gradient: item.gradient,
+      actionCode: item.actionCode,
+      placeholderMessageKey: item.placeholderMessageKey
     }))
   );
 
-  const quickActions = computed(() =>
-    HOME_QUICK_ACTIONS_MOCK.map((item) => ({
-      ...item,
-      iconUrl: HOME_ASSETS[item.iconKey]
+  const valueProps = computed<HomeValuePropViewModel[]>(() =>
+    HOME_VALUE_PROPS_MOCK.map((item) => ({
+      id: item.id,
+      iconUrl: HOME_ASSETS[item.iconKey],
+      titleKey: item.titleKey,
+      descriptionKey: item.descriptionKey
     }))
   );
 
-  const footerLinks = computed(() =>
-    HOME_FOOTER_LINKS_MOCK.map((item) => ({
-      ...item,
-      iconUrl: HOME_ASSETS[item.iconKey]
+  const securityBullets = computed<HomeSidebarBulletViewModel[]>(() =>
+    HOME_SECURITY_BULLETS_MOCK.map((item) => ({
+      id: item.id,
+      labelKey: item.labelKey,
+      checkIconUrl: HOME_ASSETS.pubGreenCheck
     }))
   );
+
+  const membershipBullets = computed<HomeSidebarBulletViewModel[]>(() =>
+    HOME_MEMBERSHIP_BULLETS_MOCK.map((item) => ({
+      id: item.id,
+      labelKey: item.labelKey,
+      checkIconUrl: HOME_ASSETS.pubOrangeCheck
+    }))
+  );
+
+  const changelogEntries = computed<HomeChangelogEntryViewModel[]>(() => HOME_CHANGELOG_MOCK);
+
+  const searchToolEntries = computed(() => HOME_SEARCH_TOOL_ENTRIES_MOCK);
 
   const pageConfig = computed(() => HOME_PAGE_CONFIG);
 
-  /**
-   * 从 SQLite 读取首页统计与最近使用数据。
-   */
   async function hydrateDashboardFromSqlite(): Promise<void> {
     if (!isTauri()) {
       return;
     }
     try {
       const dashboard = await tauriClient.getHomeDashboard();
-      stats.value = [
-        {
-          id: "stats-total-usage",
-          labelKey: "pages.home.stats.totalUsageCount",
-          value: String(dashboard.stats.totalUsageCount),
-          highlight: "primary"
-        },
-        {
-          id: "stats-today-usage",
-          labelKey: "pages.home.stats.todayUsageCount",
-          value: String(dashboard.stats.todayUsageCount),
-          highlight: "secondary"
-        },
-        {
-          id: "stats-total-saved",
-          labelKey: "pages.home.stats.totalSavedMinutes",
-          value: `${dashboard.stats.totalSavedMinutes} min`,
-          highlight: "success"
-        },
-        {
-          id: "stats-today-saved",
-          labelKey: "pages.home.stats.todaySavedMinutes",
-          value: `${dashboard.stats.todaySavedMinutes} min`,
-          highlight: "warning"
-        }
-      ];
 
       if (dashboard.recentItems.length === 0) {
         recentItems.value = createEmptyRecentRows();
@@ -238,29 +213,17 @@ export function useHomePageData() {
           return {
             id: `recent-${item.id}`,
             iconUrl: meta.iconUrl,
+            iconBackground: meta.iconBackground,
             titleKey: meta.titleKey,
             fileName: item.fileName,
             relativeTimeKey: mapRelativeTimeKey(item.usedAtTs),
-            isEmpty: false
+            isEmpty: false,
+            actionCode: item.toolKey
           };
         });
       }
-
-      if (dashboard.topTools.length === 0) {
-        frequentTools.value = createEmptyFrequentTools();
-      } else {
-        frequentTools.value = dashboard.topTools.slice(0, 5).map((item, index) => ({
-          id: `freq-${index + 1}-${item.toolKey}`,
-          labelKey: resolveToolLabelKey(item.toolKey),
-          usageCount: item.usageCount,
-          route: resolveToolRoute(item.toolKey),
-          actionCode: item.toolKey,
-          isEmpty: false
-        }));
-      }
     } catch {
       recentItems.value = createEmptyRecentRows();
-      frequentTools.value = createEmptyFrequentTools();
     }
   }
 
@@ -270,12 +233,14 @@ export function useHomePageData() {
 
   return {
     topBar,
-    coreTools,
+    greetingTitleKey,
+    featuredTools,
+    valueProps,
+    securityBullets,
+    membershipBullets,
+    changelogEntries,
+    searchToolEntries,
     recentItems,
-    quickActions,
-    footerLinks,
-    stats,
-    frequentTools,
     pageConfig
   };
 }

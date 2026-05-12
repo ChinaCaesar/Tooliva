@@ -12,6 +12,15 @@ body {
   background: #f4f7fb;
 }
 
+html.theme-dark body {
+  background: #0f172a;
+  color-scheme: dark;
+}
+
+html.theme-dark .layout {
+  background: #0f172a;
+}
+
 .panel {
   background: #ffffff;
   border: 1px solid #e8ecf3;
