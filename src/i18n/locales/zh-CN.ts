@@ -242,6 +242,16 @@ export const zhCN = {
       cancel: "取消",
       remove: "移除",
       converting: "转换中...",
+      outputFormat: {
+        groupLabel: "输出格式选择",
+        mp4: "H.264编码",
+        movAlpha: "ProRes 4444（含 Alpha 透明通道）",
+        avi: "通用格式",
+        mov: "QuickTime",
+        mkv: "高清容器",
+        wmv: "Windows",
+        flv: "流媒体"
+      },
       outputMode: {
         groupLabel: "输出目录选择",
         sameAsInput: "输出到源文件目录",
@@ -280,14 +290,6 @@ export const zhCN = {
         resolution1080: "1080p (1920x1080)",
         resolution720: "720p (1280x720)",
         resolution480: "480p (854x480)"
-      },
-      outputFormat: {
-        mp4: "H.264编码",
-        avi: "通用格式",
-        mov: "QuickTime",
-        mkv: "高清容器",
-        wmv: "Windows",
-        flv: "流媒体"
       },
       startConvert: "开始转换",
       quickPreset: {

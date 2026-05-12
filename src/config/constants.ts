@@ -13,8 +13,8 @@ export const WINDOW_SIZE_OPTIONS: WindowSizeOption[] = [
   },
   {
     value: "medium",
-    width: 1280,
-    height: 800,
+    width: 1200,
+    height: 720,
     descriptionKey: "pages.settings.general.windowSizeMediumDesc"
   },
   {

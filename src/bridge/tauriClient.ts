@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { UserSettings } from "@/types/settings";
 
 export const WEBM_TO_MP4_PROGRESS_EVENT = "webm-to-mp4-progress";
+export const WEBM_TO_MOV_PROGRESS_EVENT = "webm-to-mov-progress";
 export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
 export const IMAGE_COMPRESS_PROGRESS_EVENT = "image-compress-progress";
 export const IMAGE_WATERMARK_PROGRESS_EVENT = "image-watermark-progress";
@@ -24,12 +25,36 @@ export interface StartWebmToMp4Result {
   error?: string;
 }
 
+export interface StartWebmToMovPayload {
+  taskId: string;
+  inputPath: string;
+  outputMode: WebmToMp4OutputMode;
+  outputPath?: string;
+}
+
+export interface StartWebmToMovResult {
+  taskId: string;
+  outputPath: string;
+  success: boolean;
+  cancelled: boolean;
+  error?: string;
+}
+
 export interface SaveAsConvertedFilePayload {
   sourcePath: string;
   targetPath: string;
 }
 
 export interface WebmToMp4ProgressPayload {
+  taskId: string;
+  progress: number;
+  outTimeMs: number;
+  speed?: string;
+  status: "running" | "completed" | "failed" | "cancelled";
+  message?: string;
+}
+
+export interface WebmToMovProgressPayload {
   taskId: string;
   progress: number;
   outTimeMs: number;
@@ -281,6 +306,36 @@ export class TauriClient {
    */
   public async onWebmToMp4Progress(handler: (payload: WebmToMp4ProgressPayload) => void): Promise<UnlistenFn> {
     return listen<WebmToMp4ProgressPayload>(WEBM_TO_MP4_PROGRESS_EVENT, (event) => {
+      handler(event.payload);
+    });
+  }
+
+  /**
+   * 发起单个 WebM 到 MOV（含 Alpha 通道）的转换任务。
+   */
+  public async startWebmToMov(payload: StartWebmToMovPayload): Promise<StartWebmToMovResult> {
+    return this.call<StartWebmToMovResult>("start_webm_to_mov", { payload });
+  }
+
+  /**
+   * 取消一个正在转换的 MOV 任务。
+   */
+  public async cancelWebmToMov(taskId: string): Promise<void> {
+    await this.call<void>("cancel_webm_to_mov", { payload: { taskId } });
+  }
+
+  /**
+   * 复制已转换好的 MOV 文件到用户指定路径。
+   */
+  public async saveAsConvertedMovFile(payload: SaveAsConvertedFilePayload): Promise<string> {
+    return this.call<string>("save_as_converted_mov_file", { payload });
+  }
+
+  /**
+   * 监听 Rust 侧推送的 WebM 到 MOV 转换进度事件。
+   */
+  public async onWebmToMovProgress(handler: (payload: WebmToMovProgressPayload) => void): Promise<UnlistenFn> {
+    return listen<WebmToMovProgressPayload>(WEBM_TO_MOV_PROGRESS_EVENT, (event) => {
       handler(event.payload);
     });
   }

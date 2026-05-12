@@ -2,7 +2,7 @@ use crate::image_core::error::ImagePipelineError;
 use crate::image_core::types::LoadedImage;
 use image::{DynamicImage, ImageFormat, ImageReader};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub trait ImageIO: Send + Sync {
     fn load(&self, input_path: &Path) -> Result<LoadedImage, ImagePipelineError>;
@@ -13,7 +13,6 @@ pub trait ImageIO: Send + Sync {
         output_format: Option<ImageFormat>,
     ) -> Result<(), ImagePipelineError>;
     fn ensure_parent_dir(&self, path: &Path) -> Result<(), ImagePipelineError>;
-    fn ensure_unique_output_path(&self, path: &Path) -> PathBuf;
 }
 
 pub struct FsImageIO;
@@ -55,21 +54,5 @@ impl ImageIO for FsImageIO {
             fs::create_dir_all(parent)?;
         }
         Ok(())
-    }
-
-    fn ensure_unique_output_path(&self, path: &Path) -> PathBuf {
-        if !path.exists() {
-            return path.to_path_buf();
-        }
-        let parent = path.parent().unwrap_or_else(|| Path::new("."));
-        let stem = path.file_stem().and_then(|x| x.to_str()).unwrap_or("output");
-        let ext = path.extension().and_then(|x| x.to_str()).unwrap_or("png");
-        for index in 1.. {
-            let candidate = parent.join(format!("{stem}_{index}.{ext}"));
-            if !candidate.exists() {
-                return candidate;
-            }
-        }
-        path.to_path_buf()
     }
 }

@@ -8,8 +8,6 @@ pub enum ImagePipelineError {
     EncodeFailed(String),
     IoFailed(String),
     PlanFailed(String),
-    TileProcessFailed(String),
-    ProcessorNotFound(String),
     NotImplemented(String),
     Internal(String),
 }
@@ -22,8 +20,6 @@ impl Display for ImagePipelineError {
             Self::EncodeFailed(msg) => write!(f, "图像编码失败：{msg}"),
             Self::IoFailed(msg) => write!(f, "文件读写失败：{msg}"),
             Self::PlanFailed(msg) => write!(f, "任务规划失败：{msg}"),
-            Self::TileProcessFailed(msg) => write!(f, "分块处理失败：{msg}"),
-            Self::ProcessorNotFound(msg) => write!(f, "处理器不存在：{msg}"),
             Self::NotImplemented(msg) => write!(f, "能力尚未实现：{msg}"),
             Self::Internal(msg) => write!(f, "内部错误：{msg}"),
         }

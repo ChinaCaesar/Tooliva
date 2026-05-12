@@ -14,6 +14,7 @@ const {
   hintMessage,
   isConverting,
   isDropActive,
+  outputFormat,
   outputMode,
   globalOutputDirectory,
   resultSummary,
@@ -53,6 +54,22 @@ function goToSettings(): void {
     <main class="content">
       <section class="upload-panel">
         <h2>{{ t(pageConfig.uploadSection.titleKey) }}</h2>
+        <div class="format-settings" role="radiogroup" :aria-label="t('pages.videoConvert.outputFormat.groupLabel')">
+          <label class="format-option" :class="{ 'format-option--active': outputFormat === 'mp4' }">
+            <input v-model="outputFormat" type="radio" value="mp4" class="format-option__radio" />
+            <div class="format-option__content">
+              <div class="format-option__title">MP4</div>
+              <p class="format-option__desc">{{ t("pages.videoConvert.outputFormat.mp4") }}</p>
+            </div>
+          </label>
+          <label class="format-option" :class="{ 'format-option--active': outputFormat === 'movAlpha' }">
+            <input v-model="outputFormat" type="radio" value="movAlpha" class="format-option__radio" />
+            <div class="format-option__content">
+              <div class="format-option__title">MOV</div>
+              <p class="format-option__desc">{{ t("pages.videoConvert.outputFormat.movAlpha") }}</p>
+            </div>
+          </label>
+        </div>
         <div class="output-settings" role="radiogroup" :aria-label="t('pages.videoConvert.outputMode.groupLabel')">
           <label class="output-option" :class="{ 'output-option--active': outputMode === 'sameAsInput' }">
             <input v-model="outputMode" type="radio" value="sameAsInput" class="output-option__radio" />
@@ -166,6 +183,14 @@ function goToSettings(): void {
 .upload-panel { border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; background: #fff; }
 .upload-panel h2 { margin: 0; color: #111827; font-size: 20px; line-height: 28px; }
 .desc { margin: 8px 0 0; color: #6b7280; line-height: 20px; }
+.format-settings { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.format-option { border: 1px solid #d1d5db; border-radius: 12px; padding: 14px 16px; display: flex; gap: 10px; align-items: flex-start; cursor: pointer; transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease; }
+.format-option:hover { border-color: #c4b5fd; background: #faf5ff; }
+.format-option--active { border-color: #7c3aed; background: #f3e8ff; box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.12); }
+.format-option__radio { margin-top: 2px; accent-color: #7c3aed; }
+.format-option__content { min-width: 0; }
+.format-option__title { color: #0f172a; font-size: 14px; font-weight: 600; line-height: 22px; }
+.format-option__desc { margin: 2px 0 0; color: #475569; font-size: 12px; line-height: 18px; }
 .output-settings { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .output-option { border: 1px solid #d1d5db; border-radius: 12px; padding: 14px 16px; display: flex; gap: 10px; align-items: flex-start; cursor: pointer; transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease; }
 .output-option:hover { border-color: #67e8f9; background: #f0fdfa; }
@@ -241,6 +266,7 @@ function goToSettings(): void {
 @media (max-width: 768px) {
   .content { padding: 16px 16px 96px; }
   .upload-panel { padding: 16px; }
+  .format-settings { grid-template-columns: 1fr; }
   .output-settings { grid-template-columns: 1fr; }
   .result-grid { grid-template-columns: 1fr; }
   .action-bar { bottom: 8px; }

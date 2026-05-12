@@ -111,7 +111,7 @@
   "build": {
     "beforeDevCommand": "npm run dev:desktop",
     "beforeBuildCommand": "npm run build",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:5174",
     "frontendDist": "../dist"
   },
   "app": {
@@ -185,6 +185,8 @@ Windows 可以在当前这台机器上直接打包。
 - Visual Studio C++ Build Tools 或完整 Visual Studio 的 C++ 桌面开发组件
 - WebView2 运行时（Windows 10/11 一般已自带，缺失时需要补装）
 
+> 注意：以上依赖仅对「开发/构建机器」必需。**最终发给用户的安装包已内置运行所需资源（包括 FFmpeg），用户无需额外安装 Rust/VS/FFmpeg**。
+
 ### 首次打包步骤
 
 1. 安装前端依赖
@@ -236,6 +238,14 @@ npm run tauri:build
 - 当前项目的 `tauri:build` 已可直接触发前端构建和 Tauri 打包
 - 首次打包会非常慢，因为 Rust 依赖需要完整编译
 - 如果只想生成单一安装格式，可以后续将 `bundle.targets` 改成指定目标
+ - 本项目已在 `src-tauri/tauri.conf.json` 的 `bundle.resources` 中内置 `ffmpeg.exe/ffprobe.exe`，并通过 `src-tauri/src/runtime_bins.rs` 在运行时自动解析打包路径，因此用户侧无需配置 FFmpeg 环境变量。
+
+## CI / 可复现打包（推荐）
+
+仓库已提供 Windows 打包工作流：`.github/workflows/windows-tauri-build.yml`。
+
+- PR / push 会自动构建并产出 NSIS 安装包（artifact）
+- 这能保证每次发布都在一致环境中完成，避免“本地缺工具链导致打包失败”的问题
 
 ## macOS 打包流程
 

@@ -39,11 +39,6 @@ impl ImagePipeline {
         self
     }
 
-    pub fn with_logger(mut self, logger: Arc<dyn PipelineLogger>) -> Self {
-        self.runtime.logger = logger;
-        self
-    }
-
     pub fn execute(
         &self,
         processor: &dyn ImageProcessor,

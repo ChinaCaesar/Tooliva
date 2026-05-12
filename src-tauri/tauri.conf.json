@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev:desktop",
     "beforeBuildCommand": "npm run build",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:5174",
     "frontendDist": "../dist"
   },
   "app": {
@@ -14,8 +14,8 @@
       {
         "label": "main",
         "title": "Desktop Toolbox",
-        "width": 1280,
-        "height": 800,
+        "width": 1200,
+        "height": 720,
         "resizable": true
       }
     ],

@@ -18,7 +18,8 @@ use std::os::windows::process::CommandExt;
 
 use crate::runtime_bins::resolve_binary;
 
-const TRANSCODE_PROGRESS_EVENT: &str = "webm-to-mp4-progress";
+const WEBM_TO_MP4_PROGRESS_EVENT: &str = "webm-to-mp4-progress";
+const WEBM_TO_MOV_PROGRESS_EVENT: &str = "webm-to-mov-progress";
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
@@ -38,7 +39,22 @@ pub struct StartWebmToMp4Payload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct StartWebmToMovPayload {
+    pub task_id: String,
+    pub input_path: String,
+    pub output_mode: String,
+    pub output_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CancelWebmToMp4Payload {
+    pub task_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelWebmToMovPayload {
     pub task_id: String,
 }
 
@@ -59,9 +75,30 @@ pub struct StartWebmToMp4Result {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartWebmToMovResult {
+    pub task_id: String,
+    pub output_path: String,
+    pub success: bool,
+    pub cancelled: bool,
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WebmToMp4ProgressEvent {
+    pub task_id: String,
+    pub progress: u8,
+    pub out_time_ms: u64,
+    pub speed: Option<String>,
+    pub status: String,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WebmToMovProgressEvent {
     pub task_id: String,
     pub progress: u8,
     pub out_time_ms: u64,
@@ -97,6 +134,22 @@ pub fn cancel_webm_to_mp4(
 }
 
 #[tauri::command]
+pub fn cancel_webm_to_mov(
+    payload: CancelWebmToMovPayload,
+    registry: State<'_, TranscodeTaskRegistry>,
+) -> Result<(), String> {
+    let mut guard = registry
+        .flags
+        .lock()
+        .map_err(|_| "任务注册器状态异常".to_string())?;
+    if let Some(flag) = guard.remove(&payload.task_id) {
+        flag.store(true, Ordering::SeqCst);
+        return Ok(());
+    }
+    Err(format!("未找到任务：{}", payload.task_id))
+}
+
+#[tauri::command]
 pub fn save_as_converted_file(payload: SaveAsConvertedFilePayload) -> Result<String, String> {
     let source = PathBuf::from(payload.source_path);
     if !source.exists() {
@@ -105,6 +158,21 @@ pub fn save_as_converted_file(payload: SaveAsConvertedFilePayload) -> Result<Str
 
     let mut target = PathBuf::from(payload.target_path);
     target.set_extension("mp4");
+    ensure_parent_dir_exists(&target)?;
+
+    fs::copy(&source, &target).map_err(|err| format!("另存为复制失败：{err}"))?;
+    Ok(target.display().to_string())
+}
+
+#[tauri::command]
+pub fn save_as_converted_mov_file(payload: SaveAsConvertedFilePayload) -> Result<String, String> {
+    let source = PathBuf::from(payload.source_path);
+    if !source.exists() {
+        return Err("原始转换文件不存在，请先完成转换".to_string());
+    }
+
+    let mut target = PathBuf::from(payload.target_path);
+    target.set_extension("mov");
     ensure_parent_dir_exists(&target)?;
 
     fs::copy(&source, &target).map_err(|err| format!("另存为复制失败：{err}"))?;
@@ -129,6 +197,7 @@ pub fn start_webm_to_mp4(
         &input_path,
         payload.output_mode.as_str(),
         payload.output_path.as_deref(),
+        "mp4",
     )?;
     ensure_parent_dir_exists(&resolved_output_path)?;
     let output_path = if use_unique_name {
@@ -211,7 +280,7 @@ pub fn start_webm_to_mp4(
                 error: Some("任务已取消".to_string()),
             };
             let _ = app.emit(
-                TRANSCODE_PROGRESS_EVENT,
+                WEBM_TO_MP4_PROGRESS_EVENT,
                 WebmToMp4ProgressEvent {
                     task_id: payload.task_id.clone(),
                     progress: 0,
@@ -236,7 +305,7 @@ pub fn start_webm_to_mp4(
                         let _ = handle.join();
                     }
                     let _ = app.emit(
-                        TRANSCODE_PROGRESS_EVENT,
+                        WEBM_TO_MP4_PROGRESS_EVENT,
                         WebmToMp4ProgressEvent {
                             task_id: payload.task_id.clone(),
                             progress: 100,
@@ -266,7 +335,7 @@ pub fn start_webm_to_mp4(
                 };
 
                 let _ = app.emit(
-                    TRANSCODE_PROGRESS_EVENT,
+                    WEBM_TO_MP4_PROGRESS_EVENT,
                     WebmToMp4ProgressEvent {
                         task_id: payload.task_id.clone(),
                         progress: progress_from_time(latest_out_time_ms, duration_ms),
@@ -294,8 +363,215 @@ pub fn start_webm_to_mp4(
                 latest_out_time_ms = parsed;
                 let progress = progress_from_time(parsed, duration_ms);
                 let _ = app.emit(
-                    TRANSCODE_PROGRESS_EVENT,
+                    WEBM_TO_MP4_PROGRESS_EVENT,
                     WebmToMp4ProgressEvent {
+                        task_id: payload.task_id.clone(),
+                        progress,
+                        out_time_ms: parsed,
+                        speed: latest_speed.clone(),
+                        status: "running".to_string(),
+                        message: None,
+                    },
+                );
+            }
+        } else if let Some(value) = trimmed.strip_prefix("speed=") {
+            latest_speed = Some(value.to_string());
+        }
+    }
+}
+
+#[tauri::command]
+pub fn start_webm_to_mov(
+    payload: StartWebmToMovPayload,
+    app: AppHandle,
+    registry: State<'_, TranscodeTaskRegistry>,
+) -> Result<StartWebmToMovResult, String> {
+    ensure_binary_exists("ffmpeg")?;
+    ensure_binary_exists("ffprobe")?;
+
+    let input_path = PathBuf::from(payload.input_path.as_str());
+    if !input_path.exists() {
+        return Err(format!("输入文件不存在：{}", input_path.display()));
+    }
+
+    let (resolved_output_path, use_unique_name) = resolve_output_path(
+        &input_path,
+        payload.output_mode.as_str(),
+        payload.output_path.as_deref(),
+        "mov",
+    )?;
+    ensure_parent_dir_exists(&resolved_output_path)?;
+    let output_path = if use_unique_name {
+        ensure_unique_output_path(&resolved_output_path)
+    } else {
+        resolved_output_path
+    };
+    let duration_ms = probe_duration_ms(&input_path)?;
+
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+    {
+        let mut guard = registry
+            .flags
+            .lock()
+            .map_err(|_| "任务注册器状态异常".to_string())?;
+        guard.insert(payload.task_id.clone(), Arc::clone(&cancel_flag));
+    }
+
+    let ffmpeg_bin = resolve_binary("ffmpeg");
+    let mut command = Command::new(ffmpeg_bin);
+    command
+        .arg("-y")
+        .arg("-i")
+        .arg(&input_path)
+        .arg("-map")
+        .arg("0:v:0")
+        .arg("-map")
+        .arg("0:a?")
+        .arg("-c:v")
+        .arg("prores_ks")
+        .arg("-profile:v")
+        .arg("4")
+        .arg("-pix_fmt")
+        .arg("yuva444p10le")
+        .arg("-c:a")
+        .arg("aac")
+        .arg("-progress")
+        .arg("pipe:1")
+        .arg("-nostats")
+        .arg(&output_path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    let mut child = command
+        .spawn()
+        .map_err(|err| format!("启动 ffmpeg 失败：{err}"))?;
+
+    let stderr_cache = Arc::new(Mutex::new(String::new()));
+    let stderr_cache_for_thread = Arc::clone(&stderr_cache);
+    let mut stderr_reader_handle = child.stderr.take().map(|stderr| {
+        std::thread::spawn(move || {
+            let mut reader = std::io::BufReader::new(stderr);
+            let mut content = String::new();
+            if reader.read_to_string(&mut content).is_ok() {
+                if let Ok(mut cache) = stderr_cache_for_thread.lock() {
+                    *cache = content;
+                }
+            }
+        })
+    });
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "无法读取 ffmpeg 标准输出".to_string())?;
+    let mut reader = std::io::BufReader::new(stdout);
+    let mut line = String::new();
+    let mut latest_out_time_ms: u64 = 0;
+    let mut latest_speed: Option<String> = None;
+
+    loop {
+        if cancel_flag.load(Ordering::SeqCst) {
+            let _ = child.kill();
+            let _ = child.wait();
+            if let Some(handle) = stderr_reader_handle.take() {
+                let _ = handle.join();
+            }
+            remove_registry_flag(&registry, payload.task_id.as_str());
+            let cancelled_result = StartWebmToMovResult {
+                task_id: payload.task_id.clone(),
+                output_path: output_path.display().to_string(),
+                success: false,
+                cancelled: true,
+                error: Some("任务已取消".to_string()),
+            };
+            let _ = app.emit(
+                WEBM_TO_MOV_PROGRESS_EVENT,
+                WebmToMovProgressEvent {
+                    task_id: payload.task_id.clone(),
+                    progress: 0,
+                    out_time_ms: latest_out_time_ms,
+                    speed: latest_speed,
+                    status: "cancelled".to_string(),
+                    message: Some("任务已取消".to_string()),
+                },
+            );
+            return Ok(cancelled_result);
+        }
+
+        line.clear();
+        let bytes = std::io::BufRead::read_line(&mut reader, &mut line)
+            .map_err(|err| format!("读取 ffmpeg 输出失败：{err}"))?;
+        if bytes == 0 {
+            if let Some(status) = child.try_wait().map_err(|err| err.to_string())? {
+                let success = status.success();
+                remove_registry_flag(&registry, payload.task_id.as_str());
+                if success {
+                    if let Some(handle) = stderr_reader_handle.take() {
+                        let _ = handle.join();
+                    }
+                    let _ = app.emit(
+                        WEBM_TO_MOV_PROGRESS_EVENT,
+                        WebmToMovProgressEvent {
+                            task_id: payload.task_id.clone(),
+                            progress: 100,
+                            out_time_ms: duration_ms,
+                            speed: latest_speed.clone(),
+                            status: "completed".to_string(),
+                            message: Some("转换完成".to_string()),
+                        },
+                    );
+                    return Ok(StartWebmToMovResult {
+                        task_id: payload.task_id,
+                        output_path: output_path.display().to_string(),
+                        success: true,
+                        cancelled: false,
+                        error: None,
+                    });
+                }
+
+                if let Some(handle) = stderr_reader_handle.take() {
+                    let _ = handle.join();
+                }
+                let stderr_text = read_cached_stderr(&stderr_cache);
+                let error_message = if stderr_text.trim().is_empty() {
+                    format!("ffmpeg 退出码：{:?}", status.code())
+                } else {
+                    extract_meaningful_ffmpeg_error(stderr_text)
+                };
+
+                let _ = app.emit(
+                    WEBM_TO_MOV_PROGRESS_EVENT,
+                    WebmToMovProgressEvent {
+                        task_id: payload.task_id.clone(),
+                        progress: progress_from_time(latest_out_time_ms, duration_ms),
+                        out_time_ms: latest_out_time_ms,
+                        speed: latest_speed,
+                        status: "failed".to_string(),
+                        message: Some(error_message.clone()),
+                    },
+                );
+                return Ok(StartWebmToMovResult {
+                    task_id: payload.task_id,
+                    output_path: output_path.display().to_string(),
+                    success: false,
+                    cancelled: false,
+                    error: Some(error_message),
+                });
+            }
+            std::thread::sleep(Duration::from_millis(20));
+            continue;
+        }
+
+        let trimmed = line.trim();
+        if let Some(value) = trimmed.strip_prefix("out_time_ms=") {
+            if let Ok(parsed) = value.parse::<u64>() {
+                latest_out_time_ms = parsed;
+                let progress = progress_from_time(parsed, duration_ms);
+                let _ = app.emit(
+                    WEBM_TO_MOV_PROGRESS_EVENT,
+                    WebmToMovProgressEvent {
                         task_id: payload.task_id.clone(),
                         progress,
                         out_time_ms: parsed,
@@ -352,6 +628,7 @@ fn resolve_output_path(
     input_path: &Path,
     output_mode: &str,
     output_path: Option<&str>,
+    target_extension: &str,
 ) -> Result<(PathBuf, bool), String> {
     let stem = input_path
         .file_stem()
@@ -359,15 +636,18 @@ fn resolve_output_path(
         .ok_or_else(|| "输入文件名非法".to_string())?;
 
     match output_mode {
-        "sameAsInput" => Ok((input_path.with_extension("mp4"), true)),
+        "sameAsInput" => Ok((input_path.with_extension(target_extension), true)),
         "globalDirectory" => {
             let target_dir = output_path.ok_or_else(|| "缺少全局输出目录".to_string())?;
-            Ok((Path::new(target_dir).join(format!("{stem}.mp4")), true))
+            Ok((
+                Path::new(target_dir).join(format!("{stem}.{target_extension}")),
+                true,
+            ))
         }
         "customFilePath" => {
             let target_file = output_path.ok_or_else(|| "缺少另存为路径".to_string())?;
             let mut path = PathBuf::from(target_file);
-            path.set_extension("mp4");
+            path.set_extension(target_extension);
             Ok((path, false))
         }
         _ => Err(format!("未知输出模式：{output_mode}")),

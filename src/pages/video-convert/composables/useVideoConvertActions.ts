@@ -9,12 +9,15 @@ import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotificatio
 import {
   tauriClient,
   type StartWebmToMp4Payload,
+  type StartWebmToMovPayload,
   type WebmToMp4OutputMode,
-  type WebmToMp4ProgressPayload
+  type WebmToMp4ProgressPayload,
+  type WebmToMovProgressPayload
 } from "@/bridge/tauriClient";
 
 type ConvertItemStatus = "idle" | "running" | "completed" | "failed" | "cancelled";
 const SAVED_SECONDS_PER_USAGE = 180;
+export type VideoConvertOutputFormat = "mp4" | "movAlpha";
 
 interface ConvertResultSummary {
   total: number;
@@ -29,9 +32,15 @@ export interface ConvertItem {
   inputPath: string;
   status: ConvertItemStatus;
   progress: number;
+  outputFormat?: VideoConvertOutputFormat;
   outputPath?: string;
   error?: string;
   taskId?: string;
+}
+
+interface ActiveTaskEntry {
+  itemId: string;
+  format: VideoConvertOutputFormat;
 }
 
 /**
@@ -68,11 +77,13 @@ export function useVideoConvertActions() {
   const isDropActive = ref(false);
   const hintMessage = ref("");
   const globalOutputDirectory = ref("");
+  const outputFormat = ref<VideoConvertOutputFormat>("mp4");
   const outputMode = ref<WebmToMp4OutputMode>("sameAsInput");
-  const activeTaskToItemIdMap = ref<Record<string, string>>({});
+  const activeTaskToItemMap = ref<Record<string, ActiveTaskEntry>>({});
   const queueRunning = ref(false);
   const resultSummary = ref<ConvertResultSummary | null>(null);
   let disposeProgressListener: (() => void) | null = null;
+  let disposeMovProgressListener: (() => void) | null = null;
   let disposeDropListener: UnlistenFn | null = null;
 
   const canStart = computed(
@@ -120,15 +131,17 @@ export function useVideoConvertActions() {
       return;
     }
     try {
+      const isMov = (item.outputFormat || outputFormat.value) === "movAlpha";
+      const extension = isMov ? "mov" : "mp4";
+      const filterName = isMov ? "MOV" : "MP4";
       const selected = await save({
-        defaultPath: item.fileName.replace(/\.webm$/i, ".mp4"),
-        filters: [{ name: "MP4", extensions: ["mp4"] }]
+        defaultPath: item.fileName.replace(/\.webm$/i, `.${extension}`),
+        filters: [{ name: filterName, extensions: [extension] }]
       });
       if (!selected) return;
-      const copiedPath = await tauriClient.saveAsConvertedFile({
-        sourcePath: item.outputPath,
-        targetPath: selected
-      });
+      const copiedPath = isMov
+        ? await tauriClient.saveAsConvertedMovFile({ sourcePath: item.outputPath, targetPath: selected })
+        : await tauriClient.saveAsConvertedFile({ sourcePath: item.outputPath, targetPath: selected });
       if (copiedPath) {
         hintMessage.value = "";
       }
@@ -204,6 +217,11 @@ export function useVideoConvertActions() {
   async function cancelItem(itemId: string): Promise<void> {
     const item = items.value.find((entry) => entry.id === itemId);
     if (!item?.taskId || item.status !== "running") return;
+    const task = activeTaskToItemMap.value[item.taskId];
+    if (task?.format === "movAlpha") {
+      await tauriClient.cancelWebmToMov(item.taskId);
+      return;
+    }
     await tauriClient.cancelWebmToMp4(item.taskId);
   }
 
@@ -279,20 +297,25 @@ export function useVideoConvertActions() {
     if (!item) return "skipped";
     if (item.status === "running") return "skipped";
 
-    const task = taskStore.createTask("video-convert", "webm-to-mp4");
-    const payload: StartWebmToMp4Payload = {
+    const format = outputFormat.value;
+    const taskType = format === "movAlpha" ? "webm-to-mov" : "webm-to-mp4";
+    const task = taskStore.createTask("video-convert", taskType);
+    const basePayload = {
       taskId: task.id,
       inputPath: item.inputPath,
       outputMode: resolveOutputMode(item),
       outputPath: resolveOutputPath(item)
     };
 
-    activeTaskToItemIdMap.value[task.id] = item.id;
-    updateItem(item.id, { taskId: task.id, status: "running", progress: 0, error: undefined });
+    activeTaskToItemMap.value[task.id] = { itemId: item.id, format };
+    updateItem(item.id, { taskId: task.id, outputFormat: format, status: "running", progress: 0, error: undefined });
     taskStore.updateTaskProgress(task.id, 0, "转换中");
 
     try {
-      const result = await tauriClient.startWebmToMp4(payload);
+      const result =
+        format === "movAlpha"
+          ? await tauriClient.startWebmToMov(basePayload as StartWebmToMovPayload)
+          : await tauriClient.startWebmToMp4(basePayload as StartWebmToMp4Payload);
       if (result.success) {
         /**
          * 节省时间换算规则：每次成功执行工具默认节省 3 分钟（180 秒）。
@@ -326,7 +349,7 @@ export function useVideoConvertActions() {
       taskStore.failTask(task.id, message);
       return "failed";
     } finally {
-      delete activeTaskToItemIdMap.value[task.id];
+      delete activeTaskToItemMap.value[task.id];
     }
   }
 
@@ -373,23 +396,41 @@ export function useVideoConvertActions() {
   }
 
   function handleProgress(payload: WebmToMp4ProgressPayload): void {
-    const itemId = activeTaskToItemIdMap.value[payload.taskId];
-    if (!itemId) return;
+    const entry = activeTaskToItemMap.value[payload.taskId];
+    if (!entry) return;
+    if (entry.format !== "mp4") return;
     const message = payload.message || `转换中 ${payload.progress}%`;
     taskStore.updateTaskProgress(payload.taskId, payload.progress, message);
-    updateItem(itemId, { progress: payload.progress });
+    updateItem(entry.itemId, { progress: payload.progress });
 
     if (payload.status === "failed") {
-      updateItem(itemId, { status: "failed", error: payload.message || "转换失败" });
+      updateItem(entry.itemId, { status: "failed", error: payload.message || "转换失败" });
     }
     if (payload.status === "cancelled") {
-      updateItem(itemId, { status: "cancelled", error: payload.message || "任务已取消" });
+      updateItem(entry.itemId, { status: "cancelled", error: payload.message || "任务已取消" });
+    }
+  }
+
+  function handleMovProgress(payload: WebmToMovProgressPayload): void {
+    const entry = activeTaskToItemMap.value[payload.taskId];
+    if (!entry) return;
+    if (entry.format !== "movAlpha") return;
+    const message = payload.message || `转换中 ${payload.progress}%`;
+    taskStore.updateTaskProgress(payload.taskId, payload.progress, message);
+    updateItem(entry.itemId, { progress: payload.progress });
+
+    if (payload.status === "failed") {
+      updateItem(entry.itemId, { status: "failed", error: payload.message || "转换失败" });
+    }
+    if (payload.status === "cancelled") {
+      updateItem(entry.itemId, { status: "cancelled", error: payload.message || "任务已取消" });
     }
   }
 
   onMounted(async () => {
     globalOutputDirectory.value = settingsStore.defaultOutputDirectory || "";
     disposeProgressListener = await tauriClient.onWebmToMp4Progress(handleProgress);
+    disposeMovProgressListener = await tauriClient.onWebmToMovProgress(handleMovProgress);
     await setupNativeDropListener();
   });
 
@@ -397,6 +438,10 @@ export function useVideoConvertActions() {
     if (disposeProgressListener) {
       disposeProgressListener();
       disposeProgressListener = null;
+    }
+    if (disposeMovProgressListener) {
+      disposeMovProgressListener();
+      disposeMovProgressListener = null;
     }
     if (disposeDropListener) {
       disposeDropListener();
@@ -409,6 +454,7 @@ export function useVideoConvertActions() {
     hintMessage,
     isConverting,
     isDropActive,
+    outputFormat,
     outputMode,
     globalOutputDirectory,
     resultSummary,

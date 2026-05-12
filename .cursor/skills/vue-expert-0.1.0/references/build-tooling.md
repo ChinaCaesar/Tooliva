@@ -106,7 +106,7 @@ export default defineConfig({
 // vite.config.ts
 export default defineConfig({
   server: {
-    port: 5173,
+    port: 5174,
     host: true,
     proxy: {
       '/api': {
@@ -169,7 +169,7 @@ export default defineConfig({
       "type": "chrome",
       "request": "launch",
       "name": "Debug Vue App",
-      "url": "http://localhost:5173",
+      "url": "http://localhost:5174",
       "webRoot": "${workspaceFolder}/src",
       "sourceMapPathOverrides": {
         "webpack:///./src/*": "${webRoot}/*"

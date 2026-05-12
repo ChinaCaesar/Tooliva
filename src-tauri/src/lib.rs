@@ -1,7 +1,6 @@
 mod commands;
 mod image_core;
 mod image_processors;
-mod image_upscale;
 mod runtime_bins;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -21,6 +20,9 @@ pub fn run() {
             commands::transcode::start_webm_to_mp4,
             commands::transcode::cancel_webm_to_mp4,
             commands::transcode::save_as_converted_file,
+            commands::transcode::start_webm_to_mov,
+            commands::transcode::cancel_webm_to_mov,
+            commands::transcode::save_as_converted_mov_file,
             commands::image::list_images_from_directory,
             commands::image::get_image_preview_data_url,
             commands::image::get_image_watermark_preview_geometry,

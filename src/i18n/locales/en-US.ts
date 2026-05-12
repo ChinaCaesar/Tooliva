@@ -242,6 +242,16 @@ export const enUS = {
       cancel: "Cancel",
       remove: "Remove",
       converting: "Converting...",
+      outputFormat: {
+        groupLabel: "Output Format Selection",
+        mp4: "H.264 Encode",
+        movAlpha: "ProRes 4444 (with Alpha)",
+        avi: "General Format",
+        mov: "QuickTime",
+        mkv: "HD Container",
+        wmv: "Windows",
+        flv: "Streaming"
+      },
       outputMode: {
         groupLabel: "Output Directory Selection",
         sameAsInput: "Output to source directory",
@@ -280,14 +290,6 @@ export const enUS = {
         resolution1080: "1080p (1920x1080)",
         resolution720: "720p (1280x720)",
         resolution480: "480p (854x480)"
-      },
-      outputFormat: {
-        mp4: "H.264 Encode",
-        avi: "General Format",
-        mov: "QuickTime",
-        mkv: "HD Container",
-        wmv: "Windows",
-        flv: "Streaming"
       },
       startConvert: "Start Convert",
       quickPreset: {

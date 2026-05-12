@@ -242,7 +242,7 @@ fn apply_window_size(app: &AppHandle, window_size: &str) -> Result<(), String> {
     let (width, height) = match window_size {
         "small" => (1100.0, 720.0),
         "large" => (1440.0, 900.0),
-        _ => (1280.0, 800.0),
+        _ => (1200.0, 720.0),
     };
     window
         .set_size(LogicalSize::new(width, height))

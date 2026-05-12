@@ -15,8 +15,4 @@ impl ProcessorRegistry {
     pub fn get(&self, key: &str) -> Option<Arc<dyn ImageProcessor>> {
         self.processors.get(key).cloned()
     }
-
-    pub fn keys(&self) -> Vec<String> {
-        self.processors.keys().cloned().collect()
-    }
 }

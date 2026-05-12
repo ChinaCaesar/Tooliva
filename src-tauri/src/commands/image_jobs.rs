@@ -112,8 +112,6 @@ fn error_code(error: &ImagePipelineError) -> String {
         ImagePipelineError::EncodeFailed(_) => "ENCODE_FAILED",
         ImagePipelineError::IoFailed(_) => "IO_FAILED",
         ImagePipelineError::PlanFailed(_) => "PLAN_FAILED",
-        ImagePipelineError::TileProcessFailed(_) => "TILE_PROCESS_FAILED",
-        ImagePipelineError::ProcessorNotFound(_) => "PROCESSOR_NOT_FOUND",
         ImagePipelineError::NotImplemented(_) => "NOT_IMPLEMENTED",
         ImagePipelineError::Internal(_) => "INTERNAL",
     }
