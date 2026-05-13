@@ -2,10 +2,10 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
+import { closeWindow, minimizeWindow, toggleMaximizeWindow } from "@/utils/windowControl";
 
 interface SearchToolItem {
   id: string;
@@ -57,27 +57,6 @@ function goToSettingsPage(): void {
   router.push(ROUTE_PATHS.settings);
 }
 
-async function minimizeWindow(): Promise<void> {
-  if (!isTauri()) return;
-  await getCurrentWindow().minimize();
-}
-
-async function toggleMaximizeWindow(): Promise<void> {
-  if (!isTauri()) return;
-  const win = getCurrentWindow();
-  const maximized = await win.isMaximized();
-  if (maximized) {
-    await win.unmaximize();
-  } else {
-    await win.maximize();
-  }
-}
-
-async function closeWindow(): Promise<void> {
-  if (!isTauri()) return;
-  await getCurrentWindow().close();
-}
-
 function handleSelectTool(route: string): void {
   searchKeyword.value = "";
   isSearchFocused.value = false;
@@ -111,7 +90,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <header class="home-top-bar">
+  <header class="home-top-bar" data-tauri-drag-region="deep">
     <div class="home-top-bar__brand">
       <div class="home-top-bar__logo-wrap">
         <img :src="logoUrl" alt="" class="home-top-bar__logo" />
@@ -122,7 +101,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="home-top-bar__search-wrap">
+    <div class="home-top-bar__search-wrap" data-tauri-drag-region="false">
       <div class="home-top-bar__search">
         <img :src="searchIconUrl" alt="" class="home-top-bar__search-icon" />
         <input
@@ -150,7 +129,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="home-top-bar__actions">
+    <div class="home-top-bar__actions" data-tauri-drag-region="false">
       <button type="button" class="home-top-bar__member" @click="emit('memberCta')">
         <img :src="crownIconUrl" alt="" class="home-top-bar__crown" />
         {{ memberCtaLabel }}
@@ -163,7 +142,7 @@ onUnmounted(() => {
           type="button"
           class="home-top-bar__win-btn"
           :aria-label="t('layout.appShell.minimizeAria')"
-          @click="minimizeWindow"
+          @click="minimizeWindow()"
         >
           <img :src="HOME_ASSETS.pubMinimize" alt="" class="home-top-bar__win-icon" />
         </button>
@@ -171,7 +150,7 @@ onUnmounted(() => {
           type="button"
           class="home-top-bar__win-btn"
           :aria-label="t('layout.appShell.maximizeAria')"
-          @click="toggleMaximizeWindow"
+          @click="toggleMaximizeWindow()"
         >
           <img :src="HOME_ASSETS.pubMaximize" alt="" class="home-top-bar__win-icon" />
         </button>
@@ -179,7 +158,7 @@ onUnmounted(() => {
           type="button"
           class="home-top-bar__win-btn home-top-bar__win-btn--close"
           :aria-label="t('layout.appShell.closeAria')"
-          @click="closeWindow"
+          @click="closeWindow()"
         >
           <img :src="HOME_ASSETS.pubClose" alt="" class="home-top-bar__win-icon" />
         </button>
@@ -197,11 +176,10 @@ onUnmounted(() => {
   padding: 10px 20px;
   border-bottom: 1px solid #e5e7eb;
   background: #ffffff;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  flex-shrink: 0;
   width: 100%;
+  box-sizing: border-box;
   z-index: 80;
   flex-wrap: nowrap;
 }
@@ -372,9 +350,9 @@ onUnmounted(() => {
   border-left: 1px solid #e5e7eb;
 }
 .home-top-bar__win-btn {
-  width: 34px;
-  height: 28px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
   display: inline-flex;

@@ -111,7 +111,7 @@ function goMembership(): void {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding-top: 60px;
+  padding-top: 10px;
   box-sizing: border-box;
 }
 .app-shell__header {

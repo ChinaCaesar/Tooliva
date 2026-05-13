@@ -69,10 +69,10 @@ function onMaxHeightInput(event: Event): void {
   maxHeightBound.value = raw === "" ? null : Math.max(1, Number.parseInt(raw, 10) || 1);
 }
 
-const outputSummaryLine = computed(() =>
+const outputFooterPath = computed(() =>
   outputDirectory.value.trim().length > 0
-    ? t("pages.imageCompress.footer.customOutput")
-    : t("pages.imageCompress.footer.defaultOutput")
+    ? outputDirectory.value.trim()
+    : t("pages.imageCompress.output.defaultDirectory")
 );
 </script>
 
@@ -272,18 +272,34 @@ const outputSummaryLine = computed(() =>
               </div>
               <div class="format-block">
                 <span class="format-block__label">{{ t("pages.imageCompress.settings.format") }}</span>
-                <div class="format-row">
+                <div class="format-row" role="radiogroup" :aria-label="t('pages.imageCompress.settings.format')">
+                  <label class="format-option" :class="{ 'format-option--active': targetFormat === 'auto' }">
+                    <input v-model="targetFormat" type="radio" value="auto" :disabled="isProcessing" />
+                    <span class="format-option__radio" aria-hidden="true">
+                      <span v-if="targetFormat === 'auto'" class="format-option__radio-dot" />
+                    </span>
+                    <span class="format-option__text">{{ t("pages.imageCompress.settings.formatAuto") }}</span>
+                  </label>
                   <label class="format-option" :class="{ 'format-option--active': targetFormat === 'jpg' }">
                     <input v-model="targetFormat" type="radio" value="jpg" :disabled="isProcessing" />
-                    <span>JPG</span>
+                    <span class="format-option__radio" aria-hidden="true">
+                      <span v-if="targetFormat === 'jpg'" class="format-option__radio-dot" />
+                    </span>
+                    <span class="format-option__text">JPG</span>
                   </label>
                   <label class="format-option" :class="{ 'format-option--active': targetFormat === 'png' }">
                     <input v-model="targetFormat" type="radio" value="png" :disabled="isProcessing" />
-                    <span>PNG</span>
+                    <span class="format-option__radio" aria-hidden="true">
+                      <span v-if="targetFormat === 'png'" class="format-option__radio-dot" />
+                    </span>
+                    <span class="format-option__text">PNG</span>
                   </label>
                   <label class="format-option" :class="{ 'format-option--active': targetFormat === 'webp' }">
                     <input v-model="targetFormat" type="radio" value="webp" :disabled="isProcessing" />
-                    <span>WEBP</span>
+                    <span class="format-option__radio" aria-hidden="true">
+                      <span v-if="targetFormat === 'webp'" class="format-option__radio-dot" />
+                    </span>
+                    <span class="format-option__text">WEBP</span>
                   </label>
                 </div>
               </div>
@@ -352,26 +368,27 @@ const outputSummaryLine = computed(() =>
           </aside>
         </div>
       </div>
-    </div>
 
-    <div class="action-bar">
-      <div class="action-bar__inner">
-        <div class="action-bar__left">
-          <span class="action-bar__summary">{{ t("pages.imageCompress.footer.saveTo") }} {{ outputSummaryLine }}</span>
-          <button type="button" class="linkish btn-touch" :disabled="isProcessing" @click="pickOutputDirectory">
-            {{ t("pages.imageCompress.footer.changeOutput") }}
-          </button>
+      <footer class="bottom-bar">
+        <div class="bottom-bar__left">
+          <div class="bottom-bar__row">
+            <span class="bottom-bar__label">{{ t("pages.imageCompress.footer.saveTo") }}</span>
+            <span class="bottom-bar__path" :title="outputFooterPath">{{ outputFooterPath }}</span>
+            <button type="button" class="btn btn--link" :disabled="isProcessing" @click="pickOutputDirectory">
+              {{ t("pages.imageCompress.footer.changeOutput") }}
+            </button>
+          </div>
         </div>
         <button
           type="button"
-          class="primary-btn primary-btn--confirm btn-touch"
+          class="btn btn--primary btn--start"
           :disabled="!canStart"
           :aria-busy="isProcessing"
           @click="startCompress"
         >
           {{ isProcessing ? t("pages.imageCompress.processing") : t("pages.imageCompress.start") }}
         </button>
-      </div>
+      </footer>
     </div>
   </div>
 </template>
@@ -380,11 +397,13 @@ const outputSummaryLine = computed(() =>
 .image-compress-page {
   --surface-muted: #f5f7fa;
   --surface: #ffffff;
-  --border: #e2e8f0;
+  --border: #e5e7eb;
   --text: #0f172a;
   --text-muted: #64748b;
   --primary: #2563eb;
   --primary-dark: #1d4ed8;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
   flex: 1;
   min-height: 0;
   height: 100%;
@@ -405,7 +424,7 @@ const outputSummaryLine = computed(() =>
   width: 100%;
   max-width: 1480px;
   margin: 0 auto;
-  padding: 12px 20px 120px;
+  padding: 12px 20px 14px;
   box-sizing: border-box;
 }
 
@@ -829,29 +848,64 @@ const outputSummaryLine = computed(() =>
 }
 
 .format-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 .format-option {
   position: relative;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 8px 14px;
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
   min-height: 44px;
   box-sizing: border-box;
+  background: #fff;
 }
 
 .format-option--active {
-  border-color: #0284c7;
-  background: #ecfeff;
-  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.14);
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.format-option__radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.format-option--active .format-option__radio {
+  border-color: #1e40af;
+}
+
+.format-option__radio-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1e40af;
+}
+
+.format-option__text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.02em;
 }
 
 .format-option input {
@@ -1037,60 +1091,109 @@ const outputSummaryLine = computed(() =>
   min-height: 44px;
 }
 
-.action-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 12px;
-  z-index: 40;
-  pointer-events: none;
-}
-
-.action-bar__inner {
-  max-width: min(1480px, 100% - 40px);
-  margin: 0 auto;
-  padding: 12px 16px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid #dbeafe;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
-  backdrop-filter: blur(8px);
-  pointer-events: auto;
+.bottom-bar {
+  flex-shrink: 0;
+  margin-top: 10px;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.04);
 }
 
-.action-bar__left {
+.bottom-bar__left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.bottom-bar__row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 12px;
   min-width: 0;
-  font-size: 13px;
-  color: #475569;
 }
 
-.action-bar__summary {
-  word-break: break-word;
-}
-
-.linkish {
-  border: none;
-  background: transparent;
-  color: var(--primary-dark);
+.bottom-bar__label {
+  font-size: 12px;
   font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: underline;
-  padding: 6px 8px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
-.linkish:disabled {
+.bottom-bar__path {
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+  max-width: min(520px, 45vw);
+}
+
+.btn {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 18px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn--primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn--link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.btn--link:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn--start {
+  padding: 12px 28px;
+  font-size: 15px;
+  flex-shrink: 0;
 }
 
 .result-panel {
@@ -1160,7 +1263,7 @@ const outputSummaryLine = computed(() =>
 
 @media (max-width: 768px) {
   .page-shell {
-    padding: 10px 12px 112px;
+    padding: 10px 12px 12px;
   }
 
   .control-grid {
@@ -1176,17 +1279,18 @@ const outputSummaryLine = computed(() =>
     grid-template-columns: 1fr;
   }
 
-  .action-bar {
-    bottom: 8px;
+  .bottom-bar {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .action-bar__inner {
-    max-width: calc(100% - 20px);
+  .bottom-bar__path {
+    max-width: 100%;
+    white-space: normal;
   }
 
-  .primary-btn--confirm {
+  .btn--start {
     width: 100%;
-    min-width: 0;
   }
 }
 </style>

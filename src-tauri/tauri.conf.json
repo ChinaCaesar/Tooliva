@@ -16,7 +16,9 @@
         "title": "Desktop Toolbox",
         "width": 1100,
         "height": 900,
-        "resizable": true
+        "resizable": true,
+        "decorations": false,
+        "shadow": true
       }
     ],
     "security": {

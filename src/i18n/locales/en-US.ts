@@ -550,6 +550,7 @@ export const enUS = {
         qualityLow: "Smaller file",
         qualityHigh: "Higher quality",
         format: "Output format",
+        formatAuto: "Original",
         tip: "Higher quality preserves detail but increases file size. Start with JPG 80 or WEBP 80."
       },
       advanced: {

@@ -11,14 +11,15 @@ import { importDirectoryItems } from "@/pages/shared/directoryImport";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
 type CompressStatus = "idle" | "running" | "completed" | "failed";
-type CompressFormat = "jpg" | "png" | "webp";
+/** auto：不传 targetFormat，由后端按输入扩展名决定输出格式（BMP 等会落到 JPG）。 */
+type CompressFormat = "auto" | "jpg" | "png" | "webp";
 /** 分辨率策略：保持原始像素上限，或由最大宽高推导输出像素上限 */
 export type CompressResolutionPreset = "original" | "bounded";
 const SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
 const SAVED_SECONDS_PER_USAGE = 90;
 const MAX_VISIBLE_ITEMS = 200;
 const DEFAULT_QUALITY = 80;
-const DEFAULT_FORMAT: CompressFormat = "jpg";
+const DEFAULT_FORMAT: CompressFormat = "auto";
 const DEFAULT_MAX_OUTPUT_PIXELS_CAP = 60_000_000;
 const DEFAULT_MAX_MEMORY_MB = 768;
 const DEFAULT_TILE_SIZE = 1024;
@@ -400,7 +401,9 @@ export function useImageCompressActions() {
         inputPath: current.inputPath,
         quality: quality.value,
         outputDirectory: outputDirectory.value || undefined,
-        targetFormat: targetFormat.value,
+        ...(targetFormat.value === "auto"
+          ? {}
+          : { targetFormat: targetFormat.value as "jpg" | "png" | "webp" }),
         maxOutputPixels: maxPx,
         maxMemoryMb: DEFAULT_MAX_MEMORY_MB,
         tileSize: DEFAULT_TILE_SIZE,

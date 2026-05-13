@@ -550,6 +550,7 @@ export const zhCN = {
         qualityLow: "体积小",
         qualityHigh: "质量高",
         format: "输出格式",
+        formatAuto: "原格式",
         tip: "质量越高画质越好但体积更大；建议先用 JPG 80 或 WEBP 80。"
       },
       advanced: {
