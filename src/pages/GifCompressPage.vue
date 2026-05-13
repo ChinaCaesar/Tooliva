@@ -5,9 +5,25 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import {
+  ChevronDown,
+  ChevronUp,
+  Folder,
+  ImagePlus,
+  Info,
+  Minus,
+  PauseCircle,
+  PlayCircle,
+  Plus,
+  Trash2,
+  X
+} from "@lucide/vue";
 import { useBatchTask } from "@/modules/batch";
 import type { BatchConcurrencyPreset } from "@/modules/batch/types";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
+
+const gifListImageUrl = "/resources/gifCompress/listImage.png";
+const gifPreviewImageUrl = "/resources/gifCompress/preImage.png";
 
 const { t } = useI18n();
 const { notifyTaskBatchCompleted } = useTaskBatchNotification();
@@ -60,7 +76,6 @@ const fps = ref<FpsPreset>("FPS_12");
 const colors = ref<ColorCount>("C128");
 const quality = ref<CompressQuality>("MEDIUM");
 const removeDuplicateFrames = ref(true);
-const targetSizeMb = ref<string>("");
 const outputDirPolicy = ref<OutputDirPolicy>("SAME_AS_SOURCE");
 const customOutputDir = ref("");
 const dither = ref<DitherLevel>("MEDIUM");
@@ -106,7 +121,7 @@ function extractName(path: string): string {
 }
 
 function pathKey(p: string): string {
-  return p.replaceAll("\\", "/").toLowerCase();
+  return p.replace(/\\/g, "/").toLowerCase();
 }
 
 function stemOfFileName(name: string): string {
@@ -304,7 +319,6 @@ function restoreDefaults() {
   filenameRule.value = "COMPRESSED_EN";
   fastMode.value = false;
   concurrencyChoice.value = "auto";
-  targetSizeMb.value = "";
 }
 
 function mapConcurrency(): { preset: BatchConcurrencyPreset; custom?: number } {
@@ -330,7 +344,6 @@ function buildOptions(): Record<string, unknown> {
     colors: colors.value,
     quality: quality.value,
     removeDuplicateFrames: removeDuplicateFrames.value,
-    targetSizeMb: null,
     outputDirPolicy: outputDirPolicy.value,
     dither: dither.value,
     loopPolicy: loopPolicy.value,
@@ -556,747 +569,872 @@ async function onOpenOutput() {
 
 <template>
   <div class="gif-compress-page">
-    <header class="gif-page-head">
-      <h2 class="gif-page-head__title">{{ t("pages.gifCompress.title") }}</h2>
-      <p class="gif-page-head__desc">{{ t("pages.gifCompress.description") }}</p>
-    </header>
-
     <div class="gif-workspace">
-      <!-- 左：文件列表 -->
-      <section class="gif-col gif-col--list" aria-labelledby="gif-list-title">
+      <section class="gif-card gif-card--list" aria-labelledby="gif-list-title">
         <div class="gif-card-head">
-          <h3 id="gif-list-title" class="gif-card-head__title">
-            {{ t("pages.gifCompress.listTitle") }} ({{ items.length }})
-          </h3>
+          <h3 id="gif-list-title" class="gif-card-head__title">{{ t("pages.gifCompress.listTitle") }}（{{ items.length }}）</h3>
           <div class="gif-card-head__actions">
-            <button type="button" class="btn btn--secondary btn--sm" @click="pickFiles">
-              + {{ t("pages.gifCompress.addFiles") }}
-            </button>
-            <button
-              type="button"
-              class="btn btn--ghost btn--sm"
-              :disabled="isRunning || items.length === 0"
-              :aria-label="t('pages.gifCompress.clearListAria')"
-              @click="clearList"
-            >
-              <span class="gif-icon-trash" aria-hidden="true" />
-            </button>
+            <button type="button" class="gif-btn gif-btn--light" @click="pickFiles"><Plus :size="17" />{{ t("pages.gifCompress.addFiles") }}</button>
+            <button type="button" class="gif-btn gif-btn--light" :disabled="isRunning || items.length === 0" @click="clearList"><Trash2 :size="16" />{{ t("pages.gifCompress.clearList") }}</button>
           </div>
         </div>
 
-        <div
-          class="gif-drop"
-          :class="{ 'gif-drop--active': isDropActive }"
-          @click.self="pickFiles"
-          @drop="handleDrop"
-          @dragover="onDragOver"
-          @dragleave="onDragLeave"
-        >
-          <template v-if="items.length === 0">
-            <div class="gif-drop__illu" aria-hidden="true" />
-            <p class="gif-drop__title">{{ t("pages.gifCompress.dropTitle") }}</p>
-            <p class="gif-drop__meta">{{ t("pages.gifCompress.maxFilesHint", { n: MAX_FILES }) }}</p>
-            <p class="gif-drop__meta">{{ t("pages.gifCompress.formatHint") }}</p>
-            <p class="gif-drop__meta">{{ t("pages.gifCompress.sizeHint", { mb: RECOMMENDED_MB }) }}</p>
-          </template>
-          <ul v-else class="gif-file-list">
-            <li
-              v-for="it in items"
-              :key="it.id"
-              class="gif-file"
-              :class="{ 'gif-file--selected': it.id === selectedId }"
-              @click="selectedId = it.id"
-            >
+        <div v-if="items.length === 0" class="gif-drop gif-drop--empty" :class="{ 'gif-drop--active': isDropActive }" @click.self="pickFiles" @drop="handleDrop" @dragover="onDragOver" @dragleave="onDragLeave">
+          <img class="gif-drop__image" :src="gifListImageUrl" alt="" />
+          <p class="gif-drop__title">拖拽 GIF 文件到此处，或<span @click.stop="pickFiles">点击添加</span></p>
+          <p class="gif-drop__sub">支持批量添加，最多同时处理 {{ MAX_FILES }} 个文件</p>
+          <div class="gif-drop__rules"><p>支持格式：.gif</p><p>建议单个文件小于 {{ RECOMMENDED_MB }}MB</p></div>
+        </div>
+
+        <template v-else>
+          <div class="gif-drop gif-drop--compact" :class="{ 'gif-drop--active': isDropActive }" @click.self="pickFiles" @drop="handleDrop" @dragover="onDragOver" @dragleave="onDragLeave">
+            <ImagePlus class="gif-drop__mini-icon" :size="34" :stroke-width="1.8" />
+            <p class="gif-drop__compact-title">拖拽 GIF 文件到此处，或<span @click.stop="pickFiles">点击添加</span></p>
+            <p class="gif-drop__sub">支持批量添加，最多同时处理 {{ MAX_FILES }} 个文件</p>
+          </div>
+          <ul class="gif-file-list">
+            <li v-for="it in items" :key="it.id" class="gif-file" :class="{ 'gif-file--selected': it.id === selectedId }" @click="selectedId = it.id">
               <div class="gif-file__thumb-wrap">
-                <img v-if="isTauri()" class="gif-file__thumb" :src="convertFileSrc(it.path)" :alt="''" />
-                <span class="gif-file__play" aria-hidden="true" />
+                <img class="gif-file__thumb" :src="isTauri() ? convertFileSrc(it.path) : gifListImageUrl" alt="" />
+                <PlayCircle class="gif-file__play" :size="31" :stroke-width="1.7" />
               </div>
-              <div class="gif-file__meta">
-                <span class="gif-file__name">{{ it.name }}</span>
-                <span class="gif-file__size">{{ formatBytes(it.bytes) }}</span>
-                <span class="gif-file__status" :data-st="it.status">{{ statusLabel(it.status) }}</span>
-              </div>
-              <button
-                type="button"
-                class="gif-file__remove"
-                :disabled="isRunning"
-                :aria-label="t('pages.gifCompress.removeFileAria')"
-                @click.stop="removeItem(it.id)"
-              >
-                ×
-              </button>
+              <div class="gif-file__meta"><span class="gif-file__name">{{ it.name }}</span><span class="gif-file__size">{{ formatBytes(it.bytes) }}</span></div>
+              <span class="gif-file__status" :data-st="it.status">{{ statusLabel(it.status) }}</span>
+              <button type="button" class="gif-file__remove" :disabled="isRunning" @click.stop="removeItem(it.id)"><X :size="18" /></button>
             </li>
           </ul>
-        </div>
+        </template>
         <p v-if="hintMessage" class="gif-hint">{{ hintMessage }}</p>
-        <footer v-if="items.length" class="gif-list-foot">
-          <span>{{ t("pages.gifCompress.totalFiles", { n: items.length }) }}</span>
-          <span>{{ t("pages.gifCompress.totalSize", { size: formatBytes(totalBytes) }) }}</span>
-        </footer>
+        <footer v-if="items.length" class="gif-list-foot"><span>共 {{ items.length }} 个文件</span><span>总大小：{{ formatBytes(totalBytes) }}</span></footer>
       </section>
 
-      <!-- 中：预览 -->
-      <section class="gif-col gif-col--preview" aria-labelledby="gif-preview-title">
-        <div class="gif-card-head">
-          <div>
-            <h3 id="gif-preview-title" class="gif-card-head__title">{{ t("pages.gifCompress.previewTitle") }}</h3>
-            <p class="gif-card-head__sub">{{ t("pages.gifCompress.previewDisclaimer") }}</p>
-          </div>
-        </div>
-
+      <section class="gif-card gif-card--preview" aria-labelledby="gif-preview-title">
+        <div class="gif-card-head gif-card-head--preview"><div><h3 id="gif-preview-title" class="gif-card-head__title">{{ t("pages.gifCompress.previewTitle") }}</h3><p class="gif-card-head__sub">{{ t("pages.gifCompress.previewDisclaimer") }}</p></div></div>
         <div class="gif-preview-grid">
           <div class="gif-preview-pane">
-            <div class="gif-preview-pane__label">
-              {{
-                selectedItem
-                  ? t("pages.gifCompress.originalWithSize", { size: formatBytes(selectedItem.bytes) })
-                  : t("pages.gifCompress.originalPreview")
-              }}
-            </div>
-            <div class="gif-preview-box">
-              <img
-                v-if="selectedItem && originalPreviewSrc"
-                class="gif-preview-img"
-                :src="originalPreviewSrc"
-                alt=""
-              />
-              <div v-else class="gif-preview-placeholder">
-                <p>{{ t("pages.gifCompress.emptyPreviewTitle") }}</p>
-                <p class="muted">{{ t("pages.gifCompress.emptyPreviewDesc") }}</p>
-              </div>
-            </div>
+            <div class="gif-preview-pane__label">{{ selectedItem ? t("pages.gifCompress.originalWithSize", { size: formatBytes(selectedItem.bytes) }) : t("pages.gifCompress.originalPreview") }}</div>
+            <div class="gif-preview-box" :class="{ 'gif-preview-box--empty': !selectedItem }"><img v-if="selectedItem && originalPreviewSrc" class="gif-preview-img" :src="originalPreviewSrc" alt="" /></div>
           </div>
           <div class="gif-preview-pane">
-            <div class="gif-preview-pane__label gif-preview-pane__label--right">
-              <template v-if="selectedItem && estimatedCompressedBytes != null">
-                {{ t("pages.gifCompress.compressedEstimate", { size: formatBytes(estimatedCompressedBytes) }) }}
-                <span v-if="savingsPct != null" class="gif-badge">{{ t("pages.gifCompress.reductionBadge", { pct: savingsPct }) }}</span>
-              </template>
-              <template v-else>{{ t("pages.gifCompress.compressedPreview") }}</template>
-            </div>
-            <div class="gif-preview-box">
-              <img
-                v-if="compressedPreviewSrc"
-                class="gif-preview-img"
-                :src="compressedPreviewSrc"
-                alt=""
-              />
-              <img
-                v-else-if="selectedItem && originalPreviewSrc"
-                class="gif-preview-img gif-preview-img--estimate"
-                :src="originalPreviewSrc"
-                alt=""
-              />
-              <div v-else class="gif-preview-placeholder">
-                <p>{{ t("pages.gifCompress.emptyPreviewTitle") }}</p>
-              </div>
-            </div>
+            <div class="gif-preview-pane__label gif-preview-pane__label--right"><template v-if="selectedItem && estimatedCompressedBytes != null">{{ t("pages.gifCompress.compressedEstimate", { size: formatBytes(estimatedCompressedBytes) }) }}<span v-if="savingsPct != null" class="gif-badge">↓ {{ Math.max(0, savingsPct) }}%</span></template><template v-else>{{ t("pages.gifCompress.compressedPreview") }}</template></div>
+            <div class="gif-preview-box" :class="{ 'gif-preview-box--empty': !selectedItem }"><img v-if="compressedPreviewSrc" class="gif-preview-img" :src="compressedPreviewSrc" alt="" /><img v-else-if="selectedItem && originalPreviewSrc" class="gif-preview-img" :src="originalPreviewSrc" alt="" /></div>
           </div>
+          <div v-if="!selectedItem" class="gif-preview-empty"><img class="gif-preview-empty__image" :src="gifPreviewImageUrl" alt="" /><p class="gif-preview-empty__title">{{ t("pages.gifCompress.emptyPreviewTitle") }}</p><p class="gif-preview-empty__sub">{{ t("pages.gifCompress.emptyPreviewDesc") }}</p></div>
         </div>
-
-        <div class="gif-size-bar">
-          <template v-if="selectedItem && estimatedCompressedBytes != null">
-            <strong>{{ t("pages.gifCompress.sizeArrow", { from: formatBytes(selectedItem.bytes), to: formatBytes(estimatedCompressedBytes) }) }}</strong>
-            <p class="gif-savings">
-              {{ t("pages.gifCompress.savings", { size: formatBytes(selectedItem.bytes - estimatedCompressedBytes), pct: savingsPct ?? 0 }) }}
-            </p>
-          </template>
-          <template v-else>
-            <span class="muted">-- → --</span>
-            <p class="muted">{{ t("pages.gifCompress.savingsShort", { v: "--" }) }}</p>
-          </template>
-          <p class="gif-micro muted">
-            <span class="gif-icon-info" aria-hidden="true" />
-            {{ t("pages.gifCompress.estimateNote") }}
-          </p>
-          <p class="gif-micro muted">{{ t("pages.gifCompress.estimateDisclaimer") }}</p>
+        <div class="gif-size-card">
+          <template v-if="selectedItem && estimatedCompressedBytes != null"><div class="gif-size-card__main"><strong>{{ formatBytes(selectedItem.bytes) }}</strong><span>→</span><strong class="gif-size-card__compressed">{{ formatBytes(estimatedCompressedBytes) }}</strong></div><p class="gif-savings">预计节省 {{ formatBytes(Math.max(0, selectedItem.bytes - estimatedCompressedBytes)) }}（{{ Math.max(0, savingsPct ?? 0) }}%）</p></template>
+          <template v-else><div class="gif-size-card__main gif-size-card__main--empty"><span>--</span><span>→</span><span>--</span></div><p class="gif-size-card__empty-row"><span>原始大小</span><span>压缩后大小</span></p><p class="muted">预计节省：--</p></template>
         </div>
+        <p class="gif-note"><Info :size="15" />{{ selectedItem ? t("pages.gifCompress.estimateDisclaimer") : t("pages.gifCompress.estimateNote") }}</p>
       </section>
 
-      <!-- 右：设置 -->
-      <section class="gif-col gif-col--settings" aria-labelledby="gif-settings-title">
-        <div class="gif-card-head gif-card-head--row">
-          <h3 id="gif-settings-title" class="gif-card-head__title">{{ t("pages.gifCompress.settingsTitle") }}</h3>
-          <button type="button" class="btn btn--link btn--sm" @click="restoreDefaults">
-            {{ t("pages.gifCompress.restoreDefaults") }}
-          </button>
-        </div>
-
+      <section class="gif-card gif-card--settings" aria-labelledby="gif-settings-title">
+        <div class="gif-card-head gif-card-head--row"><h3 id="gif-settings-title" class="gif-card-head__title">{{ t("pages.gifCompress.settingsTitle") }}</h3><button type="button" class="gif-btn gif-btn--light gif-btn--small" @click="restoreDefaults">{{ t("pages.gifCompress.restoreDefaults") }}</button></div>
         <div class="gif-settings-scroll">
           <div class="gif-accordion">
-            <button type="button" class="gif-accordion__head" @click="basicOpen = !basicOpen">
-              {{ t("pages.gifCompress.basicSettings") }}
-            </button>
+            <button type="button" class="gif-accordion__head" @click="basicOpen = !basicOpen"><span>{{ t("pages.gifCompress.basicSettings") }}</span><ChevronUp v-if="basicOpen" :size="17" /><ChevronDown v-else :size="17" /></button>
             <div v-show="basicOpen" class="gif-accordion__body">
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.mode") }}</span>
-                <div class="gif-seg">
-                  <button type="button" :class="{ on: mode === 'LIGHT' }" @click="applyModePreset('LIGHT')">{{ t("pages.gifCompress.modeLight") }}</button>
-                  <button type="button" :class="{ on: mode === 'RECOMMENDED' }" @click="applyModePreset('RECOMMENDED')">{{ t("pages.gifCompress.modeRecommended") }}</button>
-                  <button type="button" :class="{ on: mode === 'EXTREME' }" @click="applyModePreset('EXTREME')">{{ t("pages.gifCompress.modeExtreme") }}</button>
-                </div>
-              </div>
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.resize") }}</span>
-                <div class="gif-seg gif-seg--wrap">
-                  <button type="button" :class="{ on: resize === 'KEEP' }" @click="resize = 'KEEP'">{{ t("pages.gifCompress.resizeKeep") }}</button>
-                  <button type="button" :class="{ on: resize === 'P80' }" @click="resize = 'P80'">{{ t("pages.gifCompress.resizeP80") }}</button>
-                  <button type="button" :class="{ on: resize === 'P60' }" @click="resize = 'P60'">{{ t("pages.gifCompress.resizeP60") }}</button>
-                  <button type="button" :class="{ on: resize === 'P50' }" @click="resize = 'P50'">{{ t("pages.gifCompress.resizeP50") }}</button>
-                  <button type="button" :class="{ on: resize === 'CUSTOM_WIDTH' }" @click="resize = 'CUSTOM_WIDTH'">{{ t("pages.gifCompress.resizeCustom") }}</button>
-                </div>
-                <div v-if="resize === 'CUSTOM_WIDTH'" class="gif-row-input">
-                  <label class="muted" for="gif-custom-width">{{ t("pages.gifCompress.customWidthLabel") }}</label>
-                  <input id="gif-custom-width" v-model.number="customWidth" type="number" min="2" step="2" class="gif-input" />
-                </div>
-              </div>
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.fps") }}</span>
-                <div class="gif-seg gif-seg--wrap">
-                  <button type="button" :class="{ on: fps === 'FPS_15' }" @click="fps = 'FPS_15'">{{ t("pages.gifCompress.fpsSmooth") }}</button>
-                  <button type="button" :class="{ on: fps === 'FPS_12' }" @click="fps = 'FPS_12'">{{ t("pages.gifCompress.fpsStandard") }}</button>
-                  <button type="button" :class="{ on: fps === 'FPS_10' }" @click="fps = 'FPS_10'">{{ t("pages.gifCompress.fpsCompact") }}</button>
-                  <button type="button" :class="{ on: fps === 'FPS_8' }" @click="fps = 'FPS_8'">{{ t("pages.gifCompress.fpsTiny") }}</button>
-                  <button type="button" :class="{ on: fps === 'SOURCE' }" @click="fps = 'SOURCE'">{{ t("pages.gifCompress.fpsSource") }}</button>
-                </div>
-              </div>
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.colors") }}</span>
-                <div class="gif-seg">
-                  <button type="button" :class="{ on: colors === 'C256' }" @click="colors = 'C256'">256</button>
-                  <button type="button" :class="{ on: colors === 'C128' }" @click="colors = 'C128'">128</button>
-                  <button type="button" :class="{ on: colors === 'C64' }" @click="colors = 'C64'">64</button>
-                  <button type="button" :class="{ on: colors === 'C32' }" @click="colors = 'C32'">32</button>
-                </div>
-              </div>
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.quality") }}</span>
-                <div class="gif-seg">
-                  <button type="button" :class="{ on: quality === 'LOW' }" @click="quality = 'LOW'">{{ t("pages.gifCompress.qualityLow") }}</button>
-                  <button type="button" :class="{ on: quality === 'MEDIUM' }" @click="quality = 'MEDIUM'">{{ t("pages.gifCompress.qualityMedium") }}</button>
-                  <button type="button" :class="{ on: quality === 'HIGH' }" @click="quality = 'HIGH'">{{ t("pages.gifCompress.qualityHigh") }}</button>
-                </div>
-              </div>
-              <label class="gif-toggle">
-                <input v-model="removeDuplicateFrames" type="checkbox" />
-                {{ t("pages.gifCompress.removeDup") }}
-              </label>
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.targetSize") }}</span>
-                <div class="gif-row-input">
-                  <input v-model="targetSizeMb" type="text" class="gif-input" disabled :placeholder="t('pages.gifCompress.targetSizePlaceholder')" />
-                  <span class="muted">{{ t("pages.gifCompress.targetSizeMb") }}</span>
-                </div>
-                <p class="gif-micro muted">{{ t("pages.gifCompress.targetSizeDisabled") }}</p>
-                <p class="gif-micro muted">{{ t("pages.gifCompress.estimatedOutSize", { v: selectedItem && estimatedCompressedBytes != null ? formatBytes(estimatedCompressedBytes) : '--' }) }}</p>
-              </div>
+              <div class="gif-field"><span class="gif-field__label">{{ t("pages.gifCompress.mode") }}</span><div class="gif-seg gif-seg--three"><button type="button" :class="{ on: mode === 'LIGHT' }" @click="applyModePreset('LIGHT')">{{ t("pages.gifCompress.modeLight") }}</button><button type="button" :class="{ on: mode === 'RECOMMENDED' }" @click="applyModePreset('RECOMMENDED')">{{ t("pages.gifCompress.modeRecommended") }}</button><button type="button" :class="{ on: mode === 'EXTREME' }" @click="applyModePreset('EXTREME')">{{ t("pages.gifCompress.modeExtreme") }}</button></div></div>
+              <div class="gif-field"><span class="gif-field__label">{{ t("pages.gifCompress.resize") }}</span><div class="gif-seg gif-seg--four"><button type="button" :class="{ on: resize === 'KEEP' }" @click="resize = 'KEEP'">{{ t("pages.gifCompress.resizeKeep") }}</button><button type="button" :class="{ on: resize === 'P80' }" @click="resize = 'P80'">80%</button><button type="button" :class="{ on: resize === 'P60' }" @click="resize = 'P60'">60%</button><button type="button" :class="{ on: resize === 'P50' }" @click="resize = 'P50'">50%</button></div></div>
+              <div class="gif-field"><span class="gif-field__label">{{ t("pages.gifCompress.fps") }}</span><div class="gif-seg gif-seg--three"><button type="button" :class="{ on: fps === 'FPS_15' }" @click="fps = 'FPS_15'">15fps</button><button type="button" :class="{ on: fps === 'FPS_12' }" @click="fps = 'FPS_12'">12fps</button><button type="button" :class="{ on: fps === 'FPS_10' }" @click="fps = 'FPS_10'">10fps</button></div></div>
+              <div class="gif-field"><span class="gif-field__label">{{ t("pages.gifCompress.colors") }}</span><div class="gif-seg gif-seg--four"><button type="button" :class="{ on: colors === 'C256' }" @click="colors = 'C256'">256</button><button type="button" :class="{ on: colors === 'C128' }" @click="colors = 'C128'">128</button><button type="button" :class="{ on: colors === 'C64' }" @click="colors = 'C64'">64</button><button type="button" :class="{ on: colors === 'C32' }" @click="colors = 'C32'">32</button></div></div>
             </div>
           </div>
-
           <div class="gif-accordion">
-            <button type="button" class="gif-accordion__head" @click="advancedOpen = !advancedOpen">
-              {{ t("pages.gifCompress.advancedSettings") }}
-            </button>
-            <div v-show="advancedOpen" class="gif-accordion__body">
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.dither") }}</span>
-                <select v-model="dither" class="gif-select">
-                  <option value="OFF">{{ t("pages.gifCompress.ditherOff") }}</option>
-                  <option value="LOW">{{ t("pages.gifCompress.ditherLow") }}</option>
-                  <option value="MEDIUM">{{ t("pages.gifCompress.ditherMedium") }}</option>
-                  <option value="HIGH">{{ t("pages.gifCompress.ditherHigh") }}</option>
-                </select>
-              </div>
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.loop") }}</span>
-                <select v-model="loopPolicy" class="gif-select">
-                  <option value="PRESERVE_SOURCE">{{ t("pages.gifCompress.loopPreserve") }}</option>
-                  <option value="FORCE_LOOP">{{ t("pages.gifCompress.loopForce") }}</option>
-                  <option value="NO_LOOP">{{ t("pages.gifCompress.loopNone") }}</option>
-                </select>
-              </div>
-              <label class="gif-toggle">
-                <input v-model="keepTransparency" type="checkbox" />
-                {{ t("pages.gifCompress.transparency") }}
-              </label>
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.concurrency") }}</span>
-                <div class="gif-seg">
-                  <button type="button" :class="{ on: concurrencyChoice === 'auto' }" @click="concurrencyChoice = 'auto'">{{ t("pages.gifCompress.concurrencyAuto") }}</button>
-                  <button type="button" :class="{ on: concurrencyChoice === '1' }" @click="concurrencyChoice = '1'">1</button>
-                  <button type="button" :class="{ on: concurrencyChoice === '2' }" @click="concurrencyChoice = '2'">2</button>
-                  <button type="button" :class="{ on: concurrencyChoice === '4' }" @click="concurrencyChoice = '4'">4</button>
-                </div>
-              </div>
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.filenameRule") }}</span>
-                <select v-model="filenameRule" class="gif-select">
-                  <option value="COMPRESSED_EN">{{ t("pages.gifCompress.filenameEn") }}</option>
-                  <option value="COMPRESSED_ZH">{{ t("pages.gifCompress.filenameZh") }}</option>
-                </select>
-              </div>
-              <div class="gif-field">
-                <span class="gif-field__label">{{ t("pages.gifCompress.outputDir") }}</span>
-                <select v-model="outputDirPolicy" class="gif-select">
-                  <option value="SAME_AS_SOURCE">{{ t("pages.gifCompress.outputSame") }}</option>
-                  <option value="SOURCE_SUBFOLDER">{{ t("pages.gifCompress.outputSubfolder") }}</option>
-                  <option value="CUSTOM">{{ t("pages.gifCompress.outputCustom") }}</option>
-                </select>
-                <button v-if="outputDirPolicy === 'CUSTOM'" type="button" class="btn btn--secondary btn--sm" @click="pickCustomOutput">
-                  {{ t("pages.gifCompress.pickOutputDir") }}
-                </button>
-                <p v-if="outputDirPolicy === 'CUSTOM' && customOutputDir" class="gif-micro muted">{{ customOutputDir }}</p>
-              </div>
-              <label class="gif-toggle">
-                <input v-model="fastMode" type="checkbox" />
-                {{ t("pages.gifCompress.fastMode") }}
-              </label>
+            <button type="button" class="gif-accordion__head" @click="advancedOpen = !advancedOpen"><span>{{ t("pages.gifCompress.advancedSettings") }}</span><ChevronUp v-if="advancedOpen" :size="17" /><ChevronDown v-else :size="17" /></button>
+            <div v-show="advancedOpen" class="gif-accordion__body gif-accordion__body--advanced">
+              <label class="gif-switch-row"><span>{{ t("pages.gifCompress.removeDup") }}</span><input v-model="removeDuplicateFrames" type="checkbox" /><i aria-hidden="true" /></label>
+              <div class="gif-select-row"><span>{{ t("pages.gifCompress.dither") }}</span><select v-model="dither"><option value="OFF">{{ t("pages.gifCompress.ditherOff") }}</option><option value="LOW">{{ t("pages.gifCompress.ditherLow") }}</option><option value="MEDIUM">{{ t("pages.gifCompress.ditherMedium") }}</option><option value="HIGH">{{ t("pages.gifCompress.ditherHigh") }}</option></select></div>
+              <div class="gif-select-row"><span>{{ t("pages.gifCompress.loop") }}</span><select v-model="loopPolicy"><option value="PRESERVE_SOURCE">{{ t("pages.gifCompress.loopPreserve") }}</option><option value="FORCE_LOOP">{{ t("pages.gifCompress.loopForce") }}</option><option value="NO_LOOP">{{ t("pages.gifCompress.loopNone") }}</option></select></div>
+              <div class="gif-stepper-row"><span>{{ t("pages.gifCompress.concurrency") }}</span><div class="gif-stepper"><button type="button" @click="concurrencyChoice = '1'"><Minus :size="15" /></button><strong>{{ concurrencyChoice === "auto" ? 3 : concurrencyChoice }}</strong><button type="button" @click="concurrencyChoice = '4'"><Plus :size="15" /></button></div></div>
+              <div class="gif-select-row"><span>{{ t("pages.gifCompress.filenameRule") }}</span><select v-model="filenameRule"><option value="COMPRESSED_EN">{{ t("pages.gifCompress.filenameEn") }}</option><option value="COMPRESSED_ZH">{{ t("pages.gifCompress.filenameZh") }}</option></select></div>
             </div>
           </div>
         </div>
       </section>
     </div>
 
-    <!-- 底栏 -->
     <footer class="gif-bottom">
-      <div class="gif-bottom__progress">
-        <div class="gif-ring" :style="{ '--p': progress?.percent ?? 0 }">
-          <span>{{ progress?.percent ?? 0 }}%</span>
-        </div>
-        <div>
-          <div class="gif-bottom__title">{{ t("pages.gifCompress.bottomOverall") }}</div>
-          <div v-if="!isRunning && (!progress || progress.total === 0)" class="muted">{{ t("pages.gifCompress.bottomNoTask") }}</div>
-          <div v-else-if="progress" class="muted">
-            {{ t("pages.gifCompress.bottomProcessing", { cur: displayProcessingIndex, total: progress.total }) }}
-          </div>
-          <div class="muted">{{ t("pages.gifCompress.totalFiles", { n: items.length }) }}</div>
-        </div>
-      </div>
-      <div class="gif-bottom__bar-wrap">
-        <div class="gif-bottom__bar" :style="{ width: `${progress?.percent ?? 0}%` }" />
-      </div>
-      <div class="gif-bottom__actions">
-        <button type="button" class="btn btn--primary" :disabled="!canStart" :aria-label="t('pages.gifCompress.startAria')" @click="startCompression">
-          {{ t("pages.gifCompress.start") }}
-        </button>
-        <button type="button" class="btn btn--secondary" :disabled="!isRunning" :aria-label="t('pages.gifCompress.stopAria')" @click="cancel">
-          {{ t("pages.gifCompress.stop") }}
-        </button>
-        <button type="button" class="btn btn--secondary" :aria-label="t('pages.gifCompress.openOutputAria')" @click="onOpenOutput">
-          {{ t("pages.gifCompress.openOutput") }}
-        </button>
-      </div>
+      <div class="gif-bottom__progress"><div class="gif-ring" :style="{ '--p': progress?.percent ?? 0 }"><span>{{ progress?.percent ?? 0 }}%</span></div><div class="gif-bottom__summary"><div class="gif-bottom__title">{{ t("pages.gifCompress.bottomOverall") }}</div><div v-if="!isRunning && (!progress || progress.total === 0)" class="muted">{{ t("pages.gifCompress.bottomNoTask") }}</div><div v-else-if="progress" class="muted">{{ t("pages.gifCompress.bottomProcessing", { cur: displayProcessingIndex, total: progress.total }) }}</div><div class="muted">共 {{ items.length }} 个文件</div></div></div>
+      <div class="gif-bottom__current"><template v-if="selectedItem && isRunning"><img class="gif-bottom__thumb" :src="isTauri() ? convertFileSrc(selectedItem.path) : gifListImageUrl" alt="" /><div class="gif-bottom__file"><strong>{{ selectedItem.name }}</strong><span>正在压缩...</span></div></template><div class="gif-bottom__bar-wrap"><div class="gif-bottom__bar" :style="{ width: `${progress?.percent ?? 0}%` }" /></div><span class="gif-bottom__percent">{{ isRunning ? `${progress?.percent ?? 0}%` : "--" }}</span></div>
+      <div class="gif-bottom__actions"><button type="button" class="gif-action gif-action--primary" :disabled="!canStart" @click="startCompression"><PlayCircle :size="18" />{{ t("pages.gifCompress.start") }}</button><button type="button" class="gif-action gif-action--secondary" :disabled="!isRunning" @click="cancel"><PauseCircle :size="18" />{{ t("pages.gifCompress.stop") }}</button><button type="button" class="gif-action gif-action--secondary" @click="onOpenOutput"><Folder :size="18" />{{ t("pages.gifCompress.openOutput") }}</button></div>
     </footer>
   </div>
 </template>
 
 <style scoped>
 .gif-compress-page {
+  --bottom-height: 108px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  min-height: calc(100vh - 120px);
-  padding: 14px 18px 96px;
-  color: #1f2937;
-  background: #f5f6fa;
+  height: calc(100vh - 96px);
+  min-height: 640px;
+  width: 100%;
+  min-width: 0;
+  padding: 18px 12px 12px;
+  color: #121a37;
+  background: #f7f9fd;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
-.gif-page-head__title {
-  margin: 0;
-  font-size: clamp(20px, 1.8vw, 22px);
-  font-weight: 700;
-}
-.gif-page-head__desc {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: #6b7280;
-  max-width: 720px;
-}
+
 .gif-workspace {
   display: grid;
-  grid-template-columns: minmax(220px, 0.95fr) minmax(280px, 1.4fr) minmax(240px, 0.85fr);
-  gap: 14px;
-  align-items: stretch;
-  min-width: 0;
+  grid-template-columns: minmax(240px, 0.92fr) minmax(320px, 1.34fr) minmax(240px, 0.88fr);
+  gap: 12px;
+  min-height: 0;
+  height: calc(100% - var(--bottom-height) - 14px);
 }
-@media (max-width: 1100px) {
-  .gif-workspace {
-    grid-template-columns: 1fr;
-  }
+
+.gif-compress-page,
+.gif-file-list,
+.gif-settings-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #c9d4e7 transparent;
 }
-.gif-col {
-  background: #fff;
-  border: 1px solid #eef0f4;
-  border-radius: 16px;
-  padding: 14px;
+
+.gif-compress-page::-webkit-scrollbar,
+.gif-file-list::-webkit-scrollbar,
+.gif-settings-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gif-compress-page::-webkit-scrollbar-track,
+.gif-file-list::-webkit-scrollbar-track,
+.gif-settings-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gif-compress-page::-webkit-scrollbar-thumb,
+.gif-file-list::-webkit-scrollbar-thumb,
+.gif-settings-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #dbe4f3, #b9c7dd);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.gif-compress-page::-webkit-scrollbar-thumb:hover,
+.gif-file-list::-webkit-scrollbar-thumb:hover,
+.gif-settings-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #c8d6eb, #9fb2cf);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.gif-card {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+  border: 1px solid #dfe6f2;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(27, 49, 92, 0.04);
+  overflow: hidden;
 }
+
+.gif-card--list { padding: clamp(14px, 1.4vh, 20px) 16px 14px; }
+.gif-card--preview { padding: clamp(16px, 1.8vh, 24px) 18px 16px; }
+.gif-card--settings { padding: clamp(14px, 1.4vh, 20px) 22px 18px; }
+
 .gif-card-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.gif-card-head--row {
   align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex: 0 0 auto;
+  margin-bottom: clamp(12px, 1.5vh, 18px);
 }
+
+.gif-card-head--preview {
+  align-items: flex-start;
+  margin-bottom: clamp(14px, 2vh, 26px);
+}
+
 .gif-card-head__title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 800;
+  color: #111936;
 }
+
 .gif-card-head__sub {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: #9ca3af;
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #71809e;
 }
-.gif-drop {
-  flex: 1;
-  min-height: 200px;
-  border: 1px dashed #d6d9e0;
-  border-radius: 12px;
-  background: #fafbfd;
-  padding: 12px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+
+.gif-card-head__actions,
+.gif-bottom__progress,
+.gif-bottom__current,
+.gif-bottom__actions,
+.gif-bottom__file {
+  display: flex;
+  align-items: center;
 }
-.gif-drop--active {
-  border-color: #6366f1;
-  background: #eef2ff;
+
+.gif-card-head__actions { gap: 14px; }
+
+.gif-card--list .gif-card-head {
+  align-items: flex-start;
 }
-.gif-drop__title {
+
+.gif-card--list .gif-card-head__actions {
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.gif-btn,
+.gif-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 6px;
+  border: 1px solid #d9e1ee;
+  background: #fff;
+  color: #1b2748;
   font-weight: 600;
-  margin: 8px 0 4px;
+  white-space: nowrap;
+  cursor: pointer;
 }
-.gif-drop__meta {
-  margin: 2px 0;
-  font-size: 12px;
-  color: #6b7280;
+
+.gif-btn {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
 }
+
+.gif-btn--small {
+  height: 32px;
+  padding: 0 13px;
+}
+
+.gif-btn:disabled,
+.gif-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gif-drop {
+  border: 1px dashed #c5cfe2;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  transition: border-color 0.16s, background 0.16s;
+}
+
+.gif-drop--active {
+  border-color: #2667ff;
+  background: #f3f7ff;
+}
+
+.gif-drop--empty {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(18px, 3vh, 34px) 20px;
+  text-align: center;
+}
+
+.gif-drop--compact {
+  flex: 0 0 clamp(104px, 15vh, 130px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.gif-drop__image {
+  width: min(178px, 62%);
+  margin-bottom: clamp(18px, 3vh, 34px);
+  filter: drop-shadow(0 14px 22px rgba(79, 118, 214, 0.1));
+  opacity: 0.96;
+}
+
+.gif-drop__mini-icon {
+  color: #3a4771;
+  margin-bottom: 8px;
+}
+
+.gif-drop__title,
+.gif-drop__compact-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #121a37;
+}
+
+.gif-drop__compact-title { font-size: 14px; }
+.gif-drop__title span,
+.gif-drop__compact-title span { color: #075df5; cursor: pointer; }
+
+.gif-drop__sub {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #657493;
+}
+
+.gif-drop__rules {
+  margin-top: clamp(22px, 5vh, 52px);
+  color: #71809e;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.gif-drop__rules p { margin: 0; }
+
 .gif-file-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 2px 0 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 420px;
+  gap: 14px;
   overflow: auto;
+  min-height: 0;
 }
+
 .gif-file {
   display: grid;
-  grid-template-columns: 56px 1fr 28px;
-  gap: 10px;
+  grid-template-columns: 96px minmax(0, 1fr) auto 26px;
   align-items: center;
-  padding: 8px;
-  border-radius: 12px;
-  border: 1px solid #eef0f4;
+  gap: 16px;
+  min-height: 86px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   cursor: pointer;
 }
+
 .gif-file--selected {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+  border-color: #2d6cff;
+  background: #f7fbff;
+  box-shadow: 0 0 0 1px rgba(45, 108, 255, 0.12);
 }
-.gif-file__thumb {
-  width: 52px;
-  height: 52px;
-  object-fit: cover;
-  border-radius: 8px;
-}
+
 .gif-file__thumb-wrap {
   position: relative;
+  width: 96px;
+  height: 72px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #e9eef8;
 }
+
+.gif-file__thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .gif-file__play {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
-  pointer-events: none;
+  color: #fff;
+  fill: rgba(16, 24, 48, 0.45);
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.25));
 }
-.gif-file__play::after {
-  content: "";
-  position: absolute;
-  left: 8px;
-  top: 6px;
-  border-style: solid;
-  border-width: 5px 0 5px 8px;
-  border-color: transparent transparent transparent #fff;
+
+.gif-file__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
 }
+
 .gif-file__name {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111936;
 }
+
 .gif-file__size {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 13px;
+  color: #71809e;
 }
+
 .gif-file__status {
-  font-size: 12px;
-  color: #22c55e;
+  justify-self: end;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #dcf7e8;
+  color: #17a650;
+  font-size: 13px;
+  font-weight: 800;
 }
-.gif-file__status[data-st="failed"] {
-  color: #ef4444;
-}
-.gif-file__status[data-st="processing"] {
-  color: #2563eb;
-}
+
+.gif-file__status[data-st="failed"] { background: #fee2e2; color: #e04444; }
+.gif-file__status[data-st="processing"],
+.gif-file__status[data-st="saving"] { background: #eaf2ff; color: #1664e8; }
+
 .gif-file__remove {
-  border: none;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
   background: transparent;
-  color: #9ca3af;
+  color: #15224b;
   cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
 }
-.gif-file__remove:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+
 .gif-list-foot {
   display: flex;
   justify-content: space-between;
-  margin-top: 10px;
-  font-size: 12px;
-  color: #6b7280;
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 15px;
+  font-size: 13px;
+  color: #657493;
 }
+
+.gif-hint {
+  margin: 10px 0 0;
+  color: #dc2626;
+  font-size: 12px;
+}
+
 .gif-preview-grid {
+  position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  min-height: 220px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
-.gif-preview-pane__label {
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #4b5563;
-}
-.gif-preview-pane__label--right {
+
+.gif-preview-pane {
+  min-width: 0;
+  min-height: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+}
+
+.gif-preview-pane__label {
+  display: flex;
   align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 26px;
+  margin: 0 0 10px;
+  padding-left: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #263556;
 }
+
+.gif-preview-pane__label--right {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
 .gif-badge {
-  background: #bbf7d0;
-  color: #166534;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #dcf7e8;
+  color: #12a653;
+  font-size: 14px;
+  font-weight: 900;
 }
+
 .gif-preview-box {
-  border: 1px solid #eef0f4;
-  border-radius: 12px;
-  background: #fafbfd;
-  min-height: 200px;
+  flex: 1 1 auto;
+  min-height: 260px;
+  border: 1px solid #e4eaf4;
+  border-radius: 7px;
+  background: #fff;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
 }
+
+
 .gif-preview-img {
-  max-width: 100%;
-  max-height: 240px;
-  object-fit: contain;
-}
-.gif-preview-img--estimate {
-  opacity: 0.55;
-  filter: saturate(0.85);
-}
-.gif-preview-placeholder {
-  text-align: center;
-  padding: 16px;
-  font-size: 13px;
-  color: #6b7280;
-}
-.gif-size-bar {
-  margin-top: 12px;
-  padding: 10px;
-  border-radius: 12px;
-  background: #f9fafb;
-  border: 1px solid #eef0f4;
-  font-size: 13px;
-}
-.gif-savings {
-  color: #15803d;
-  font-weight: 600;
-  margin: 4px 0 0;
-}
-.gif-micro {
-  font-size: 11px;
-  margin: 6px 0 0;
-}
-.muted {
-  color: #9ca3af;
-}
-.gif-settings-scroll {
-  overflow: auto;
-  max-height: min(560px, calc(100vh - 260px));
-  padding-right: 4px;
-}
-.gif-field {
-  margin-bottom: 12px;
-}
-.gif-field__label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #4b5563;
-  margin-bottom: 6px;
-}
-.gif-seg {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.gif-seg button {
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  color: #374151;
-}
-.gif-seg button.on {
-  border-color: #2563eb;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-weight: 600;
-}
-.gif-seg button:focus-visible {
-  outline: 2px solid #6366f1;
-  outline-offset: 2px;
-}
-.gif-row-input {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-.gif-input {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 13px;
-  min-width: 0;
-}
-.gif-select {
   width: 100%;
-  margin-top: 4px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  padding: 8px;
-  font-size: 13px;
-  background: #fff;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
-.gif-toggle {
+
+.gif-preview-empty {
+  position: absolute;
+  inset: 28% 42px auto;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.gif-preview-empty__image {
+  width: min(218px, 52%);
+  margin-bottom: clamp(12px, 2vh, 20px);
+  filter: drop-shadow(0 14px 22px rgba(79, 118, 214, 0.1));
+  opacity: 0.96;
+}
+
+.gif-preview-empty__title {
+  margin: 0;
+  color: #111936;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.gif-preview-empty__sub {
+  margin: 10px 0 0;
+  color: #657493;
+  font-size: 13px;
+}
+
+.gif-size-card {
+  flex: 0 0 auto;
+  margin-top: 12px;
+  padding: clamp(14px, 1.8vh, 20px) 26px 14px;
+  border: 1px solid #e4eaf4;
+  border-radius: 7px;
+  background: #fff;
+  text-align: center;
+}
+
+.gif-size-card__main {
+  display: grid;
+  grid-template-columns: 1fr 48px 1fr;
+  align-items: center;
+  color: #15224b;
+  font-size: clamp(18px, 2.4vh, 24px);
+  font-weight: 900;
+}
+
+.gif-size-card__main--empty {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.gif-size-card__compressed,
+.gif-savings { color: #16ad5d; }
+
+.gif-savings {
+  margin: 9px 0 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.gif-size-card__empty-row {
+  display: flex;
+  justify-content: center;
+  gap: 150px;
+  margin: 7px 0 12px;
+  color: #71809e;
+  font-size: 13px;
+}
+
+.gif-note {
+  display: flex;
+  justify-content: center;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
+  margin: 14px 0 0;
+  color: #8090ad;
   font-size: 13px;
-  margin: 8px 0;
-  cursor: pointer;
 }
+
+.gif-settings-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+  border-top: 1px solid #e7edf6;
+}
+
+.gif-accordion {
+  border-bottom: 1px solid #e7edf6;
+  padding: 0 0 14px;
+}
+
+.gif-accordion + .gif-accordion { padding-top: 12px; }
+
 .gif-accordion__head {
   width: 100%;
-  text-align: left;
-  border: 1px solid #eef0f4;
-  background: #f9fafb;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-bottom: 8px;
-}
-.gif-accordion__body {
-  padding: 4px 2px 8px;
-}
-.gif-bottom {
-  position: sticky;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  margin: 0 -18px -14px;
-  padding: 12px 18px;
-  background: #fff;
-  border-top: 1px solid #eef0f4;
-  display: grid;
-  grid-template-columns: 220px 1fr auto;
-  gap: 14px;
-  align-items: center;
-  z-index: 2;
-}
-@media (max-width: 900px) {
-  .gif-bottom {
-    grid-template-columns: 1fr;
-  }
-}
-.gif-bottom__progress {
+  height: 36px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  color: #121a37;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  padding: 0;
 }
-.gif-ring {
-  width: 52px;
-  height: 52px;
+
+.gif-accordion__body { padding-top: 8px; }
+.gif-field { margin-bottom: 19px; }
+
+.gif-field__label {
+  display: block;
+  margin-bottom: 9px;
+  color: #1c294a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.gif-seg {
+  display: grid;
+  gap: 8px;
+}
+
+.gif-seg--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.gif-seg--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.gif-seg button {
+  height: 35px;
+  border: 1px solid #d9e1ee;
+  border-radius: 6px;
+  background: #fff;
+  color: #273654;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gif-seg button.on {
+  border-color: #1764ff;
+  color: #075df5;
+  background: #f7fbff;
+  box-shadow: inset 0 0 0 1px rgba(23, 100, 255, 0.22);
+  font-weight: 900;
+}
+
+.gif-switch-row,
+.gif-select-row,
+.gif-stepper-row {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  color: #263556;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gif-switch-row { position: relative; }
+.gif-switch-row input { position: absolute; opacity: 0; }
+
+.gif-switch-row i {
+  justify-self: end;
+  position: relative;
+  width: 34px;
+  height: 18px;
   border-radius: 999px;
-  border: 4px solid #e5e7eb;
+  background: #d6ddea;
+}
+
+.gif-switch-row i::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  transition: transform 0.16s;
+  box-shadow: 0 1px 3px rgba(18, 26, 55, 0.25);
+}
+
+.gif-switch-row input:checked + i { background: #1764ff; }
+.gif-switch-row input:checked + i::after { transform: translateX(16px); }
+
+.gif-select-row select {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #d9e1ee;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 12px;
+  color: #263556;
+  font-size: 13px;
+}
+
+.gif-stepper {
+  justify-self: end;
+  display: grid;
+  grid-template-columns: 34px 42px 34px;
+  height: 32px;
+  border: 1px solid #d9e1ee;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.gif-stepper button {
+  border: 0;
+  background: #fff;
+  color: #71809e;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  color: #1e3a8a;
-  background: conic-gradient(#2563eb calc(var(--p) * 1%), #e5e7eb 0);
+  cursor: pointer;
 }
+
+.gif-stepper strong {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid #e7edf6;
+  border-right: 1px solid #e7edf6;
+  color: #1c294a;
+}
+
+.gif-bottom {
+  flex: 0 0 var(--bottom-height);
+  display: grid;
+  grid-template-columns: minmax(210px, 250px) minmax(220px, 1fr) minmax(390px, auto);
+  gap: 18px;
+  align-items: center;
+  padding: 12px 26px;
+  border: 1px solid #dfe6f2;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.gif-bottom__progress { gap: 16px; }
+
+.gif-ring {
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #121a37;
+  font-size: 16px;
+  font-weight: 900;
+  background: conic-gradient(#8fb4ff calc(var(--p) * 1%), #e9edf4 0);
+  position: relative;
+}
+
+.gif-ring::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  background: #fff;
+}
+
+.gif-ring span {
+  position: relative;
+  z-index: 1;
+}
+
 .gif-bottom__title {
-  font-weight: 600;
+  color: #121a37;
+  font-size: 14px;
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.muted {
+  color: #71809e;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.gif-bottom__current {
+  gap: 16px;
+  min-width: 0;
+  border-left: 1px solid #e7edf6;
+  padding-left: 22px;
+}
+
+.gif-bottom__thumb {
+  width: 62px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.gif-bottom__file {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 88px;
+}
+
+.gif-bottom__file strong {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  color: #121a37;
+}
+
+.gif-bottom__file span {
+  color: #71809e;
   font-size: 13px;
 }
+
 .gif-bottom__bar-wrap {
-  height: 8px;
-  background: #e5e7eb;
+  flex: 1;
+  min-width: 160px;
+  height: 9px;
   border-radius: 999px;
+  background: #e9edf4;
   overflow: hidden;
 }
+
 .gif-bottom__bar {
   height: 100%;
-  background: #2563eb;
-  border-radius: 999px;
-  transition: width 0.2s;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1764ff, #2d73ff);
+  transition: width 0.2s ease;
 }
-.gif-bottom__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-.btn--link {
-  border: none;
-  background: none;
-  color: #2563eb;
-  cursor: pointer;
+
+.gif-bottom__percent {
+  min-width: 42px;
+  color: #657493;
   font-size: 13px;
 }
-.btn--ghost {
-  background: #f9fafb;
+
+.gif-bottom__actions {
+  justify-content: flex-end;
+  gap: 12px;
 }
-.gif-icon-trash::before {
-  content: "🗑";
-  font-size: 14px;
+
+.gif-action {
+  min-width: 128px;
+  height: 48px;
+  padding: 0 22px;
+  font-size: 15px;
 }
-.gif-icon-info::before {
-  content: "ⓘ ";
+
+.gif-action--primary {
+  border-color: #1764ff;
+  background: linear-gradient(180deg, #1d68ff 0%, #075df5 100%);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(23, 100, 255, 0.18);
 }
+
+.gif-action--secondary { background: #fff; }
+.gif-action--secondary:disabled { background: #eef2f7; }
 </style>
