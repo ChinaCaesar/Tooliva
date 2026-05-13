@@ -17,101 +17,142 @@ function onLoginClick(): void {
 </script>
 
 <template>
-  <section class="m-page">
-    <div class="m-page__layout">
-      <div class="m-page__main">
-        <MembershipHeroSection class="m-page__block" />
+  <div class="membership-page">
+    <div class="membership-page__body">
+      <main class="membership-page__main">
+        <div class="membership-page__scroll">
+          <MembershipHeroSection />
 
-        <MembershipPlanGrid class="m-page__block m-page__block--plans" />
+          <div class="membership-card membership-card--plans">
+            <MembershipPlanGrid />
+          </div>
 
-        <MembershipCompareTable class="m-page__block" />
-      </div>
+          <MembershipCompareTable />
+        </div>
+      </main>
 
-      <aside class="m-page__aside-col" :aria-label="t('pages.membership.aside.ariaLabel')">
-        <MembershipUserCard class="m-page__aside-block" @login="onLoginClick" />
-        <div class="m-page__aside-body">
+      <aside class="membership-page__sidebar" :aria-label="t('pages.membership.aside.ariaLabel')">
+        <div class="membership-page__sidebar-scroll">
+          <MembershipUserCard @login="onLoginClick" />
           <MembershipAsideColumn />
         </div>
       </aside>
     </div>
-    <!-- 底栏标语由 AppShellLayout 的 AppFooter 统一展示，此处不再重复。 -->
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.m-page {
-  --m-gap: 18px;
-  --m-gap-wide: 20px;
-  --m-pad-x: 20px;
-  --m-pad-y: 20px;
-  --m-radius: 12px;
-  --m-card-border: #e8ecf3;
-  --m-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.06);
-
+.membership-page {
   flex: 1;
   min-height: 0;
-  padding: var(--m-pad-y) var(--m-pad-x);
-  overflow: auto;
-  background: #f8fafc;
-}
-.m-page__layout {
   display: flex;
   flex-direction: column;
-  gap: var(--m-gap);
-  max-width: 1280px;
-  margin: 0 auto;
-  align-items: stretch;
+  overflow: hidden;
+  height: 100%;
+  background: #f5f6fa;
 }
-.m-page__main {
+
+.membership-page__body {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  flex-direction: column;
-  gap: var(--m-gap);
+  flex-direction: row;
+  gap: 14px;
+  padding: 14px 18px 4px;
+  overflow: hidden;
+}
+
+.membership-page__main {
+  flex: 1;
   min-width: 0;
-}
-.m-page__aside-col {
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--m-gap);
-  min-width: 0;
 }
-@media (min-width: 1100px) {
-  .m-page__layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
-    gap: var(--m-gap-wide);
-    align-items: stretch;
-  }
-  .m-page__main {
-    min-width: 0;
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: var(--m-gap);
-  }
-  .m-page__aside-col {
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: var(--m-gap);
-  }
+
+.membership-page__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: #d6d9e0 transparent;
 }
-.m-page__aside-block {
+.membership-page__scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.membership-page__scroll::-webkit-scrollbar-thumb {
+  background: #d6d9e0;
+  border-radius: 3px;
+}
+
+.membership-card {
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #eef0f4;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
   flex-shrink: 0;
 }
-.m-page__aside-body {
-  flex: 1;
+.membership-card--plans {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.membership-page__sidebar {
+  width: 300px;
+  flex-shrink: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
-.m-page__block {
-  margin: 0;
+
+.membership-page__sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: #d6d9e0 transparent;
 }
-.m-page__block--plans {
-  padding: 20px 22px 22px;
-  border-radius: var(--m-radius);
-  border: 1px solid var(--m-card-border);
-  box-shadow: var(--m-card-shadow);
-  background: #ffffff;
+.membership-page__sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.membership-page__sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #d6d9e0;
+  border-radius: 3px;
+}
+
+@media (max-width: 1080px) {
+  .membership-page__sidebar {
+    width: 280px;
+  }
+}
+
+@media (max-width: 900px) {
+  .membership-page__body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .membership-page__main,
+  .membership-page__sidebar {
+    width: 100%;
+  }
+  .membership-page__scroll,
+  .membership-page__sidebar-scroll {
+    overflow: visible;
+    flex: none;
+  }
 }
 </style>

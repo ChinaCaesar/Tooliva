@@ -69,18 +69,20 @@ function cellText(cell: CompareCell): string {
 
 <style scoped>
 .m-compare {
-  border-radius: 12px;
+  border-radius: 16px;
   background: #ffffff;
-  border: 1px solid #e8ecf3;
-  padding: 18px 20px 20px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.06);
+  border: 1px solid #eef0f4;
+  padding: 18px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+  flex-shrink: 0;
 }
 .m-compare__title {
-  margin: 0 0 16px;
-  font-size: 18px;
+  margin: 0 0 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: #0f172a;
-  letter-spacing: 0.02em;
+  color: #1f2937;
+  letter-spacing: 0;
+  line-height: 1.4;
 }
 .m-compare__scroll {
   overflow-x: auto;
@@ -96,10 +98,10 @@ function cellText(cell: CompareCell): string {
 .m-compare__th {
   text-align: left;
   padding: 10px 12px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #fafbfd;
+  color: #1f2937;
   font-weight: 600;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #eef0f4;
   white-space: nowrap;
 }
 .m-compare__th--feature {
@@ -109,15 +111,15 @@ function cellText(cell: CompareCell): string {
   text-align: left;
   padding: 12px;
   font-weight: 500;
-  color: #334155;
-  border-bottom: 1px solid #f1f5f9;
+  color: #4b5563;
+  border-bottom: 1px solid #f5f6fa;
   vertical-align: middle;
 }
 .m-compare__cell {
   padding: 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f5f6fa;
   vertical-align: middle;
-  color: #475569;
+  color: #4b5563;
 }
 .m-compare__text {
   display: inline-block;
@@ -127,7 +129,7 @@ function cellText(cell: CompareCell): string {
   display: block;
 }
 .m-compare__icon--ok {
-  color: #16a34a;
+  color: #22c55e;
 }
 .sr-only {
   position: absolute;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { Crown } from "@lucide/vue";
+import { MEMBERSHIP_ASSETS } from "@/pages/membership/resources/membershipAssets";
 
 const { t } = useI18n();
 
@@ -32,9 +32,16 @@ const benefitKeys = [
         </ul>
       </div>
 
-      <div class="m-hero__visual" aria-hidden="true">
-        <div class="m-hero__visual-bg" aria-hidden="true">
-          <Crown class="m-hero__crown" :size="112" :stroke-width="1.25" aria-hidden="true" />
+      <div class="m-hero__visual">
+        <div class="m-hero__visual-frame">
+          <img
+            class="m-hero__illustration"
+            :src="MEMBERSHIP_ASSETS.heroIllustration"
+            alt=""
+            width="220"
+            height="220"
+            decoding="async"
+          />
         </div>
       </div>
     </div>
@@ -43,23 +50,22 @@ const benefitKeys = [
 
 <style scoped>
 .m-hero {
-  padding: 22px 24px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 52%, #e0f2fe 100%);
-  border: 1px solid #e8ecf3;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.06);
+  padding: 22px 20px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 48%, #f1f5f9 100%);
+  border: 1px solid #eef0f4;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+  flex-shrink: 0;
 }
 .m-hero__grid {
   display: grid;
-  gap: 18px 24px;
+  gap: 16px 22px;
   align-items: center;
   grid-template-columns: 1fr;
 }
 @media (min-width: 720px) {
   .m-hero__grid {
-    grid-template-columns: minmax(0, 1fr) minmax(140px, 220px);
-    grid-template-rows: auto;
-    align-items: center;
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 220px);
   }
   .m-hero__copy {
     min-width: 0;
@@ -72,18 +78,18 @@ const benefitKeys = [
 }
 .m-hero__title {
   margin: 0 0 8px;
-  font-size: 28px;
+  font-size: clamp(20px, 1.8vw, 24px);
   font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #0f172a;
-  line-height: 1.25;
+  letter-spacing: 0;
+  color: #1f2937;
+  line-height: 1.3;
 }
 .m-hero__subtitle {
-  margin: 0 0 18px;
-  font-size: 15px;
-  line-height: 1.6;
-  color: #475569;
-  letter-spacing: 0.01em;
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #6b7280;
+  letter-spacing: 0;
 }
 .m-hero__benefits {
   margin: 0;
@@ -93,8 +99,8 @@ const benefitKeys = [
   grid-template-columns: 1fr 1fr;
   grid-template-rows: repeat(3, auto);
   grid-auto-flow: column;
-  column-gap: clamp(16px, 3vw, 28px);
-  row-gap: 12px;
+  column-gap: clamp(14px, 2.5vw, 24px);
+  row-gap: 10px;
 }
 @media (max-width: 520px) {
   .m-hero__benefits {
@@ -107,10 +113,10 @@ const benefitKeys = [
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
-  color: #334155;
-  letter-spacing: 0.01em;
+  color: #4b5563;
+  letter-spacing: 0;
 }
 .m-hero__benefit-text {
   min-width: 0;
@@ -118,7 +124,7 @@ const benefitKeys = [
 .m-hero__check {
   flex-shrink: 0;
   margin-top: 2px;
-  color: #16a34a;
+  color: #f97316;
 }
 .m-hero__check-svg {
   display: block;
@@ -127,24 +133,27 @@ const benefitKeys = [
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 140px;
+  min-height: 120px;
 }
-.m-hero__visual-bg {
+.m-hero__visual-frame {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   max-width: 220px;
-  aspect-ratio: 1;
   margin: 0 auto;
+  padding: 12px;
   border-radius: 16px;
-  background: radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.35), transparent 55%),
-    radial-gradient(circle at 70% 60%, rgba(96, 165, 250, 0.45), transparent 50%), linear-gradient(160deg, #dbeafe, #eff6ff);
-  border: 1px solid #bfdbfe;
-  color: #2563eb;
+  background: linear-gradient(160deg, #fafbfd 0%, #ffffff 100%);
+  border: 1px solid #eef0f4;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
 }
-.m-hero__crown {
-  opacity: 0.95;
-  filter: drop-shadow(0 8px 24px rgba(37, 99, 235, 0.25));
+.m-hero__illustration {
+  display: block;
+  width: 100%;
+  max-width: 196px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 20px rgba(99, 102, 241, 0.12));
 }
 </style>

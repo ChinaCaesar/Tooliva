@@ -83,28 +83,22 @@ async function onSubscribe(planId: MembershipPlanId): Promise<void> {
 </template>
 
 <style scoped>
+.m-plans {
+  min-width: 0;
+}
 .m-plans__heading {
-  margin: 0 0 18px;
-  font-size: 18px;
+  margin: 0 0 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: #0f172a;
-  letter-spacing: 0.02em;
+  color: #1f2937;
+  letter-spacing: 0;
+  line-height: 1.4;
 }
 .m-plans__grid {
   display: grid;
-  gap: 18px;
-  grid-template-columns: 1fr;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: stretch;
-}
-@media (min-width: 640px) {
-  .m-plans__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1100px) {
-  .m-plans__grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
 }
 .m-plan-wrap {
   display: flex;
@@ -114,10 +108,10 @@ async function onSubscribe(planId: MembershipPlanId): Promise<void> {
   position: relative;
   flex: 1;
   width: 100%;
-  min-height: 268px;
+  min-height: 260px;
   padding: 0;
-  border-radius: 10px;
-  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  border: 1px solid #eef0f4;
   background: #ffffff;
   display: flex;
   flex-direction: column;
@@ -128,12 +122,12 @@ async function onSubscribe(planId: MembershipPlanId): Promise<void> {
     background-color 0.2s ease;
 }
 .m-plan:hover {
-  border-color: #93c5fd;
-  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.08);
+  border-color: #dbeafe;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 .m-plan-wrap--lifetime .m-plan:hover {
   border-color: #fdba74;
-  box-shadow: 0 8px 22px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.08);
 }
 .m-plan__main {
   position: relative;
@@ -152,16 +146,17 @@ async function onSubscribe(planId: MembershipPlanId): Promise<void> {
   min-height: 0;
 }
 .m-plan__main:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
 .m-plan--selected {
-  border-color: #3b82f6;
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.12);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-width: 2px;
+  border-color: #6366f1;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfd 100%);
 }
 .m-plan--selected:hover {
-  border-color: #2563eb;
+  border-color: #6366f1;
 }
 .m-plan-wrap--lifetime .m-plan--selected {
   border-color: #f97316;
@@ -177,33 +172,34 @@ async function onSubscribe(planId: MembershipPlanId): Promise<void> {
   z-index: 1;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
-  background: #3b82f6;
+  background: #6366f1;
   color: #ffffff;
-  letter-spacing: 0.03em;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  letter-spacing: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   transform: translate(4px, -4px);
 }
 .m-plan-wrap--lifetime .m-plan__badge {
   background: #fff7ed;
-  color: #ea580c;
+  color: #9a3412;
   border: 1px solid #fdba74;
 }
 .m-plan-wrap--default .m-plan__badge {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #e0e7ff;
 }
 .m-plan__head {
-  padding-right: 76px;
+  /* padding-right: 76px; */
   margin-bottom: 4px;
 }
 .m-plan__name {
   display: block;
   font-size: 15px;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  color: #1f2937;
+  letter-spacing: 0;
   line-height: 1.3;
 }
 .m-plan-wrap--lifetime .m-plan__name {
@@ -214,8 +210,8 @@ async function onSubscribe(planId: MembershipPlanId): Promise<void> {
   margin-top: 6px;
   font-size: 12px;
   line-height: 1.45;
-  color: #64748b;
-  letter-spacing: 0.01em;
+  color: #6b7280;
+  letter-spacing: 0;
 }
 .m-plan__middle {
   flex: 1;
@@ -239,25 +235,25 @@ async function onSubscribe(planId: MembershipPlanId): Promise<void> {
 .m-plan__price {
   font-size: 24px;
   font-weight: 700;
-  color: #0f172a;
-  letter-spacing: 0.02em;
+  color: #1f2937;
+  letter-spacing: 0;
   line-height: 1.2;
 }
 .m-plan-wrap--lifetime .m-plan__price {
   color: #9a3412;
 }
 .m-plan__cycle {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  color: #64748b;
+  color: #6b7280;
 }
 .m-plan__secondary {
   margin: 0;
   min-height: 2.6em;
   font-size: 12px;
   line-height: 1.35;
-  color: #64748b;
-  letter-spacing: 0.01em;
+  color: #6b7280;
+  letter-spacing: 0;
 }
 .m-plan-wrap--lifetime .m-plan__secondary {
   color: #78716c;
@@ -267,21 +263,21 @@ async function onSubscribe(planId: MembershipPlanId): Promise<void> {
   margin-top: 4px;
   align-self: stretch;
   text-align: center;
-  padding: 10px 12px;
-  border-radius: 9px;
+  padding: 10px 14px;
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   border: none;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #eef2ff;
+  color: #4338ca;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 .m-plan__cta:hover {
-  background: #dbeafe;
+  background: #e0e7ff;
 }
 .m-plan__cta:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
 .m-plan-wrap--lifetime .m-plan__cta {
