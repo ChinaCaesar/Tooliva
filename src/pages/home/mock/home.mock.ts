@@ -1,7 +1,6 @@
 import { ROUTE_PATHS } from "@/config/constants";
 import type {
   HomeChangelogEntryDef,
-  HomeFeaturedToolCardDef,
   HomeFooterLinkItem,
   HomeMembershipInfo,
   HomeQuickActionItem,
@@ -47,55 +46,6 @@ export const HOME_CORE_TOOLS_MOCK: HomeToolCardItem[] = [
     descriptionKey: "pages.home.tools.imageWatermark.description",
     gradient: "linear-gradient(135deg, #ff8a48 0%, #f76b1c 100%)",
     actionCode: "image-watermark"
-  }
-];
-
-/** 横向主推工具卡（含占位），与顶栏搜索共用 actionCode 约定。 */
-export const HOME_FEATURED_TOOLS_MOCK: HomeFeaturedToolCardDef[] = [
-  {
-    id: "feat-image-compress",
-    cardType: "tool",
-    iconKey: "pubIconImageCompress",
-    titleKey: "pages.home.tools.imageCompress.title",
-    descriptionKey: "pages.home.tools.imageCompress.description",
-    gradient: "linear-gradient(135deg, #4286ff 0%, #2d6ff5 100%)",
-    actionCode: "image-compress"
-  },
-  {
-    id: "feat-video-to-gif",
-    cardType: "tool",
-    iconKey: "pubIconVideoConvert",
-    titleKey: "pages.home.tools.videoToGif.title",
-    descriptionKey: "pages.home.tools.videoToGif.description",
-    gradient: "linear-gradient(135deg, #a37cff 0%, #7c4dff 100%)",
-    actionCode: "video-to-gif"
-  },
-  {
-    id: "feat-image-upscale",
-    cardType: "tool",
-    iconKey: "pubIconScreenRecord",
-    titleKey: "pages.home.tools.imageUpscale.title",
-    descriptionKey: "pages.home.tools.imageUpscale.description",
-    gradient: "linear-gradient(135deg, #2ec591 0%, #19a374 100%)",
-    actionCode: "image-upscale"
-  },
-  {
-    id: "feat-image-watermark",
-    cardType: "tool",
-    iconKey: "pubIconImageWatermark",
-    titleKey: "pages.home.tools.imageWatermark.title",
-    descriptionKey: "pages.home.tools.imageWatermark.description",
-    gradient: "linear-gradient(135deg, #ff8a48 0%, #f76b1c 100%)",
-    actionCode: "image-watermark"
-  },
-  {
-    id: "feat-more",
-    cardType: "placeholder",
-    iconKey: "pubIconImageCompress",
-    titleKey: "pages.home.tools.moreTools.exploreTitle",
-    descriptionKey: "pages.home.tools.moreTools.exploreSubtitle",
-    gradient: "transparent",
-    placeholderMessageKey: "pages.home.placeholders.moreTools"
   }
 ];
 
@@ -270,10 +220,3 @@ export const HOME_FOOTER_LINKS_MOCK: HomeFooterLinkItem[] = [
   // 已按产品要求移除底部"意见反馈/帮助中心"入口。
 ];
 
-/** 顶栏搜索候选（与路由工具集合一致，可含首页横向条未展示的工具）。 */
-export const HOME_SEARCH_TOOL_ENTRIES_MOCK: { id: string; titleKey: string; actionCode: string }[] = [
-  { id: "search-compress", titleKey: "pages.home.tools.imageCompress.title", actionCode: "image-compress" },
-  { id: "search-video-to-gif", titleKey: "pages.home.tools.videoToGif.title", actionCode: "video-to-gif" },
-  { id: "search-image-upscale", titleKey: "pages.home.tools.imageUpscale.title", actionCode: "image-upscale" },
-  { id: "search-watermark", titleKey: "pages.home.tools.imageWatermark.title", actionCode: "image-watermark" }
-];

@@ -154,7 +154,7 @@ export const zhCN = {
         }
       },
       placeholders: {
-        moreTools: "更多工具陆续上架中，敬请期待。",
+        toolUnavailable: "该工具暂不可用。",
         viewAllRecent: "完整历史将在任务中心提供。"
       },
       tools: {
@@ -185,12 +185,6 @@ export const zhCN = {
           title: "图片去水印",
           shortTitle: "去水印",
           description: "识别并弱化图片中的水印区域（规划中）"
-        },
-        moreTools: {
-          title: "探索更多",
-          description: "即将推出",
-          exploreTitle: "探索更多工具",
-          exploreSubtitle: "持续更新中…\n敬请期待"
         }
       },
       membership: {

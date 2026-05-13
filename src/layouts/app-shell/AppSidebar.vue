@@ -7,10 +7,9 @@ import { message } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
-import { HOME_FEATURED_TOOLS_MOCK } from "@/pages/home/mock/home.mock";
+import { getAllToolsSorted, type AppToolDef } from "@/config/tools.registry";
 import { resolveHomeToolRoute } from "@/pages/home/config/homeToolRoutes";
 import { APP_NAV_SECONDARY_ITEMS, type AppNavSecondaryItem } from "@/layouts/app-shell/appNav.config";
-import type { HomeFeaturedToolCardDef } from "@/pages/home/types/home";
 
 defineProps<{
   collapsed: boolean;
@@ -25,13 +24,10 @@ const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 
-/**
- * 与首页主推工具同源；排除「更多工具」占位项（不在侧栏展示）。
- */
-const featuredToolsNav = computed(() => HOME_FEATURED_TOOLS_MOCK.filter((item) => item.id !== "feat-more"));
+/** 与工具注册表同源：全部可路由工具（含仅导航项）。 */
+const featuredToolsNav = computed(() => getAllToolsSorted());
 
-function isFeaturedToolActive(item: HomeFeaturedToolCardDef): boolean {
-  if (item.cardType !== "tool" || !item.actionCode) return false;
+function isFeaturedToolActive(item: AppToolDef): boolean {
   const target = resolveHomeToolRoute(item.actionCode);
   return target != null && route.path === target;
 }
@@ -48,23 +44,12 @@ async function goHome(): Promise<void> {
   });
 }
 
-async function onFeaturedClick(item: HomeFeaturedToolCardDef): Promise<void> {
-  if (item.cardType === "tool" && item.actionCode) {
-    const target = resolveHomeToolRoute(item.actionCode);
-    if (target) {
-      await router.push(target).catch(() => {
-        /* 重复导航 */
-      });
-    }
-    return;
-  }
-  if (item.placeholderMessageKey) {
-    const body = t(item.placeholderMessageKey);
-    if (isTauri()) {
-      await message(body, { title: t("layout.appShell.placeholderTitle") });
-    } else {
-      globalThis.alert(body);
-    }
+async function onFeaturedClick(item: AppToolDef): Promise<void> {
+  const target = resolveHomeToolRoute(item.actionCode);
+  if (target) {
+    await router.push(target).catch(() => {
+      /* 重复导航 */
+    });
   }
 }
 
@@ -128,7 +113,7 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
 
         <button
           v-for="item in featuredToolsNav"
-          :key="item.id"
+          :key="item.key"
           type="button"
           class="app-sidebar__link app-sidebar__link--tool"
           :class="{ 'app-sidebar__link--active': isFeaturedToolActive(item) }"

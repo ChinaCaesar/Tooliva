@@ -154,7 +154,7 @@ export const enUS = {
         }
       },
       placeholders: {
-        moreTools: "More tools are coming soon. Stay tuned.",
+        toolUnavailable: "This tool is not available yet.",
         viewAllRecent: "Full history will live in the task center."
       },
       tools: {
@@ -185,12 +185,6 @@ export const enUS = {
           title: "Remove watermark",
           shortTitle: "Remove watermark",
           description: "Detect and soften watermark regions locally (planned)"
-        },
-        moreTools: {
-          title: "Explore more",
-          description: "Coming soon",
-          exploreTitle: "Explore more tools",
-          exploreSubtitle: "More on the way\nStay tuned"
         }
       },
       membership: {

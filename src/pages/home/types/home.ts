@@ -10,22 +10,6 @@ export interface HomeToolCardItem {
   actionCode: string;
 }
 
-/** 主推工具卡：可跳转工具或占位（更多等）。 */
-export type HomeFeaturedToolCardType = "tool" | "placeholder";
-
-export interface HomeFeaturedToolCardDef {
-  id: string;
-  cardType: HomeFeaturedToolCardType;
-  iconKey: HomeAssetKey;
-  titleKey: string;
-  descriptionKey: string;
-  gradient: string;
-  /** 工具路由映射键，与 SQLite / 搜索一致 */
-  actionCode?: string;
-  /** 占位说明 i18n，用于弹窗或提示 */
-  placeholderMessageKey?: string;
-}
-
 /** 底部价值卖点横条单项。 */
 export interface HomeValuePropDef {
   id: string;

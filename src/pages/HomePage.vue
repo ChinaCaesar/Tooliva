@@ -27,17 +27,14 @@ const {
   pageConfig
 } = useHomePageData();
 
-/**
- * 路由可解析则跳转；否则回退为占位提示（尚未接入路由的工具等）。
- */
+/** 路由可解析则跳转；否则提示该工具暂不可达。 */
 async function handleToolNavigate(actionCode: string): Promise<void> {
   const route = resolveHomeToolRoute(actionCode);
   if (route) {
     router.push(route);
     return;
   }
-  const placeholderKey = `pages.home.placeholders.${actionCode.replace(/-([a-z])/g, (_, c) => c.toUpperCase())}`;
-  await showHomeInfoDialog(t(placeholderKey, t("pages.home.placeholders.moreTools")), t("pages.home.dialogs.placeholderTitle"));
+  await showHomeInfoDialog(t("pages.home.placeholders.toolUnavailable"), t("pages.home.dialogs.placeholderTitle"));
 }
 
 function handleRecentItemClick(actionCode: string): void {
@@ -88,7 +85,6 @@ async function handleViewAllRecent(): Promise<void> {
               :cards="featuredTools"
               :cta-label="t('pages.home.featured.useNow')"
               @tool-navigate="handleToolNavigate"
-              @placeholder="handlePlaceholder"
             />
           </section>
 
@@ -202,7 +198,11 @@ async function handleViewAllRecent(): Promise<void> {
   flex-shrink: 0;
 }
 .home-card--hero {
-  padding: 22px 20px 18px;
+  /* 略增水平内边距，给工具卡 hover 阴影留出裁切区内的空间 */
+  padding: 22px 22px 20px;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
 }
 
 .home-page__sidebar {

@@ -1,16 +1,15 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import type { HomeRecentUsagePayload } from "@/bridge/tauriClient";
 import { LOCAL_DATA_CLEARED_EVENT } from "@/config/constants";
+import { getAllToolsSorted, getHomeFeaturedToolsSorted, getSearchToolEntriesSorted, getToolByActionCode, normalizeRegistryActionCode } from "@/config/tools.registry";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { HOME_PAGE_CONFIG } from "@/pages/home/config/home.config";
 import { isTauri } from "@tauri-apps/api/core";
 import { tauriClient } from "@/bridge/tauriClient";
 import {
   HOME_CHANGELOG_MOCK,
-  HOME_FEATURED_TOOLS_MOCK,
   HOME_MEMBERSHIP_BULLETS_MOCK,
   HOME_RECENT_ITEMS_MOCK,
-  HOME_SEARCH_TOOL_ENTRIES_MOCK,
   HOME_SECURITY_BULLETS_MOCK,
   HOME_VALUE_PROPS_MOCK
 } from "@/pages/home/mock/home.mock";
@@ -28,13 +27,11 @@ interface HomeRecentItemViewModel {
 
 interface HomeFeaturedToolCardViewModel {
   id: string;
-  cardType: "tool" | "placeholder";
   iconUrl: string;
   titleKey: string;
   descriptionKey: string;
   gradient: string;
-  actionCode?: string;
-  placeholderMessageKey?: string;
+  actionCode: string;
 }
 
 interface HomeValuePropViewModel {
@@ -71,6 +68,29 @@ function dedupeRecentUsageByTool(items: HomeRecentUsagePayload[]): HomeRecentUsa
     .slice(0, 4);
 }
 
+const ROUTABLE_TOOL_KEYS = new Set(getAllToolsSorted().map((t) => normalizeRegistryActionCode(t.actionCode)));
+
+function normalizeHomeToolKey(toolKey: string): string {
+  return normalizeRegistryActionCode(toolKey);
+}
+
+function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: string; iconBackground: string } {
+  const key = normalizeHomeToolKey(toolKey);
+  const def = getToolByActionCode(key);
+  if (!def) {
+    return {
+      titleKey: "pages.home.tools.removedTool.shortTitle",
+      iconUrl: HOME_ASSETS.pubIconImageCompress,
+      iconBackground: "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
+    };
+  }
+  return {
+    titleKey: def.shortTitleKey,
+    iconUrl: HOME_ASSETS[def.iconKey],
+    iconBackground: def.gradient
+  };
+}
+
 function mapMockRecentToViewModels(): HomeRecentItemViewModel[] {
   const seen = new Set<string>();
   const out: HomeRecentItemViewModel[] = [];
@@ -81,77 +101,17 @@ function mapMockRecentToViewModels(): HomeRecentItemViewModel[] {
     const meta = resolveRecentItemMeta(key);
     out.push({
       id: item.id,
-      iconUrl: HOME_ASSETS[item.iconKey],
+      iconUrl: meta.iconUrl,
       iconBackground: meta.iconBackground,
-      titleKey: item.titleKey,
+      titleKey: meta.titleKey,
       fileName: item.fileName,
       relativeTimeKey: item.relativeTimeKey,
       isEmpty: false,
-      actionCode: KNOWN_HOME_TOOL_KEYS.has(key) ? key : undefined
+      actionCode: ROUTABLE_TOOL_KEYS.has(key) ? key : undefined
     });
     if (out.length >= 4) break;
   }
   return out;
-}
-
-/** 设计稿中的 4 个主推工具 key，未来新增/下线只需调整此集合。 */
-const KNOWN_HOME_TOOL_KEYS = new Set<string>([
-  "image-compress",
-  "video-to-gif",
-  "image-upscale",
-  "image-watermark"
-]);
-
-/** 兼容旧版 SQLite `tool_key` 与历史数据。 */
-function normalizeHomeToolKey(toolKey: string): string {
-  if (toolKey === "video-convert") return "video-to-gif";
-  if (toolKey === "screen-record") return "image-upscale";
-  return toolKey;
-}
-
-function accentForToolKey(toolKey: string): string {
-  if (toolKey === "video-to-gif") return "linear-gradient(135deg, #a37cff 0%, #7c4dff 100%)";
-  if (toolKey === "image-upscale") return "linear-gradient(135deg, #2ec591 0%, #19a374 100%)";
-  if (toolKey === "image-watermark") return "linear-gradient(135deg, #ff8a48 0%, #f76b1c 100%)";
-  return "linear-gradient(135deg, #4286ff 0%, #2d6ff5 100%)";
-}
-
-function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: string; iconBackground: string } {
-  const key = normalizeHomeToolKey(toolKey);
-  const iconBackground = accentForToolKey(key);
-  if (!KNOWN_HOME_TOOL_KEYS.has(key)) {
-    return {
-      titleKey: "pages.home.tools.removedTool.shortTitle",
-      iconUrl: HOME_ASSETS.pubIconImageCompress,
-      iconBackground: "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
-    };
-  }
-  if (key === "video-to-gif") {
-    return {
-      titleKey: "pages.home.tools.videoToGif.shortTitle",
-      iconUrl: HOME_ASSETS.pubIconVideoConvert,
-      iconBackground
-    };
-  }
-  if (key === "image-upscale") {
-    return {
-      titleKey: "pages.home.tools.imageUpscale.shortTitle",
-      iconUrl: HOME_ASSETS.pubIconScreenRecord,
-      iconBackground
-    };
-  }
-  if (key === "image-watermark") {
-    return {
-      titleKey: "pages.home.tools.imageWatermark.shortTitle",
-      iconUrl: HOME_ASSETS.pubIconImageWatermark,
-      iconBackground
-    };
-  }
-  return {
-    titleKey: "pages.home.tools.imageCompress.shortTitle",
-    iconUrl: HOME_ASSETS.pubIconImageCompress,
-    iconBackground
-  };
 }
 
 function mapRelativeTimeKey(usedAtTs: number): string {
@@ -187,15 +147,13 @@ export function useHomePageData() {
   }));
 
   const featuredTools = computed<HomeFeaturedToolCardViewModel[]>(() =>
-    HOME_FEATURED_TOOLS_MOCK.map((item) => ({
-      id: item.id,
-      cardType: item.cardType,
+    getHomeFeaturedToolsSorted().map((item) => ({
+      id: item.key,
       iconUrl: HOME_ASSETS[item.iconKey],
       titleKey: item.titleKey,
       descriptionKey: item.descriptionKey,
       gradient: item.gradient,
-      actionCode: item.actionCode,
-      placeholderMessageKey: item.placeholderMessageKey
+      actionCode: item.actionCode
     }))
   );
 
@@ -226,7 +184,7 @@ export function useHomePageData() {
 
   const changelogEntries = computed<HomeChangelogEntryViewModel[]>(() => HOME_CHANGELOG_MOCK);
 
-  const searchToolEntries = computed(() => HOME_SEARCH_TOOL_ENTRIES_MOCK);
+  const searchToolEntries = computed(() => getSearchToolEntriesSorted());
 
   const pageConfig = computed(() => HOME_PAGE_CONFIG);
 
@@ -252,7 +210,7 @@ export function useHomePageData() {
             fileName: item.fileName,
             relativeTimeKey: mapRelativeTimeKey(item.usedAtTs),
             isEmpty: false,
-            actionCode: KNOWN_HOME_TOOL_KEYS.has(normalized) ? normalized : undefined
+            actionCode: ROUTABLE_TOOL_KEYS.has(normalized) ? normalized : undefined
           };
         });
       }
