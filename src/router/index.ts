@@ -7,6 +7,7 @@ import VideoToGifPage from "@/pages/VideoToGifPage.vue";
 import ImageUpscalePage from "@/pages/ImageUpscalePage.vue";
 import ImageWatermarkPage from "@/pages/ImageWatermarkPage.vue";
 import ImageWatermarkRemovalPage from "@/pages/ImageWatermarkRemovalPage.vue";
+import GifCompressPage from "@/pages/GifCompressPage.vue";
 import SettingsPage from "@/pages/SettingsPage.vue";
 import MembershipPage from "@/pages/MembershipPage.vue";
 import LoginPage from "@/pages/LoginPage.vue";
@@ -27,7 +28,8 @@ const routes: RouteRecordRaw[] = [
         path: ROUTE_PATHS.imageWatermarkRemoval.replace(/^\//, ""),
         name: "image-watermark-removal",
         component: ImageWatermarkRemovalPage
-      }
+      },
+      { path: ROUTE_PATHS.gifCompress.replace(/^\//, ""), name: "gif-compress", component: GifCompressPage }
     ]
   },
   { path: ROUTE_PATHS.login, name: "login", component: LoginPage }

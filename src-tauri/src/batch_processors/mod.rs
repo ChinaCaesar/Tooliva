@@ -3,6 +3,9 @@
 //! 调度层（`crate::batch`）只看到统一的 `BatchProcessor` 抽象，
 //! 各具体处理器在这里组合现有的单图算法 / FFmpeg 命令等基础能力。
 
+pub mod gif_compress;
+pub mod gif_compress_config;
+pub mod gif_compress_filter;
 pub mod image_compress;
 pub mod image_convert;
 pub mod image_watermark;

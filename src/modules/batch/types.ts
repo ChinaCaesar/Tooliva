@@ -12,6 +12,7 @@ export type BatchTaskType =
   | "IMAGE_CONVERT"
   | "IMAGE_UPSCALE"
   | "VIDEO_TO_GIF"
+  | "GIF_COMPRESS"
   | "AI_INPAINT"
   | "AI_UPSCALE";
 

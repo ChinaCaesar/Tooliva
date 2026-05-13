@@ -19,6 +19,8 @@ pub enum BatchTaskType {
     ImageConvert,
     ImageUpscale,
     VideoToGif,
+    /// 动画 GIF 体积压缩（FFmpeg palette 管线）。
+    GifCompress,
     AiInpaint,
     AiUpscale,
 }
@@ -30,7 +32,7 @@ impl BatchTaskType {
             Self::ImageWatermark | Self::ImageCompress | Self::ImageConvert | Self::ImageUpscale => {
                 BatchTaskCategory::Image
             }
-            Self::VideoToGif => BatchTaskCategory::Video,
+            Self::VideoToGif | Self::GifCompress => BatchTaskCategory::Video,
             Self::AiInpaint | Self::AiUpscale => BatchTaskCategory::Ai,
         }
     }
@@ -43,6 +45,7 @@ impl BatchTaskType {
             Self::ImageConvert => "IMAGE_CONVERT",
             Self::ImageUpscale => "IMAGE_UPSCALE",
             Self::VideoToGif => "VIDEO_TO_GIF",
+            Self::GifCompress => "GIF_COMPRESS",
             Self::AiInpaint => "AI_INPAINT",
             Self::AiUpscale => "AI_UPSCALE",
         }

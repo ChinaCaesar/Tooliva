@@ -24,6 +24,7 @@ pub fn run() {
         )))
         .invoke_handler(tauri::generate_handler![
             commands::system::ping_host,
+            commands::system::get_path_metadata,
             commands::image::list_images_from_directory,
             commands::image::get_image_preview_data_url,
             commands::image::get_image_watermark_preview_geometry,

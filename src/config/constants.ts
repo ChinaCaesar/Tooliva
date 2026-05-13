@@ -57,6 +57,7 @@ export const ROUTE_PATHS = {
   imageUpscale: "/image-upscale",
   imageWatermarkRemoval: "/image-watermark-removal",
   imageWatermark: "/image-watermark",
+  gifCompress: "/gif-compress",
   tools: "/tools",
   favorites: "/favorites",
   tasks: "/tasks",

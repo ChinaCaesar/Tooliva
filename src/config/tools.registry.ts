@@ -33,6 +33,17 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
     sortOrder: 10
   },
   {
+    key: "gif-compress",
+    iconKey: "pubIconVideoConvert",
+    titleKey: "pages.home.tools.gifCompress.title",
+    shortTitleKey: "pages.home.tools.gifCompress.shortTitle",
+    descriptionKey: "pages.home.tools.gifCompress.description",
+    gradient: "linear-gradient(135deg, #38bdf8 0%, #2563eb 100%)",
+    actionCode: "gif-compress",
+    recommended: true,
+    sortOrder: 15
+  },
+  {
     key: "video-to-gif",
     iconKey: "pubIconVideoConvert",
     titleKey: "pages.home.tools.videoToGif.title",
@@ -41,7 +52,7 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
     gradient: "linear-gradient(135deg, #a37cff 0%, #7c4dff 100%)",
     actionCode: "video-to-gif",
     recommended: true,
-    sortOrder: 20
+    sortOrder: 21
   },
   {
     key: "image-upscale",
