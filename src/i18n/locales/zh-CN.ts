@@ -188,8 +188,13 @@ export const zhCN = {
         },
         imageWatermarkRemoval: {
           title: "图片去水印",
-          shortTitle: "去水印",
-          description: "识别并弱化图片中的水印区域（规划中）"
+          shortTitle: "图片去水印",
+          description: "识别并弱化静态图片中的水印区域（规划中）"
+        },
+        videoWatermarkRemoval: {
+          title: "视频去水印",
+          shortTitle: "视频去水印",
+          description: "识别并弱化视频画面中的水印区域（规划中）"
         }
       },
       membership: {
@@ -1009,8 +1014,17 @@ export const zhCN = {
     },
     imageWatermarkRemoval: {
       title: "图片去水印",
-      description: "本工具将支持在本地识别并处理图片中的水印区域；当前版本尚未开放处理入口。",
-      comingSoon: "功能开发中，后续版本将接入算法与批量任务。"
+      description:
+        "本工具将支持在本地识别并处理静态图片中的水印区域；当前版本尚未开放处理入口。不提供视频去水印能力。",
+      comingSoon: "功能开发中，后续版本将接入算法与批量任务。",
+      relatedVideoLink: "需要处理视频？前往视频去水印"
+    },
+    videoWatermarkRemoval: {
+      title: "视频去水印",
+      description:
+        "本工具将支持在本地识别并处理视频画面中的水印区域；当前版本尚未开放处理入口。不提供静态图片去水印能力。",
+      comingSoon: "功能开发中，后续版本将接入算法与批量任务。",
+      relatedImageLink: "需要处理静态图片？前往图片去水印"
     },
     login: {
       chromeAria: "登录页顶部操作区",
@@ -1197,7 +1211,11 @@ export const zhCN = {
     },
     imageWatermarkRemoval: {
       name: "图片去水印",
-      description: "规划中：本地去水印与修复，当前无可用处理入口。"
+      description: "规划中：仅针对静态图片的本地去水印与修复，当前无可用处理入口。"
+    },
+    videoWatermarkRemoval: {
+      name: "视频去水印",
+      description: "规划中：针对视频画面的本地去水印，当前无可用处理入口。"
     }
   }
 } as const;

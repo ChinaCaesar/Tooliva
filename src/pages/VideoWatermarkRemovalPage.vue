@@ -6,15 +6,15 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <div class="image-watermark-removal-page">
+  <div class="video-watermark-removal-page">
     <div class="page-shell">
-      <section class="placeholder-panel" aria-labelledby="image-watermark-removal-title">
-        <h2 id="image-watermark-removal-title">{{ t("pages.imageWatermarkRemoval.title") }}</h2>
-        <p class="placeholder-panel__desc">{{ t("pages.imageWatermarkRemoval.description") }}</p>
-        <p class="placeholder-panel__note">{{ t("pages.imageWatermarkRemoval.comingSoon") }}</p>
+      <section class="placeholder-panel" aria-labelledby="video-watermark-removal-title">
+        <h2 id="video-watermark-removal-title">{{ t("pages.videoWatermarkRemoval.title") }}</h2>
+        <p class="placeholder-panel__desc">{{ t("pages.videoWatermarkRemoval.description") }}</p>
+        <p class="placeholder-panel__note">{{ t("pages.videoWatermarkRemoval.comingSoon") }}</p>
         <p class="placeholder-panel__related">
-          <RouterLink class="placeholder-panel__related-link" :to="{ name: 'video-watermark-removal' }">
-            {{ t("pages.imageWatermarkRemoval.relatedVideoLink") }}
+          <RouterLink class="placeholder-panel__related-link" :to="{ name: 'image-watermark-removal' }">
+            {{ t("pages.videoWatermarkRemoval.relatedImageLink") }}
           </RouterLink>
         </p>
       </section>
@@ -23,7 +23,7 @@ const { t } = useI18n();
 </template>
 
 <style scoped>
-.image-watermark-removal-page {
+.video-watermark-removal-page {
   flex: 1;
   min-height: 0;
   height: 100%;

@@ -56,6 +56,7 @@ export const ROUTE_PATHS = {
   videoToGif: "/video-to-gif",
   imageUpscale: "/image-upscale",
   imageWatermarkRemoval: "/image-watermark-removal",
+  videoWatermarkRemoval: "/video-watermark-removal",
   imageWatermark: "/image-watermark",
   gifCompress: "/gif-compress",
   tools: "/tools",

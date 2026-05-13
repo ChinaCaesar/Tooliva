@@ -187,9 +187,14 @@ export const enUS = {
           description: "Batch add text or\nlogo watermark"
         },
         imageWatermarkRemoval: {
-          title: "Remove watermark",
-          shortTitle: "Remove watermark",
-          description: "Detect and soften watermark regions locally (planned)"
+          title: "Remove image watermark",
+          shortTitle: "Image watermark removal",
+          description: "Detect and soften watermarks in still images locally (planned)"
+        },
+        videoWatermarkRemoval: {
+          title: "Remove video watermark",
+          shortTitle: "Video watermark removal",
+          description: "Detect and soften watermarks in video files locally (planned)"
         }
       },
       membership: {
@@ -1010,10 +1015,18 @@ export const enUS = {
       taskDone: "GIF export finished"
     },
     imageWatermarkRemoval: {
-      title: "Remove watermark",
+      title: "Remove image watermark",
       description:
-        "This tool will detect and process watermark regions on-device; the current release does not expose processing yet.",
-      comingSoon: "Under development. Algorithms and batch jobs will arrive in a future update."
+        "This tool will detect and process watermark regions in still images on-device. It does not remove watermarks from video files.",
+      comingSoon: "Under development. Algorithms and batch jobs will arrive in a future update.",
+      relatedVideoLink: "Need video instead? Open remove video watermark"
+    },
+    videoWatermarkRemoval: {
+      title: "Remove video watermark",
+      description:
+        "This tool will detect and process watermark regions in video files on-device. It does not remove watermarks from still images.",
+      comingSoon: "Under development. Algorithms and batch jobs will arrive in a future update.",
+      relatedImageLink: "Need still images instead? Open remove image watermark"
     },
     login: {
       chromeAria: "Login page header actions",
@@ -1199,8 +1212,12 @@ export const enUS = {
       description: "Planned: local clarity enhancement; no processing entry in this build."
     },
     imageWatermarkRemoval: {
-      name: "Remove watermark",
-      description: "Planned: local watermark removal and repair; no processing entry in this build."
+      name: "Image watermark removal",
+      description: "Planned: local watermark removal for still images only; no processing entry in this build."
+    },
+    videoWatermarkRemoval: {
+      name: "Video watermark removal",
+      description: "Planned: local watermark removal for video; no processing entry in this build."
     }
   }
 } as const;

@@ -86,6 +86,17 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
     actionCode: "image-watermark-removal",
     recommended: false,
     sortOrder: 50
+  },
+  {
+    key: "video-watermark-removal",
+    iconKey: "pubIconVideoConvert",
+    titleKey: "pages.home.tools.videoWatermarkRemoval.title",
+    shortTitleKey: "pages.home.tools.videoWatermarkRemoval.shortTitle",
+    descriptionKey: "pages.home.tools.videoWatermarkRemoval.description",
+    gradient: "linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%)",
+    actionCode: "video-watermark-removal",
+    recommended: false,
+    sortOrder: 55
   }
 ];
 

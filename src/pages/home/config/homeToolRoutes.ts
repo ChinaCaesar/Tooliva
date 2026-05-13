@@ -9,6 +9,7 @@ export function resolveHomeToolRoute(actionCode: string): string | undefined {
   if (actionCode === "image-upscale") return ROUTE_PATHS.imageUpscale;
   if (actionCode === "image-watermark") return ROUTE_PATHS.imageWatermark;
   if (actionCode === "image-watermark-removal") return ROUTE_PATHS.imageWatermarkRemoval;
+  if (actionCode === "video-watermark-removal") return ROUTE_PATHS.videoWatermarkRemoval;
   if (actionCode === "gif-compress") return ROUTE_PATHS.gifCompress;
   return undefined;
 }
