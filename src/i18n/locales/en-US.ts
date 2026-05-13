@@ -761,9 +761,126 @@ export const enUS = {
     },
     videoToGif: {
       title: "Video to GIF",
-      description:
-        "Turn local video clips into animated GIFs; the current release does not expose processing yet.",
-      comingSoon: "Under development. Trim, frame rate, and sizing controls will arrive in a future update."
+      description: "Quickly convert MP4 / MOV / WebM clips into crisp animated GIFs",
+      safetyBadge: "Local · Private",
+      themeToggleAria: "Toggle theme",
+      brandTagline: "FFmpeg palettegen quality pipeline",
+      upload: {
+        dropTitle: "Drop a single video here, or click the button below",
+        dropDesc: "One file at a time — MP4 / MOV / WebM and other common video formats",
+        pickVideoCta: "Choose video file",
+        maxFileNote: "Up to 500MB per file",
+        tipTitle: "Tip",
+        tipBody: "Shorter and cleaner clips produce the best GIF results."
+      },
+      emptyVideo: {
+        title: "No video yet",
+        desc: "Upload a single video to start the conversion."
+      },
+      preview: {
+        playAria: "Play / Pause",
+        rangeAria: "Selected range",
+        startLabel: "Start",
+        endLabel: "End",
+        durationLabel: "Duration",
+        durationUnit: "s",
+        replaceVideo: "Replace video"
+      },
+      clips: {
+        title: "GIF clips",
+        countTpl: "{count} clip(s) added",
+        addCurrent: "Add current selection",
+        chipPrefix: "Clip",
+        editAria: "Edit clip",
+        deleteAria: "Delete clip",
+        emptyTip: "Select a range above, then click \"Add current selection\" to add it to the list",
+        startCol: "Start",
+        endCol: "End",
+        durationCol: "Duration",
+        sizeUnit: "{w} × {h}",
+        fpsUnit: "{fps} fps"
+      },
+      settings: {
+        title: "Export settings",
+        collapseAria: "Collapse / expand settings",
+        size: "Output size",
+        sizeOriginal: "Original",
+        sizeCustom: "Custom",
+        width: "Width",
+        height: "Height",
+        aspectLockAria: "Lock aspect ratio",
+        fps: "Frame rate (FPS)",
+        fpsUnit: "{fps} fps",
+        quality: "Quality",
+        qualityLow: "Low",
+        qualityMid: "Mid",
+        qualityHigh: "High",
+        speed: "Playback speed",
+        speed05: "0.5x (slow)",
+        speed10: "1.0x (normal)",
+        speed20: "2.0x (fast)",
+        loopMode: "Loop mode",
+        loopInfinite: "Loop forever",
+        loopOnce: "Play once",
+        keepAspect: "Keep aspect",
+        keepAspectHint: "Preserve the source aspect ratio",
+        reduceSize: "Size optimization",
+        reduceSizeHint: "Smart compression to shrink the GIF",
+        smartCompressLabel: "Enable smart compression"
+      },
+      estimate: {
+        title: "Output estimate",
+        size: "Est. size",
+        frames: "Est. frames",
+        duration: "Duration",
+        resolution: "Resolution",
+        dash: "--",
+        emptySize: "--",
+        emptyFrames: "--",
+        emptyDuration: "--",
+        emptyResolution: "--",
+        sizeSubtitle: "({count} clip(s))",
+        framesSubtitle: "(total)",
+        durationSubtitle: "(total)"
+      },
+      footer: {
+        start: "Start conversion",
+        processing: "Converting…",
+        exportGif: "Export GIF",
+        openFolder: "Open output folder"
+      },
+      hints: {
+        dragNoPath: "No local path resolved. Use the upload button or drag into the desktop window.",
+        unsupportedFormat: "Only common video extensions such as MP4 / WEBM / MKV / MOV / AVI / M4V / WMV",
+        fileTooLarge: "Each file must be 500MB or smaller",
+        rangeInvalid: "End time must be greater than start time",
+        noClips: "Add at least one clip first",
+        duplicateClip: "A clip with the same range and fps already exists"
+      },
+      errors: {
+        pickVideosFailed: "Could not pick video: {message}",
+        pickVideosDialog: "Could not open the file picker",
+        loadVideoFailed: "Could not load video: {message}",
+        loadVideoDialog: "Could not read video metadata",
+        openDirectoryFailed: "Could not open folder: {message}",
+        openDirectory: "No folder available to open yet",
+        genericFailed: "Conversion failed"
+      },
+      status: {
+        idle: "Pending",
+        running: "Working",
+        completed: "Done",
+        failed: "Failed"
+      },
+      result: {
+        title: "Summary",
+        total: "Total",
+        success: "Succeeded",
+        failed: "Failed",
+        elapsed: "Elapsed"
+      },
+      taskRunning: "Encoding GIF",
+      taskDone: "GIF export finished"
     },
     imageWatermarkRemoval: {
       title: "Remove watermark",

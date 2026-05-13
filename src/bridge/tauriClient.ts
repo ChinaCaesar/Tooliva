@@ -5,6 +5,7 @@ import type { UserSettings } from "@/types/settings";
 export const IMAGE_COMPRESS_PROGRESS_EVENT = "image-compress-progress";
 export const IMAGE_WATERMARK_PROGRESS_EVENT = "image-watermark-progress";
 export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
+export const VIDEO_TO_GIF_PROGRESS_EVENT = "video-to-gif-progress";
 
 export interface RecordToolUsagePayload {
   toolKey: string;
@@ -47,6 +48,14 @@ export interface ListImagesFromDirectoryPayload {
 
 export interface ListImagesFromDirectoryResult {
   images: string[];
+}
+
+export interface ListVideosFromDirectoryPayload {
+  directoryPath: string;
+}
+
+export interface ListVideosFromDirectoryResult {
+  videos: string[];
 }
 
 export interface GetImagePreviewPayload {
@@ -137,6 +146,59 @@ export interface ImageCompressProgressPayload {
   progress: number;
   stage: string;
   backend: string;
+  message?: string;
+}
+
+export type VideoGifSizePreset = "original" | "p720" | "p480" | "p360" | "custom";
+export type VideoGifQualityPreset = "low" | "medium" | "high";
+
+export interface VideoToGifCropRectPayload {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** 与 Rust `VideoToGifOptions` / serde camelCase 对齐 */
+export interface VideoToGifOptionsPayload {
+  startTimeSec?: number | null;
+  endTimeSec?: number | null;
+  sizePreset: VideoGifSizePreset;
+  customWidth?: number | null;
+  customHeight?: number | null;
+  fps: number;
+  quality: VideoGifQualityPreset;
+  loopPlayback: boolean;
+  maxFrames?: number | null;
+  playbackSpeed?: number | null;
+  paletteStatsMode?: string | null;
+  paletteMaxColors?: number | null;
+  dither?: string | null;
+  bayerScale?: number | null;
+  crop?: VideoToGifCropRectPayload | null;
+  /** 预留：输出体积上限（后端暂不强制） */
+  outputSizeLimitBytes?: number | null;
+}
+
+export interface StartVideoToGifPayload {
+  taskId: string;
+  inputPath: string;
+  outputDirectory?: string;
+  options: VideoToGifOptionsPayload;
+}
+
+export interface StartVideoToGifResult {
+  taskId: string;
+  inputPath: string;
+  outputPath: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface VideoToGifProgressPayload {
+  taskId: string;
+  progress: number;
+  stage: string;
   message?: string;
 }
 
@@ -285,6 +347,11 @@ export class TauriClient {
     return this.call<ListImagesFromDirectoryResult>("list_images_from_directory", { payload });
   }
 
+  /** 递归列出目录下的常见视频文件（与后端支持的容器扩展一致）。 */
+  public async listVideosFromDirectory(payload: ListVideosFromDirectoryPayload): Promise<ListVideosFromDirectoryResult> {
+    return this.call<ListVideosFromDirectoryResult>("list_videos_from_directory", { payload });
+  }
+
   /**
    * 读取本地图片并转换为可直接预览的 data URL。
    */
@@ -361,6 +428,17 @@ export class TauriClient {
    */
   public async onImageWatermarkProgress(handler: (payload: ImageWatermarkProgressPayload) => void): Promise<UnlistenFn> {
     return listen<ImageWatermarkProgressPayload>(IMAGE_WATERMARK_PROGRESS_EVENT, (event) => {
+      handler(event.payload);
+    });
+  }
+
+  /** 视频转 GIF（FFmpeg palettegen/paletteuse）。 */
+  public async startVideoToGif(payload: StartVideoToGifPayload): Promise<StartVideoToGifResult> {
+    return this.call<StartVideoToGifResult>("start_video_to_gif", { payload });
+  }
+
+  public async onVideoToGifProgress(handler: (payload: VideoToGifProgressPayload) => void): Promise<UnlistenFn> {
+    return listen<VideoToGifProgressPayload>(VIDEO_TO_GIF_PROGRESS_EVENT, (event) => {
       handler(event.payload);
     });
   }

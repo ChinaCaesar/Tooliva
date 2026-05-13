@@ -1,4 +1,5 @@
 mod commands;
+mod ffmpeg_gif;
 mod image_core;
 mod image_processors;
 mod runtime_bins;
@@ -29,7 +30,9 @@ pub fn run() {
             commands::db::save_app_settings,
             commands::db::record_tool_usage,
             commands::db::get_home_dashboard,
-            commands::db::clear_local_user_data
+            commands::db::clear_local_user_data,
+            commands::video_gif::start_video_to_gif,
+            commands::video_gif::list_videos_from_directory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

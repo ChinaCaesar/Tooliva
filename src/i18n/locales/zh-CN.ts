@@ -760,9 +760,127 @@ export const zhCN = {
       }
     },
     videoToGif: {
-      title: "视频转 GIF",
-      description: "将本地视频片段转换为 GIF 动图；当前版本尚未开放处理入口。",
-      comingSoon: "功能开发中，后续版本将提供截取、帧率与尺寸等选项。"
+      title: "视频转GIF",
+      description: "将 MP4、MOV、WebM 等视频快速转换为高清 GIF 动图",
+      safetyBadge: "本地处理 / 隐私安全",
+      themeToggleAria: "切换主题",
+      brandTagline: "本地 FFmpeg / palettegen 高画质流水线",
+      upload: {
+        dropTitle: "拖拽单个视频到此处，或点击下方按钮上传",
+        dropDesc: "仅支持单个视频文件上传，支持 MP4、MOV、WebM 等常见视频格式",
+        pickVideoCta: "选择视频文件",
+        maxFileNote: "单个文件最大 500MB",
+        tipTitle: "小贴士",
+        tipBody: "为获得最佳效果，建议上传时长较短、画面清晰的视频文件。"
+      },
+      emptyVideo: {
+        title: "暂无视频文件",
+        desc: "请上传单个视频文件开始转换"
+      },
+      preview: {
+        playAria: "播放/暂停",
+        rangeAria: "选区时间",
+        startLabel: "开始时间",
+        endLabel: "结束时间",
+        durationLabel: "时长",
+        durationUnit: "秒",
+        replaceVideo: "更换视频"
+      },
+      clips: {
+        title: "GIF 片段列表",
+        countTpl: "已添加 {count} 个片段",
+        addCurrent: "添加当前选区",
+        chipPrefix: "片段",
+        editAria: "编辑片段",
+        deleteAria: "删除片段",
+        emptyTip: "在上方时间轴选择片段后，点击「添加当前选区」即可加入列表",
+        startCol: "开始",
+        endCol: "结束",
+        durationCol: "时长",
+        sizeUnit: "{w} × {h}",
+        fpsUnit: "{fps} fps"
+      },
+      settings: {
+        title: "导出设置",
+        collapseAria: "收起/展开设置",
+        size: "输出尺寸",
+        sizeOriginal: "原始",
+        sizeCustom: "自定义",
+        width: "宽度",
+        height: "高度",
+        aspectLockAria: "锁定宽高比",
+        fps: "帧率 (FPS)",
+        fpsUnit: "{fps} fps",
+        quality: "画质",
+        qualityLow: "低",
+        qualityMid: "中",
+        qualityHigh: "高",
+        speed: "播放速度",
+        speed05: "0.5x（慢速）",
+        speed10: "1.0x（正常）",
+        speed20: "2.0x（快速）",
+        loopMode: "循环方式",
+        loopInfinite: "无限循环",
+        loopOnce: "仅播放一次",
+        keepAspect: "保持比例",
+        keepAspectHint: "保持原视频宽高比",
+        reduceSize: "减少体积优化",
+        reduceSizeHint: "启用智能压缩优化，减小文件体积",
+        smartCompressLabel: "启用智能压缩优化"
+      },
+      estimate: {
+        title: "输出预估",
+        size: "预计大小",
+        frames: "预计帧数",
+        duration: "输出时长",
+        resolution: "分辨率",
+        dash: "--",
+        emptySize: "--",
+        emptyFrames: "--",
+        emptyDuration: "--",
+        emptyResolution: "--",
+        sizeSubtitle: "（{count} 个片段）",
+        framesSubtitle: "（总计）",
+        durationSubtitle: "（总计）"
+      },
+      footer: {
+        start: "开始转换",
+        processing: "转换中…",
+        exportGif: "导出 GIF",
+        openFolder: "打开输出文件夹"
+      },
+      hints: {
+        dragNoPath: "未读取到本地视频路径，请使用按钮上传或在桌面端窗口内拖拽。",
+        unsupportedFormat: "仅支持 MP4 / WEBM / MKV / MOV / AVI / M4V / WMV 等扩展名",
+        fileTooLarge: "单个文件不能超过 500MB",
+        rangeInvalid: "结束时间必须大于开始时间",
+        noClips: "请先添加至少一个片段",
+        duplicateClip: "已存在相同片段（起止与帧率一致）"
+      },
+      errors: {
+        pickVideosFailed: "选择视频失败：{message}",
+        pickVideosDialog: "无法打开文件选择器",
+        loadVideoFailed: "加载视频失败：{message}",
+        loadVideoDialog: "无法读取视频信息",
+        openDirectoryFailed: "打开目录失败：{message}",
+        openDirectory: "暂无可打开的目录",
+        genericFailed: "转换失败"
+      },
+      status: {
+        idle: "待处理",
+        running: "处理中",
+        completed: "已完成",
+        failed: "失败"
+      },
+      result: {
+        title: "执行结果",
+        total: "总数",
+        success: "成功",
+        failed: "失败",
+        elapsed: "总用时"
+      },
+      taskRunning: "正在转换为 GIF",
+      taskDone: "GIF 导出完成"
     },
     imageWatermarkRemoval: {
       title: "图片去水印",
