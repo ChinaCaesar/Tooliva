@@ -1,14 +1,18 @@
-use base64::Engine;
 use crate::image_core::executor::run_blocking;
 use crate::image_core::pipeline::ImagePipeline;
 use crate::image_core::progress::CallbackProgressReporter;
 use crate::image_core::tile::TileEngine;
-use crate::image_core::types::{LoadedImage, ProcessContext, ProcessingLimits, ProgressEvent, TileConfig};
+use crate::image_core::types::{
+    LoadedImage, ProcessContext, ProcessingLimits, ProgressEvent, TileConfig,
+};
 use crate::image_processors::compress::processor::CompressProcessor;
-use crate::image_processors::upscale::processor::{UpscaleBackend, UpscaleProcessor, UpscaleQualityMode};
+use crate::image_processors::upscale::processor::{
+    UpscaleAdjustmentLevel, UpscaleBackend, UpscaleProcessor, UpscaleQualityMode,
+};
 use crate::image_processors::watermark::processor::{
     compute_watermark_preview_geometry, render_watermark_preview_overlay, WatermarkProcessor,
 };
+use base64::Engine;
 use image::{DynamicImage, ImageFormat};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -45,6 +49,10 @@ pub struct StartImageUpscalePayload {
     pub output_directory: Option<String>,
     pub quality_mode: Option<UpscaleQualityMode>,
     pub backend_preference: Option<UpscaleBackend>,
+    pub output_format: Option<String>,
+    pub denoise_level: Option<UpscaleAdjustmentLevel>,
+    pub sharpen_level: Option<UpscaleAdjustmentLevel>,
+    pub preserve_transparent_background: Option<bool>,
     pub max_output_pixels: Option<u64>,
     pub max_memory_mb: Option<u64>,
     pub tile_size: Option<u32>,
@@ -222,7 +230,9 @@ pub fn list_images_from_directory(
 }
 
 #[tauri::command]
-pub fn get_image_preview_data_url(payload: GetImagePreviewPayload) -> Result<GetImagePreviewResult, String> {
+pub fn get_image_preview_data_url(
+    payload: GetImagePreviewPayload,
+) -> Result<GetImagePreviewResult, String> {
     let file_path = PathBuf::from(payload.file_path);
     if !file_path.exists() {
         return Err(format!("预览文件不存在：{}", file_path.display()));
@@ -302,7 +312,10 @@ pub fn get_image_watermark_preview_geometry(
         .decode()
         .map_err(|err| format!("解码图片失败：{err}"))?;
     let format = ImageFormat::from_path(&input_path).unwrap_or(ImageFormat::Png);
-    let loaded = LoadedImage { image: decoded, format };
+    let loaded = LoadedImage {
+        image: decoded,
+        format,
+    };
     let params = json!({
         "mode": payload.mode,
         "position": payload.position,
@@ -319,7 +332,8 @@ pub fn get_image_watermark_preview_geometry(
         "imagePath": payload.image_path,
         "imageScalePercent": payload.image_scale_percent
     });
-    let geometry = compute_watermark_preview_geometry(&loaded, &params).map_err(|err| err.to_string())?;
+    let geometry =
+        compute_watermark_preview_geometry(&loaded, &params).map_err(|err| err.to_string())?;
     Ok(GetImageWatermarkPreviewGeometryResult {
         base_width_px: geometry.base_width,
         base_height_px: geometry.base_height,
@@ -348,7 +362,10 @@ pub fn get_image_watermark_overlay_preview_data_url(
         .decode()
         .map_err(|err| format!("解码图片失败：{err}"))?;
     let format = ImageFormat::from_path(&input_path).unwrap_or(ImageFormat::Png);
-    let loaded = LoadedImage { image: decoded, format };
+    let loaded = LoadedImage {
+        image: decoded,
+        format,
+    };
     let params = json!({
         "mode": payload.mode,
         "position": payload.position,
@@ -365,7 +382,8 @@ pub fn get_image_watermark_overlay_preview_data_url(
         "imagePath": payload.image_path,
         "imageScalePercent": payload.image_scale_percent
     });
-    let overlay = render_watermark_preview_overlay(&loaded, &params).map_err(|err| err.to_string())?;
+    let overlay =
+        render_watermark_preview_overlay(&loaded, &params).map_err(|err| err.to_string())?;
     let mut png_bytes: Vec<u8> = Vec::new();
     DynamicImage::ImageRgba8(overlay)
         .write_to(&mut Cursor::new(&mut png_bytes), ImageFormat::Png)
@@ -378,7 +396,10 @@ pub fn get_image_watermark_overlay_preview_data_url(
 }
 
 #[tauri::command]
-pub async fn start_image_upscale(payload: StartImageUpscalePayload, app: AppHandle) -> Result<StartImageUpscaleResult, String> {
+pub async fn start_image_upscale(
+    payload: StartImageUpscalePayload,
+    app: AppHandle,
+) -> Result<StartImageUpscaleResult, String> {
     let input_path = PathBuf::from(payload.input_path.clone());
     if !input_path.exists() {
         return Err(format!("输入文件不存在：{}", input_path.display()));
@@ -391,34 +412,42 @@ pub async fn start_image_upscale(payload: StartImageUpscalePayload, app: AppHand
     }
 
     let scale = match payload.scale_factor {
-        2 | 4 | 8 => payload.scale_factor,
-        _ => return Err("仅支持 2 / 4 / 8 倍放大".to_string()),
+        2 | 3 | 4 => payload.scale_factor,
+        _ => return Err("仅支持 2 / 3 / 4 倍放大".to_string()),
     };
 
+    let output_extension = resolve_upscale_extension(
+        payload.output_format.as_deref(),
+        input_path.extension().and_then(|x| x.to_str()),
+    )?;
     let output_file_path = resolve_output_path(
         &input_path,
         payload.output_directory.as_deref(),
         scale,
-        input_path.extension().and_then(|x| x.to_str()).unwrap_or("png"),
+        output_extension,
     )?;
     ensure_parent_dir_exists(&output_file_path)?;
 
     let task_id = payload.task_id.clone();
     let quality_mode = payload.quality_mode.unwrap_or_default();
     let backend_preference = payload.backend_preference.unwrap_or_default();
+    let denoise_level = payload.denoise_level.unwrap_or_default();
+    let sharpen_level = payload.sharpen_level.unwrap_or_default();
+    let preserve_transparent_background = payload.preserve_transparent_background.unwrap_or(true);
     let context = ProcessContext {
         task_id: task_id.clone(),
         processor_key: "upscale".to_string(),
         input_path: input_path.clone(),
         output_path: output_file_path.clone(),
-        output_format: input_path
-            .extension()
-            .and_then(|x| x.to_str())
-            .map(|x| x.to_string()),
+        output_format: Some(output_extension.to_string()),
         params: json!({
             "scaleFactor": scale,
             "qualityMode": format!("{:?}", quality_mode).to_lowercase(),
-            "backendPreference": format!("{:?}", backend_preference).to_lowercase()
+            "backendPreference": format!("{:?}", backend_preference).to_lowercase(),
+            "outputFormat": output_extension,
+            "denoiseLevel": format!("{:?}", denoise_level).to_lowercase(),
+            "sharpenLevel": format!("{:?}", sharpen_level).to_lowercase(),
+            "preserveTransparentBackground": preserve_transparent_background
         }),
         limits: ProcessingLimits {
             max_output_side: 12_000,
@@ -508,7 +537,10 @@ pub async fn start_image_upscale(payload: StartImageUpscalePayload, app: AppHand
 }
 
 #[tauri::command]
-pub async fn start_image_compress(payload: StartImageCompressPayload, app: AppHandle) -> Result<StartImageCompressResult, String> {
+pub async fn start_image_compress(
+    payload: StartImageCompressPayload,
+    app: AppHandle,
+) -> Result<StartImageCompressResult, String> {
     let input_path = PathBuf::from(payload.input_path.clone());
     if !input_path.exists() {
         return Err(format!("输入文件不存在：{}", input_path.display()));
@@ -527,7 +559,8 @@ pub async fn start_image_compress(payload: StartImageCompressPayload, app: AppHa
         payload.target_format.as_deref(),
         input_path.extension().and_then(|x| x.to_str()),
     )?;
-    let output_file_path = resolve_compress_output_path(&input_path, payload.output_directory.as_deref(), extension)?;
+    let output_file_path =
+        resolve_compress_output_path(&input_path, payload.output_directory.as_deref(), extension)?;
     ensure_parent_dir_exists(&output_file_path)?;
 
     let task_id = payload.task_id.clone();
@@ -659,7 +692,12 @@ pub async fn start_image_watermark(
     }
 
     if payload.mode == "text" {
-        if payload.text.as_deref().map(|value| value.trim().is_empty()).unwrap_or(true) {
+        if payload
+            .text
+            .as_deref()
+            .map(|value| value.trim().is_empty())
+            .unwrap_or(true)
+        {
             return Err("文字水印内容不能为空".to_string());
         }
     } else if payload.mode == "image" {
@@ -678,8 +716,12 @@ pub async fn start_image_watermark(
         return Err("水印模式仅支持 text 或 image".to_string());
     }
 
-    let extension = input_path.extension().and_then(|x| x.to_str()).unwrap_or("png");
-    let output_file_path = resolve_watermark_output_path(&input_path, payload.output_directory.as_deref(), extension)?;
+    let extension = input_path
+        .extension()
+        .and_then(|x| x.to_str())
+        .unwrap_or("png");
+    let output_file_path =
+        resolve_watermark_output_path(&input_path, payload.output_directory.as_deref(), extension)?;
     ensure_parent_dir_exists(&output_file_path)?;
 
     let task_id = payload.task_id.clone();
@@ -791,7 +833,8 @@ pub async fn start_image_watermark(
 }
 
 fn walk_directory_collect_images(dir_path: &Path, result: &mut Vec<String>) -> Result<(), String> {
-    let entries = fs::read_dir(dir_path).map_err(|err| format!("读取目录失败 {}: {err}", dir_path.display()))?;
+    let entries = fs::read_dir(dir_path)
+        .map_err(|err| format!("读取目录失败 {}: {err}", dir_path.display()))?;
     for entry in entries {
         let entry = entry.map_err(|err| format!("读取目录项失败：{err}"))?;
         let path = entry.path();
@@ -809,7 +852,11 @@ fn walk_directory_collect_images(dir_path: &Path, result: &mut Vec<String>) -> R
 fn is_supported_image_file(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
-        .map(|ext| SUPPORTED_IMAGE_EXTENSIONS.iter().any(|item| item.eq_ignore_ascii_case(ext)))
+        .map(|ext| {
+            SUPPORTED_IMAGE_EXTENSIONS
+                .iter()
+                .any(|item| item.eq_ignore_ascii_case(ext))
+        })
         .unwrap_or(false)
 }
 
@@ -834,10 +881,12 @@ fn resolve_output_path(
     let target_root = if let Some(output_dir) = output_directory {
         PathBuf::from(output_dir)
     } else {
-        let input_parent = input_path.parent().ok_or_else(|| "无法识别输入目录".to_string())?;
-        input_parent.join("compress")
+        let input_parent = input_path
+            .parent()
+            .ok_or_else(|| "无法识别输入目录".to_string())?;
+        input_parent.join("scale")
     };
-    let initial = target_root.join(format!("{stem}_x{scale}.{extension}"));
+    let initial = target_root.join(format!("{stem}_{scale}x.{extension}"));
     Ok(ensure_unique_output_path(&initial))
 }
 
@@ -846,7 +895,10 @@ fn ensure_unique_output_path(path: &Path) -> PathBuf {
         return path.to_path_buf();
     }
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
-    let stem = path.file_stem().and_then(|x| x.to_str()).unwrap_or("output");
+    let stem = path
+        .file_stem()
+        .and_then(|x| x.to_str())
+        .unwrap_or("output");
     let ext = path.extension().and_then(|x| x.to_str()).unwrap_or("png");
     for index in 1.. {
         let candidate = parent.join(format!("{stem}_{index}.{ext}"));
@@ -857,7 +909,33 @@ fn ensure_unique_output_path(path: &Path) -> PathBuf {
     path.to_path_buf()
 }
 
-fn resolve_compress_extension(requested: Option<&str>, input_ext: Option<&str>) -> Result<&'static str, String> {
+fn resolve_upscale_extension(
+    requested: Option<&str>,
+    input_ext: Option<&str>,
+) -> Result<&'static str, String> {
+    if let Some(format) = requested {
+        match format.to_ascii_lowercase().as_str() {
+            "original" => {}
+            "jpg" | "jpeg" => return Ok("jpg"),
+            "png" => return Ok("png"),
+            "webp" => return Ok("webp"),
+            _ => return Err("输出格式仅支持 original/jpg/jpeg/png/webp".to_string()),
+        }
+    }
+    let ext = input_ext.unwrap_or("png").to_ascii_lowercase();
+    match ext.as_str() {
+        "jpg" | "jpeg" => Ok("jpg"),
+        "png" => Ok("png"),
+        "webp" => Ok("webp"),
+        "bmp" => Ok("bmp"),
+        _ => Ok("png"),
+    }
+}
+
+fn resolve_compress_extension(
+    requested: Option<&str>,
+    input_ext: Option<&str>,
+) -> Result<&'static str, String> {
     if let Some(format) = requested {
         return match format.to_ascii_lowercase().as_str() {
             "jpg" | "jpeg" => Ok("jpg"),
@@ -875,7 +953,11 @@ fn resolve_compress_extension(requested: Option<&str>, input_ext: Option<&str>) 
     }
 }
 
-fn resolve_compress_output_path(input_path: &Path, output_directory: Option<&str>, extension: &str) -> Result<PathBuf, String> {
+fn resolve_compress_output_path(
+    input_path: &Path,
+    output_directory: Option<&str>,
+    extension: &str,
+) -> Result<PathBuf, String> {
     let stem = input_path
         .file_stem()
         .and_then(|name| name.to_str())
@@ -883,14 +965,20 @@ fn resolve_compress_output_path(input_path: &Path, output_directory: Option<&str
     let target_root = if let Some(output_dir) = output_directory {
         PathBuf::from(output_dir)
     } else {
-        let input_parent = input_path.parent().ok_or_else(|| "无法识别输入目录".to_string())?;
+        let input_parent = input_path
+            .parent()
+            .ok_or_else(|| "无法识别输入目录".to_string())?;
         input_parent.join("compress")
     };
     let initial = target_root.join(format!("{stem}_compressed.{extension}"));
     Ok(ensure_unique_output_path(&initial))
 }
 
-fn resolve_watermark_output_path(input_path: &Path, output_directory: Option<&str>, extension: &str) -> Result<PathBuf, String> {
+fn resolve_watermark_output_path(
+    input_path: &Path,
+    output_directory: Option<&str>,
+    extension: &str,
+) -> Result<PathBuf, String> {
     let stem = input_path
         .file_stem()
         .and_then(|name| name.to_str())
@@ -898,7 +986,9 @@ fn resolve_watermark_output_path(input_path: &Path, output_directory: Option<&st
     let target_root = if let Some(output_dir) = output_directory {
         PathBuf::from(output_dir)
     } else {
-        let input_parent = input_path.parent().ok_or_else(|| "无法识别输入目录".to_string())?;
+        let input_parent = input_path
+            .parent()
+            .ok_or_else(|| "无法识别输入目录".to_string())?;
         input_parent.join("water")
     };
     let initial = target_root.join(format!("{stem}_watermark.{extension}"));

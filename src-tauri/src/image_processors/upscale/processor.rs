@@ -2,9 +2,11 @@ use crate::image_core::error::ImagePipelineError;
 use crate::image_core::pipeline::ProcessRuntime;
 use crate::image_core::processor::ImageProcessor;
 use crate::image_core::tile::{TileAlgorithm, TileRect, TileResult};
-use crate::image_core::types::{LoadedImage, ProcessContext, ProcessOutput, ProcessPlan, ProgressEvent};
-use image::imageops::FilterType;
-use image::{DynamicImage, GenericImageView, RgbaImage};
+use crate::image_core::types::{
+    LoadedImage, ProcessContext, ProcessOutput, ProcessPlan, ProgressEvent,
+};
+use image::imageops::{self, FilterType};
+use image::{DynamicImage, GenericImageView, ImageFormat, Rgba, RgbaImage};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -12,12 +14,14 @@ use serde::Deserialize;
 pub enum UpscaleQualityMode {
     Fast,
     Balanced,
+    Standard,
     Quality,
+    High,
 }
 
 impl Default for UpscaleQualityMode {
     fn default() -> Self {
-        Self::Fast
+        Self::Standard
     }
 }
 
@@ -25,8 +29,8 @@ impl UpscaleQualityMode {
     fn filter(self) -> FilterType {
         match self {
             Self::Fast => FilterType::Triangle,
-            Self::Balanced => FilterType::CatmullRom,
-            Self::Quality => FilterType::Lanczos3,
+            Self::Balanced | Self::Standard => FilterType::CatmullRom,
+            Self::Quality | Self::High => FilterType::Lanczos3,
         }
     }
 }
@@ -38,6 +42,21 @@ pub enum UpscaleBackend {
     Cpu,
     Gpu,
     Ai,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum UpscaleAdjustmentLevel {
+    Off,
+    Low,
+    Medium,
+    High,
+}
+
+impl Default for UpscaleAdjustmentLevel {
+    fn default() -> Self {
+        Self::Off
+    }
 }
 
 impl Default for UpscaleBackend {
@@ -52,6 +71,10 @@ pub struct UpscaleParams {
     pub scale_factor: u8,
     pub quality_mode: Option<UpscaleQualityMode>,
     pub backend_preference: Option<UpscaleBackend>,
+    pub output_format: Option<String>,
+    pub denoise_level: Option<UpscaleAdjustmentLevel>,
+    pub sharpen_level: Option<UpscaleAdjustmentLevel>,
+    pub preserve_transparent_background: Option<bool>,
 }
 
 pub struct UpscaleProcessor;
@@ -61,13 +84,25 @@ impl ImageProcessor for UpscaleProcessor {
         "upscale"
     }
 
-    fn plan(&self, ctx: &ProcessContext, input: &LoadedImage) -> Result<ProcessPlan, ImagePipelineError> {
+    fn plan(
+        &self,
+        ctx: &ProcessContext,
+        input: &LoadedImage,
+    ) -> Result<ProcessPlan, ImagePipelineError> {
         let params = parse_params(ctx)?;
-        if !matches!(params.scale_factor, 2 | 4 | 8) {
-            return Err(ImagePipelineError::InvalidInput("仅支持 2/4/8 倍放大".to_string()));
+        if !matches!(params.scale_factor, 2 | 3 | 4) {
+            return Err(ImagePipelineError::InvalidInput(
+                "仅支持 2/3/4 倍放大".to_string(),
+            ));
         }
-        let output_width = input.image.width().saturating_mul(params.scale_factor as u32);
-        let output_height = input.image.height().saturating_mul(params.scale_factor as u32);
+        let output_width = input
+            .image
+            .width()
+            .saturating_mul(params.scale_factor as u32);
+        let output_height = input
+            .image
+            .height()
+            .saturating_mul(params.scale_factor as u32);
         if output_width > ctx.limits.max_output_side || output_height > ctx.limits.max_output_side {
             return Err(ImagePipelineError::PlanFailed(format!(
                 "输出尺寸 {}x{} 超出上限 {}",
@@ -76,7 +111,9 @@ impl ImageProcessor for UpscaleProcessor {
         }
         let output_pixels = (output_width as u64).saturating_mul(output_height as u64);
         if output_pixels > ctx.limits.max_output_pixels {
-            return Err(ImagePipelineError::PlanFailed("输出像素超出上限".to_string()));
+            return Err(ImagePipelineError::PlanFailed(
+                "输出像素超出上限".to_string(),
+            ));
         }
         let estimated_memory_mb = estimate_memory_mb(
             input.image.width(),
@@ -107,6 +144,11 @@ impl ImageProcessor for UpscaleProcessor {
         let params = parse_params(ctx)?;
         let quality = params.quality_mode.unwrap_or_default();
         let _backend = params.backend_preference.unwrap_or_default();
+        let denoise = params.denoise_level.unwrap_or_default();
+        let sharpen = params.sharpen_level.unwrap_or_default();
+        let target_format =
+            resolve_output_format(&params.output_format, &ctx.output_format, input.format)?;
+        let preserve_alpha = params.preserve_transparent_background.unwrap_or(true);
         let source = input.image.to_rgba8();
         let algo = UpscaleTileAlgorithm {
             filter: quality.filter(),
@@ -114,7 +156,11 @@ impl ImageProcessor for UpscaleProcessor {
         let output = runtime
             .tile_engine
             .run_tiled(&source, plan, &algo, |done, total| {
-                let ratio = if total == 0 { 0.0 } else { done as f32 / total as f32 };
+                let ratio = if total == 0 {
+                    0.0
+                } else {
+                    done as f32 / total as f32
+                };
                 let progress = (12.0 + ratio * 80.0).round().clamp(12.0, 92.0) as u8;
                 runtime.progress.emit(ProgressEvent::stage(
                     &ctx.task_id,
@@ -124,16 +170,23 @@ impl ImageProcessor for UpscaleProcessor {
                     None,
                 ));
             })?;
-        let dyn_output = DynamicImage::ImageRgba8(output);
+        let adjusted = apply_adjustments(output, denoise, sharpen);
+        let dyn_output = prepare_output_image(adjusted, target_format, preserve_alpha);
         runtime
             .io
-            .save(&dyn_output, &ctx.output_path, Some(input.format))?;
+            .save(&dyn_output, &ctx.output_path, Some(target_format))?;
         Ok(ProcessOutput {
             output_path: ctx.output_path.clone(),
             output_width: plan.output_width,
             output_height: plan.output_height,
             backend_used: "cpu".to_string(),
-            metadata: serde_json::json!({ "qualityMode": format!("{:?}", quality).to_lowercase() }),
+            metadata: serde_json::json!({
+                "qualityMode": format!("{:?}", quality).to_lowercase(),
+                "denoiseLevel": format!("{:?}", denoise).to_lowercase(),
+                "sharpenLevel": format!("{:?}", sharpen).to_lowercase(),
+                "targetFormat": format!("{:?}", target_format).to_lowercase(),
+                "preserveTransparentBackground": preserve_alpha
+            }),
         })
     }
 }
@@ -143,7 +196,12 @@ struct UpscaleTileAlgorithm {
 }
 
 impl TileAlgorithm for UpscaleTileAlgorithm {
-    fn process_tile(&self, source: &RgbaImage, rect: TileRect, plan: &ProcessPlan) -> Result<TileResult, ImagePipelineError> {
+    fn process_tile(
+        &self,
+        source: &RgbaImage,
+        rect: TileRect,
+        plan: &ProcessPlan,
+    ) -> Result<TileResult, ImagePipelineError> {
         let view = source.view(rect.x, rect.y, rect.width, rect.height);
         let scale_x = plan.output_width as f32 / source.width() as f32;
         let scale_y = plan.output_height as f32 / source.height() as f32;
@@ -166,7 +224,79 @@ fn parse_params(ctx: &ProcessContext) -> Result<UpscaleParams, ImagePipelineErro
         .map_err(|err| ImagePipelineError::InvalidInput(format!("放大参数不合法：{err}")))
 }
 
-fn estimate_memory_mb(input_width: u32, input_height: u32, output_width: u32, output_height: u32) -> u64 {
+fn resolve_output_format(
+    requested: &Option<String>,
+    context_format: &Option<String>,
+    input_format: ImageFormat,
+) -> Result<ImageFormat, ImagePipelineError> {
+    let value = requested
+        .as_deref()
+        .or(context_format.as_deref())
+        .unwrap_or("original")
+        .to_ascii_lowercase();
+    match value.as_str() {
+        "original" => Ok(input_format),
+        "jpg" | "jpeg" => Ok(ImageFormat::Jpeg),
+        "png" => Ok(ImageFormat::Png),
+        "webp" => Ok(ImageFormat::WebP),
+        "bmp" => Ok(ImageFormat::Bmp),
+        _ => Err(ImagePipelineError::InvalidInput(
+            "输出格式仅支持 original/jpg/jpeg/png/webp".to_string(),
+        )),
+    }
+}
+
+fn apply_adjustments(
+    output: RgbaImage,
+    denoise: UpscaleAdjustmentLevel,
+    sharpen: UpscaleAdjustmentLevel,
+) -> RgbaImage {
+    let denoised = match denoise {
+        UpscaleAdjustmentLevel::Off => output,
+        UpscaleAdjustmentLevel::Low => imageops::blur(&output, 0.35),
+        UpscaleAdjustmentLevel::Medium => imageops::blur(&output, 0.65),
+        UpscaleAdjustmentLevel::High => imageops::blur(&output, 0.95),
+    };
+    match sharpen {
+        UpscaleAdjustmentLevel::Off => denoised,
+        UpscaleAdjustmentLevel::Low => imageops::unsharpen(&denoised, 0.7, 6),
+        UpscaleAdjustmentLevel::Medium => imageops::unsharpen(&denoised, 1.0, 8),
+        UpscaleAdjustmentLevel::High => imageops::unsharpen(&denoised, 1.35, 10),
+    }
+}
+
+fn prepare_output_image(
+    output: RgbaImage,
+    target_format: ImageFormat,
+    preserve_alpha: bool,
+) -> DynamicImage {
+    if preserve_alpha && !matches!(target_format, ImageFormat::Jpeg) {
+        return DynamicImage::ImageRgba8(output);
+    }
+    DynamicImage::ImageRgb8(flatten_to_white(&output))
+}
+
+fn flatten_to_white(output: &RgbaImage) -> image::RgbImage {
+    let mut flattened = image::RgbImage::new(output.width(), output.height());
+    for (x, y, pixel) in output.enumerate_pixels() {
+        let Rgba([r, g, b, a]) = *pixel;
+        let alpha = a as f32 / 255.0;
+        let blend = |channel: u8| -> u8 {
+            ((channel as f32 * alpha) + (255.0 * (1.0 - alpha)))
+                .round()
+                .clamp(0.0, 255.0) as u8
+        };
+        flattened.put_pixel(x, y, image::Rgb([blend(r), blend(g), blend(b)]));
+    }
+    flattened
+}
+
+fn estimate_memory_mb(
+    input_width: u32,
+    input_height: u32,
+    output_width: u32,
+    output_height: u32,
+) -> u64 {
     let input_bytes = (input_width as u64)
         .saturating_mul(input_height as u64)
         .saturating_mul(4);

@@ -531,10 +531,15 @@ export const enUS = {
     imageCompress: {
       title: "Image Compression",
       description: "Supports batch import, quality tuning and format output. Default output is /compress/ under source folders.",
-      fileListTitle: "Compression tasks",
+      fileListTitle: "Image list",
       clearList: "Clear list",
-      deleteSelected: "Delete selected",
-      remove: "Delete",
+      remove: "Remove",
+      list: {
+        title: "Image list",
+        deleteSelected: "Delete selected",
+        emptyTitle: "No images yet",
+        emptyDesc: "Add images to start batch compression."
+      },
       start: "Start compression",
       processing: "Compressing...",
       taskRunning: "Compressing image",
@@ -542,8 +547,8 @@ export const enUS = {
       listOverflowTip: "Only first 200 items are displayed. Remaining {count} items will continue processing in background.",
       source: {
         title: "Input source",
-        pickImages: "Add images",
-        pickDirectory: "Choose folder",
+        pickImages: "Add Images",
+        pickDirectory: "Choose Folder",
         dragHint: "You can drag images or folders into the area below.",
         directoryNotSelected: "No folder selected; you can drag images directly"
       },
@@ -584,15 +589,8 @@ export const enUS = {
         reset: "Reset settings"
       },
       upload: {
-        dropTitle: "Drag images here, or click the empty area to add",
-        dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported; mixed formats in one batch.",
-        formatsLine: "PNG / JPG / JPEG / WEBP / BMP — mixed formats supported",
-        button: "Add images",
-        addFolder: "Add folder"
-      },
-      empty: {
-        title: "No images yet",
-        desc: "Add images to start compression."
+        dropTitle: "Drag images here or click to add",
+        dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported, auto dedupe with serial processing"
       },
       table: {
         selectAll: "Select all visible rows",
@@ -602,7 +600,7 @@ export const enUS = {
         resolution: "Resolution",
         compressedSize: "Compressed size",
         status: "Status",
-        operation: "Actions",
+        operation: "Action",
         progress: "Progress",
         dash: "—"
       },
@@ -636,9 +634,130 @@ export const enUS = {
     },
     imageUpscale: {
       title: "Image Upscale",
-      description:
-        "This tool will offer offline-friendly image clarity improvements; the current release does not expose processing yet.",
-      comingSoon: "Under development. Models and batch jobs will arrive in a future update."
+      description: "Batch import images and run local offline 2x / 3x / 4x upscaling with format output controls.",
+      fileListTitle: "Upscale tasks",
+      clearList: "Clear list",
+      deleteSelected: "Delete selected",
+      remove: "Delete",
+      start: "Start upscale",
+      processing: "Upscaling...",
+      taskRunning: "Upscaling image",
+      taskDone: "Done",
+      listOverflowTip: "Only first 200 items are displayed. Remaining {count} items will continue processing in background.",
+      source: {
+        title: "Input source",
+        pickImages: "Add images",
+        pickDirectory: "Choose folder",
+        directoryNotSelected: "No folder selected; you can drag images directly"
+      },
+      output: {
+        title: "Output folder",
+        sourceDirectory: "Source folder",
+        customDirectory: "Custom folder",
+        pickDirectory: "Choose output folder",
+        customNotSelected: "No custom output folder selected",
+        defaultDirectory: "Defaults to /scale/ under the source image folder",
+        openDirectoryUnavailable: "Add an image or choose a source folder before opening the output folder"
+      },
+      footer: {
+        saveTo: "Save to:",
+        sourceOutput: "Each file's source folder /scale/",
+        changeOutput: "Change",
+        openDirectory: "Open folder"
+      },
+      settings: {
+        title: "Upscale settings",
+        scale: "Scale",
+        mode: "Upscale mode",
+        outputFormat: "Output format",
+        tip: "Fast is best for previews, Standard balances speed and quality, and High prioritizes edge detail."
+      },
+      advanced: {
+        title: "Advanced",
+        denoise: "Denoise",
+        sharpen: "Sharpen",
+        preserveAlpha: "Preserve transparent background",
+        concurrency: "Concurrency",
+        reset: "Reset settings"
+      },
+      options: {
+        mode: {
+          fast: "Fast",
+          standard: "Standard",
+          balanced: "Standard",
+          quality: "High",
+          high: "High"
+        },
+        format: {
+          original: "Original",
+          png: "PNG",
+          jpg: "JPG",
+          webp: "WEBP"
+        },
+        level: {
+          off: "Off",
+          low: "Low",
+          medium: "Medium",
+          high: "High"
+        },
+        concurrency: {
+          auto: "Auto",
+          1: "1",
+          2: "2",
+          4: "4"
+        }
+      },
+      upload: {
+        dropTitle: "Drag images here, or click the empty area to add",
+        dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported; mixed formats in one batch.",
+        button: "Add images",
+        addFolder: "Add folder"
+      },
+      empty: {
+        title: "No images yet",
+        desc: "Add images to start upscaling."
+      },
+      table: {
+        selectAll: "Select all visible rows",
+        selectRow: "Select this row",
+        fileName: "Filename",
+        originalSize: "Original size",
+        outputSize: "Upscaled size",
+        outputFormat: "Output format",
+        preview: "Preview",
+        status: "Status",
+        operation: "Actions",
+        progress: "Progress",
+        dash: "—"
+      },
+      hints: {
+        dragNoPath: "No valid local paths from drag-and-drop. Use Add images or drag inside the desktop window.",
+        unsupportedFormat: "Only PNG / JPG / JPEG / WEBP / BMP are supported",
+        duplicateFiles: "Selected files are already in the task list",
+        noPendingItems: "No pending or failed tasks to retry"
+      },
+      errors: {
+        pickImagesFailed: "Failed to pick images: {message}",
+        pickImagesDialog: "Could not open the image picker",
+        scanDirectoryFailed: "Failed to scan folder: {message}",
+        scanDirectory: "Failed to scan folder",
+        openDirectoryFailed: "Failed to open output folder: {message}",
+        openDirectory: "Failed to open output folder",
+        genericFailed: "Processing failed"
+      },
+      status: {
+        idle: "Pending",
+        running: "Processing",
+        completed: "Completed",
+        failed: "Failed"
+      },
+      result: {
+        title: "Execution result",
+        total: "Total",
+        success: "Success",
+        failed: "Failed",
+        elapsed: "Elapsed"
+      }
     },
     videoToGif: {
       title: "Video to GIF",

@@ -531,10 +531,15 @@ export const zhCN = {
     imageCompress: {
       title: "图片压缩",
       description: "支持批量导入、质量调节与格式输出，默认输出到源目录下的 /compress/ 文件夹。",
-      fileListTitle: "压缩任务列表",
+      fileListTitle: "图片列表",
       clearList: "清空列表",
-      deleteSelected: "删除选中",
-      remove: "删除",
+      remove: "移除",
+      list: {
+        title: "图片列表",
+        deleteSelected: "删除选中",
+        emptyTitle: "暂无图片",
+        emptyDesc: "添加图片后即可开始批量压缩。"
+      },
       start: "开始压缩",
       processing: "压缩处理中...",
       taskRunning: "图片压缩中",
@@ -543,7 +548,7 @@ export const zhCN = {
       source: {
         title: "输入来源",
         pickImages: "添加图片",
-        pickDirectory: "选择文件夹",
+        pickDirectory: "选择目录夹",
         dragHint: "支持将图片或文件夹直接拖入下方区域。",
         directoryNotSelected: "未选择目录，支持直接拖入图片"
       },
@@ -584,15 +589,8 @@ export const zhCN = {
         reset: "重置设置"
       },
       upload: {
-        dropTitle: "拖拽图片到此处，或点击空白区域添加",
-        dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，多格式可混合批量处理。",
-        formatsLine: "PNG / JPG / JPEG / WEBP / BMP，多格式可混合批量处理",
-        button: "添加图片",
-        addFolder: "添加文件夹"
-      },
-      empty: {
-        title: "暂无图片",
-        desc: "添加图片后即可开始压缩。"
+        dropTitle: "拖拽图片到此处，或点击添加",
+        dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，自动去重并串行处理"
       },
       table: {
         selectAll: "全选当前列表",
@@ -636,8 +634,130 @@ export const zhCN = {
     },
     imageUpscale: {
       title: "图片高清放大",
-      description: "本工具将提供本地可离线使用的图片清晰度提升能力；当前版本尚未开放处理入口。",
-      comingSoon: "功能开发中，后续版本将接入模型与批量任务。"
+      description: "支持批量导入图片，本地离线完成 2x / 3x / 4x 高清放大与格式输出。",
+      fileListTitle: "放大任务列表",
+      clearList: "清空列表",
+      deleteSelected: "删除选中",
+      remove: "删除",
+      start: "开始放大",
+      processing: "放大处理中...",
+      taskRunning: "图片高清放大中",
+      taskDone: "处理完成",
+      listOverflowTip: "当前仅展示前 200 条，剩余 {count} 条将在后台继续处理。",
+      source: {
+        title: "输入来源",
+        pickImages: "添加图片",
+        pickDirectory: "选择文件夹",
+        directoryNotSelected: "未选择目录，支持直接拖入图片"
+      },
+      output: {
+        title: "输出目录",
+        sourceDirectory: "原目录",
+        customDirectory: "自定义目录",
+        pickDirectory: "选择输出目录",
+        customNotSelected: "未选择自定义输出目录",
+        defaultDirectory: "默认输出到原图片所在目录下的 /scale/ 文件夹",
+        openDirectoryUnavailable: "请先添加图片或选择来源目录后再打开输出目录"
+      },
+      footer: {
+        saveTo: "保存至：",
+        sourceOutput: "各文件源目录 /scale/",
+        changeOutput: "更改",
+        openDirectory: "打开目录"
+      },
+      settings: {
+        title: "放大设置",
+        scale: "放大倍率",
+        mode: "放大模式",
+        outputFormat: "输出格式",
+        tip: "极速适合快速预览，标准平衡速度与质量，高清优先保留边缘细节。"
+      },
+      advanced: {
+        title: "高级设置",
+        denoise: "降噪",
+        sharpen: "锐化",
+        preserveAlpha: "保留透明背景",
+        concurrency: "并发数量",
+        reset: "重置设置"
+      },
+      options: {
+        mode: {
+          fast: "极速",
+          standard: "标准",
+          balanced: "标准",
+          quality: "高清",
+          high: "高清"
+        },
+        format: {
+          original: "原始格式",
+          png: "PNG",
+          jpg: "JPG",
+          webp: "WEBP"
+        },
+        level: {
+          off: "关闭",
+          low: "低",
+          medium: "中",
+          high: "高"
+        },
+        concurrency: {
+          auto: "自动",
+          1: "1",
+          2: "2",
+          4: "4"
+        }
+      },
+      upload: {
+        dropTitle: "拖拽图片到此处，或点击空白区域添加",
+        dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，多格式可混合批量处理。",
+        button: "添加图片",
+        addFolder: "添加文件夹"
+      },
+      empty: {
+        title: "暂无图片",
+        desc: "添加图片后即可开始高清放大。"
+      },
+      table: {
+        selectAll: "全选当前列表",
+        selectRow: "选择该行",
+        fileName: "文件名",
+        originalSize: "原始尺寸",
+        outputSize: "放大后尺寸",
+        outputFormat: "输出格式",
+        preview: "预览",
+        status: "状态",
+        operation: "操作",
+        progress: "进度",
+        dash: "—"
+      },
+      hints: {
+        dragNoPath: "拖拽未获取到有效本地路径，请使用「添加图片」或桌面端窗口内拖拽。",
+        unsupportedFormat: "仅支持 PNG / JPG / JPEG / WEBP / BMP 格式",
+        duplicateFiles: "所选文件已在任务列表中",
+        noPendingItems: "暂无待处理或失败可重试的任务"
+      },
+      errors: {
+        pickImagesFailed: "选择图片失败：{message}",
+        pickImagesDialog: "无法打开图片选择器",
+        scanDirectoryFailed: "扫描目录失败：{message}",
+        scanDirectory: "扫描目录失败",
+        openDirectoryFailed: "打开输出目录失败：{message}",
+        openDirectory: "打开输出目录失败",
+        genericFailed: "处理失败"
+      },
+      status: {
+        idle: "待处理",
+        running: "处理中",
+        completed: "已完成",
+        failed: "失败"
+      },
+      result: {
+        title: "执行结果",
+        total: "总数",
+        success: "成功",
+        failed: "失败",
+        elapsed: "总用时"
+      }
     },
     videoToGif: {
       title: "视频转 GIF",

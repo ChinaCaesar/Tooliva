@@ -4,6 +4,7 @@ import type { UserSettings } from "@/types/settings";
 
 export const IMAGE_COMPRESS_PROGRESS_EVENT = "image-compress-progress";
 export const IMAGE_WATERMARK_PROGRESS_EVENT = "image-watermark-progress";
+export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
 
 export interface RecordToolUsagePayload {
   toolKey: string;
@@ -59,6 +60,48 @@ export interface GetImagePreviewResult {
 
 export interface OpenDirectoryPayload {
   directoryPath: string;
+}
+
+export type ImageUpscaleQualityMode = "fast" | "standard" | "balanced" | "quality" | "high";
+export type ImageUpscaleOutputFormat = "original" | "png" | "jpg" | "webp";
+export type ImageUpscaleAdjustmentLevel = "off" | "low" | "medium" | "high";
+
+export interface StartImageUpscalePayload {
+  taskId: string;
+  inputPath: string;
+  scaleFactor: 2 | 3 | 4;
+  outputDirectory?: string;
+  qualityMode?: ImageUpscaleQualityMode;
+  backendPreference?: "auto" | "cpu" | "gpu" | "ai";
+  outputFormat?: ImageUpscaleOutputFormat;
+  denoiseLevel?: ImageUpscaleAdjustmentLevel;
+  sharpenLevel?: ImageUpscaleAdjustmentLevel;
+  preserveTransparentBackground?: boolean;
+  maxOutputPixels?: number;
+  maxMemoryMb?: number;
+  tileSize?: number;
+  tileOverlap?: number;
+}
+
+export interface StartImageUpscaleResult {
+  taskId: string;
+  inputPath: string;
+  outputPath: string;
+  success: boolean;
+  error?: string;
+  originalWidth: number;
+  originalHeight: number;
+  outputWidth: number;
+  outputHeight: number;
+  backendUsed: string;
+}
+
+export interface ImageUpscaleProgressPayload {
+  taskId: string;
+  progress: number;
+  stage: string;
+  backend?: string;
+  message?: string;
 }
 
 export interface StartImageCompressPayload {
@@ -272,6 +315,22 @@ export class TauriClient {
    */
   public async openDirectoryInFileManager(payload: OpenDirectoryPayload): Promise<void> {
     await this.call<void>("open_directory_in_file_manager", { payload });
+  }
+
+  /**
+   * 执行单张图片高清放大。
+   */
+  public async startImageUpscale(payload: StartImageUpscalePayload): Promise<StartImageUpscaleResult> {
+    return this.call<StartImageUpscaleResult>("start_image_upscale", { payload });
+  }
+
+  /**
+   * 监听 Rust 侧推送的图片高清放大进度事件。
+   */
+  public async onImageUpscaleProgress(handler: (payload: ImageUpscaleProgressPayload) => void): Promise<UnlistenFn> {
+    return listen<ImageUpscaleProgressPayload>(IMAGE_UPSCALE_PROGRESS_EVENT, (event) => {
+      handler(event.payload);
+    });
   }
 
   /**

@@ -90,69 +90,77 @@ const outputFooterPath = computed(() =>
             </header>
 
             <div class="main-column__body">
-            
-
-              <div
-                class="upload-zone"
-                :class="{ 'upload-zone--active': isDropActive }"
-                @click.self="pickImages"
-                @drop="handleDrop"
-                @dragover="onDragOver"
-                @dragleave="onDragLeave"
-              >
-                <div class="upload-zone__icon" aria-hidden="true">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25">
-                    <rect x="3" y="5" width="18" height="14" rx="2" />
-                    <path d="M7 15l3-3 2 2 4-4" />
-                    <circle cx="8.5" cy="9.5" r="1" fill="currentColor" stroke="none" />
-                  </svg>
+              <div class="upload-shell">
+                <div
+                  class="upload-stage"
+                  :class="{ 'upload-stage--active': isDropActive }"
+                  @click.self="pickImages"
+                  @drop="handleDrop"
+                  @dragover="onDragOver"
+                  @dragleave="onDragLeave"
+                >
+                  <div class="upload-zone">
+                    <div class="upload-zone__icon" aria-hidden="true">
+                      <svg viewBox="0 0 80 64" class="upload-zone__svg">
+                        <rect x="6" y="14" width="36" height="28" rx="4" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5" />
+                        <rect x="30" y="22" width="36" height="28" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5" />
+                        <circle cx="58" cy="18" r="12" fill="#2563eb" />
+                        <path d="M58 13v10M53 18h10" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+                      </svg>
+                    </div>
+                    <strong class="upload-zone__title">{{ t("pages.imageCompress.upload.dropTitle") }}</strong>
+                    <p class="upload-zone__desc">{{ t("pages.imageCompress.upload.dropDesc") }}</p>
+                    <div class="upload-zone__actions">
+                      <button type="button" class="btn btn--primary" @click.stop="pickImages">
+                        {{ t("pages.imageCompress.source.pickImages") }}
+                      </button>
+                      <button type="button" class="btn btn--secondary" @click.stop="pickAddFolder">
+                        {{ t("pages.imageCompress.source.pickDirectory") }}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <p class="upload-zone__title">{{ t("pages.imageCompress.upload.dropTitle") }}</p>
-                <p class="upload-zone__desc">{{ t("pages.imageCompress.upload.formatsLine") }}</p>
-                <div class="upload-zone__actions">
-                  <button type="button" class="primary-btn primary-btn--sm btn-touch" @click.stop="pickImages">
-                    {{ t("pages.imageCompress.upload.button") }}
-                  </button>
-                  <button type="button" class="secondary-btn btn-touch" @click.stop="pickAddFolder">
-                    {{ t("pages.imageCompress.upload.addFolder") }}
-                  </button>
-                </div>
-                <p v-if="hintMessage" class="hint">{{ hintMessage }}</p>
+                <p v-if="hintMessage" class="preview-hint" role="status">{{ hintMessage }}</p>
               </div>
 
-              <section class="task-section" :aria-label="t('pages.imageCompress.fileListTitle')">
-                <div class="task-toolbar">
-                  <h3 class="task-toolbar__title">{{ t("pages.imageCompress.fileListTitle") }} ({{ items.length }})</h3>
-                  <div class="task-toolbar__actions">
-                    <button type="button" class="secondary-btn btn-touch" :disabled="isProcessing" @click="clearItems">
+              <section class="list-card" aria-labelledby="compress-list-heading">
+                <div class="list-card__head">
+                  <h3 id="compress-list-heading" class="list-card__title">
+                    {{ t("pages.imageCompress.list.title") }} ({{ items.length }})
+                  </h3>
+                  <div v-if="items.length > 0" class="list-card__actions">
+                    <button type="button" class="btn btn--secondary btn--sm" :disabled="isProcessing" @click="clearItems">
                       {{ t("pages.imageCompress.clearList") }}
                     </button>
                     <button
                       type="button"
-                      class="toolbar-danger btn-touch"
+                      class="btn btn--danger btn--sm"
                       :disabled="isProcessing || selectedCount === 0"
                       @click="removeSelected"
                     >
-                      {{ t("pages.imageCompress.deleteSelected") }}
+                      {{ t("pages.imageCompress.list.deleteSelected") }}
                     </button>
                   </div>
                 </div>
-                <p v-if="hiddenItemCount > 0" class="list-tip">
+                <p v-if="hiddenItemCount > 0" class="list-card__tip" role="status">
                   {{ t("pages.imageCompress.listOverflowTip", { count: hiddenItemCount }) }}
                 </p>
 
-                <div v-if="items.length === 0" class="task-empty">
-                  <div class="task-empty__icon" aria-hidden="true">
-                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1">
-                      <path d="M4 6h16v12H4z" />
-                      <path d="M8 10h8M8 14h5" />
-                    </svg>
+                <div class="list-card__body">
+                  <div v-if="items.length === 0" class="list-empty">
+                    <div class="list-empty__icon" aria-hidden="true">
+                      <svg viewBox="0 0 80 64" class="list-empty__svg">
+                        <rect x="10" y="16" width="34" height="26" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5" />
+                        <rect x="32" y="24" width="34" height="26" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
+                        <circle cx="56" cy="20" r="10" fill="#e2e8f0" />
+                        <path d="M56 16v8M52 20h8" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+                      </svg>
+                    </div>
+                    <p class="list-empty__title">{{ t("pages.imageCompress.list.emptyTitle") }}</p>
+                    <p class="list-empty__desc">{{ t("pages.imageCompress.list.emptyDesc") }}</p>
                   </div>
-                  <p class="task-empty__title">{{ t("pages.imageCompress.empty.title") }}</p>
-                  <p class="task-empty__desc">{{ t("pages.imageCompress.empty.desc") }}</p>
-                </div>
 
-                <div v-else class="table-scroll">
+                  <div v-else class="table-wrap">
                   <table class="task-table">
                     <thead>
                       <tr>
@@ -173,7 +181,7 @@ const outputFooterPath = computed(() =>
                         <th scope="col">{{ t("pages.imageCompress.table.compressedSize") }}</th>
                         <th scope="col">{{ t("pages.imageCompress.table.status") }}</th>
                         <th scope="col">{{ t("pages.imageCompress.table.progress") }}</th>
-                        <th class="task-table__col-op" scope="col">{{ t("pages.imageCompress.table.operation") }}</th>
+                        <th class="task-table__col-action" scope="col">{{ t("pages.imageCompress.table.operation") }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -208,19 +216,15 @@ const outputFooterPath = computed(() =>
                             <span class="progress-inline__pct">{{ item.progress }}%</span>
                           </div>
                         </td>
-                        <td>
-                          <button
-                            type="button"
-                            class="secondary-btn secondary-btn--compact btn-touch"
-                            :disabled="isProcessing"
-                            @click="removeItem(item.id)"
-                          >
+                        <td class="task-table__col-action">
+                          <button type="button" class="btn btn--link" :disabled="isProcessing" @click="removeItem(item.id)">
                             {{ t("pages.imageCompress.remove") }}
                           </button>
                         </td>
                       </tr>
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </section>
 
@@ -554,13 +558,23 @@ const outputFooterPath = computed(() =>
   color: var(--text-hint);
 }
 
-.upload-zone {
+.upload-shell {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-stage {
+  flex-shrink: 0;
+  min-height: 120px;
   border: 1px dashed #d6d9e0;
   border-radius: 14px;
   background: #fafbfd;
-  text-align: center;
-  padding: 22px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
   cursor: pointer;
   transition:
     border-color 0.2s ease,
@@ -568,30 +582,42 @@ const outputFooterPath = computed(() =>
     box-shadow 0.2s ease;
 }
 
-.upload-zone:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-.upload-zone:hover {
+.upload-stage:hover {
   border-color: #c7d2fe;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
 }
 
-.upload-zone--active {
+.upload-stage:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.upload-stage--active {
   border-color: #c7d2fe;
   background: #f5f6fa;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
+.upload-zone {
+  width: min(520px, 100%);
+  text-align: center;
+  padding: 16px 16px 20px;
+  color: var(--text-hint);
+}
+
 .upload-zone__icon {
   display: flex;
   justify-content: center;
-  color: #b1b6c2;
   margin-bottom: 8px;
 }
 
+.upload-zone__svg {
+  width: 88px;
+  height: auto;
+}
+
 .upload-zone__title {
+  display: block;
   margin: 0;
   font-size: 15px;
   font-weight: 600;
@@ -601,104 +627,103 @@ const outputFooterPath = computed(() =>
 
 .upload-zone__desc {
   margin: 6px 0 0;
-  color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .upload-zone__actions {
-  margin-top: 14px;
+  margin-top: 16px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
 }
 
-.hint {
-  color: #ef4444;
-  margin: 10px 0 0;
+.preview-hint {
+  margin: 0;
   font-size: 13px;
   line-height: 1.45;
+  color: #ef4444;
 }
 
-.task-section {
+.list-card {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 14px 16px;
   background: #fafbfd;
-  min-width: 0;
+  overflow: hidden;
 }
 
-.task-toolbar {
+.list-card__head {
+  flex-shrink: 0;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
-.task-toolbar__title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--text);
-}
-
-.task-toolbar__actions {
+.list-card__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  justify-content: flex-end;
 }
 
-.toolbar-danger {
-  border: none;
-  background: transparent;
-  color: #dc2626;
+.list-card__title {
+  margin: 0;
+  font-size: 15px;
   font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  padding: 8px 10px;
-  border-radius: 10px;
-  transition: background 0.15s ease;
+  color: var(--text);
 }
 
-.toolbar-danger:hover:not(:disabled) {
-  background: #fee2e2;
-}
-
-.toolbar-danger:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.list-tip {
-  margin: 8px 0 0;
-  color: var(--primary);
+.list-card__tip {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 8px 12px 0;
   font-size: 12px;
   line-height: 1.5;
+  color: var(--primary);
+  background: #ffffff;
 }
 
-.task-empty {
-  margin-top: 16px;
-  padding: 28px 16px;
+.list-card__body {
+  overflow-x: auto;
+  padding: 0;
+  background: #ffffff;
+}
+
+.list-card__body::-webkit-scrollbar {
+  height: 6px;
+}
+
+.list-card__body::-webkit-scrollbar-thumb {
+  background: #d6d9e0;
+  border-radius: 3px;
+}
+
+.list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px;
+  padding: 28px 20px;
   text-align: center;
-  color: var(--text-muted);
   border: 1px dashed #e0e3ea;
   border-radius: 14px;
   background: #f5f6fa;
 }
 
-.task-empty__icon {
-  display: flex;
-  justify-content: center;
-  color: #c7cad1;
-  margin-bottom: 10px;
-}
-
-.task-empty__title {
+.list-empty__title {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
@@ -706,17 +731,28 @@ const outputFooterPath = computed(() =>
   color: var(--text);
 }
 
-.task-empty__desc {
-  margin: 6px 0 0;
+.list-empty__desc {
+  margin: 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-secondary);
+  max-width: 320px;
 }
 
-.table-scroll {
-  margin-top: 12px;
-  overflow-x: auto;
-  max-width: 100%;
+.list-empty__icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.list-empty__svg {
+  width: 72px;
+  height: auto;
+  opacity: 0.85;
+}
+
+.table-wrap {
+  min-width: 960px;
 }
 
 .task-table {
@@ -727,10 +763,17 @@ const outputFooterPath = computed(() =>
   letter-spacing: 0;
 }
 
+.task-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #ffffff;
+}
+
 .task-table th,
 .task-table td {
   border-bottom: 1px solid #e7e9ee;
-  padding: 10px 8px;
+  padding: 10px 12px;
   text-align: left;
   vertical-align: middle;
 }
@@ -738,16 +781,126 @@ const outputFooterPath = computed(() =>
 .task-table th {
   font-weight: 600;
   color: var(--text);
-  background: #ffffff;
   white-space: nowrap;
+}
+
+.task-table__col-action {
+  width: 88px;
+  text-align: right;
 }
 
 .task-table__col-check {
   width: 40px;
 }
 
-.task-table__col-op {
-  white-space: nowrap;
+.btn {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s,
+    filter 0.15s,
+    border-color 0.15s;
+}
+
+.btn:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+.btn--primary {
+  background: var(--primary);
+  color: #ffffff;
+  padding: 10px 18px;
+  font-weight: 600;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.22);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.28);
+}
+
+.btn--primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary.btn--start {
+  background: linear-gradient(135deg, #fbb054 0%, #f78c2c 100%);
+  font-weight: 700;
+  box-shadow: var(--cta-shadow);
+}
+
+.btn--primary.btn--start:hover:not(:disabled) {
+  filter: brightness(1.03);
+  box-shadow: 0 6px 16px rgba(243, 132, 30, 0.32);
+  background: linear-gradient(135deg, #fbb054 0%, #f78c2c 100%);
+}
+
+.btn--secondary {
+  background: #fff;
+  color: var(--text-secondary);
+  padding: 8px 14px;
+  border: 1px solid var(--border-weak);
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.btn--secondary:hover:not(:disabled) {
+  border-color: #dbeafe;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.06);
+}
+
+.btn--secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.btn--link {
+  background: none;
+  border: none;
+  color: var(--accent-link);
+  padding: 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn--link:hover:not(:disabled) {
+  color: var(--accent-link-hover);
+  text-decoration: underline;
+}
+
+.btn--link:focus-visible {
+  outline: 2px solid var(--accent-link);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.btn--link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--danger {
+  background: #fff;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.btn--danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .task-table__cell-name {
@@ -1234,67 +1387,6 @@ const outputFooterPath = computed(() =>
   max-width: min(520px, 45vw);
 }
 
-.btn {
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition:
-    background 0.15s,
-    color 0.15s,
-    box-shadow 0.15s;
-}
-
-.btn:focus-visible {
-  outline: 2px solid #f97316;
-  outline-offset: 2px;
-}
-
-.btn--primary {
-  background: linear-gradient(135deg, #fbb054 0%, #f78c2c 100%);
-  color: #ffffff;
-  padding: 10px 18px;
-  font-weight: 700;
-  box-shadow: var(--cta-shadow);
-}
-
-.btn--primary:hover:not(:disabled) {
-  filter: brightness(1.03);
-  box-shadow: 0 6px 16px rgba(243, 132, 30, 0.32);
-}
-
-.btn--primary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.btn--link {
-  background: none;
-  border: none;
-  color: var(--accent-link);
-  padding: 4px 0;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn--link:hover:not(:disabled) {
-  color: var(--accent-link-hover);
-  text-decoration: underline;
-}
-
-.btn--link:focus-visible {
-  outline: 2px solid var(--accent-link);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-.btn--link:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .btn--start {
   padding: 12px 28px;
   font-size: 15px;
@@ -1350,11 +1442,11 @@ const outputFooterPath = computed(() =>
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .upload-zone,
+  .upload-stage,
   .primary-btn,
   .secondary-btn,
   .format-option,
-  .btn--primary {
+  .btn {
     transition-duration: 0.01ms !important;
   }
 }
@@ -1389,9 +1481,14 @@ const outputFooterPath = computed(() =>
     grid-template-columns: 1fr;
   }
 
-  .task-toolbar {
+  .list-card__head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .list-card__actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .result-grid {
