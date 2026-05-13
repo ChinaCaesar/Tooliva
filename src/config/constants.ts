@@ -2,6 +2,10 @@ import type { AppLanguage, UserSettings, WindowSizeOption } from "@/types/settin
 
 export const APP_NAME = "Desktop Toolbox";
 export const SETTINGS_STORAGE_KEY = "desktop-toolbox:user-settings";
+/** 应用壳侧栏折叠状态（仅 Web 层；Tauri 设置存 SQLite）。 */
+export const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "desktop-toolbox:app-sidebar-collapsed";
+/** 清除本地数据后广播，供首页等刷新仅内存态。 */
+export const LOCAL_DATA_CLEARED_EVENT = "desktop-toolbox:local-data-cleared";
 
 export const DEFAULT_LANGUAGE: AppLanguage = "zh-CN";
 export const WINDOW_SIZE_OPTIONS: WindowSizeOption[] = [

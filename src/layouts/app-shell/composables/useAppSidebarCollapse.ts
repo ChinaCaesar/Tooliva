@@ -1,10 +1,9 @@
 import { ref, watch, type Ref } from "vue";
-
-const STORAGE_KEY = "desktop-toolbox:app-sidebar-collapsed";
+import { APP_SIDEBAR_COLLAPSED_STORAGE_KEY } from "@/config/constants";
 
 function readStored(): boolean {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(APP_SIDEBAR_COLLAPSED_STORAGE_KEY);
     return raw === "1" || raw === "true";
   } catch {
     return false;
@@ -13,7 +12,7 @@ function readStored(): boolean {
 
 function writeStored(collapsed: boolean): void {
   try {
-    localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
+    localStorage.setItem(APP_SIDEBAR_COLLAPSED_STORAGE_KEY, collapsed ? "1" : "0");
   } catch {
     /* 存储不可用时不阻断 */
   }

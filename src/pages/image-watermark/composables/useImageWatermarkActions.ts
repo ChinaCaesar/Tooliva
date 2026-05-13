@@ -19,7 +19,6 @@ type WatermarkStatus = "idle" | "running" | "completed" | "failed";
 
 const SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
 const SUPPORTED_WATERMARK_EXTENSIONS = [".png", ".webp", ".jpg", ".jpeg"];
-const SAVED_SECONDS_PER_USAGE = 75;
 const MAX_VISIBLE_ITEMS = 200;
 
 interface WatermarkResultSummary {
@@ -834,8 +833,7 @@ export function useImageWatermarkActions() {
         try {
           await tauriClient.recordToolUsage({
             toolKey: "image-watermark",
-            fileName: current.fileName,
-            savedSeconds: SAVED_SECONDS_PER_USAGE
+            fileName: current.fileName
           });
         } catch {
           // 统计失败不影响主流程。

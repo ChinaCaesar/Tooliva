@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { isTauri } from "@tauri-apps/api/core";
 import { i18n } from "@/i18n";
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from "@/config/constants";
+import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, APP_SIDEBAR_COLLAPSED_STORAGE_KEY, LOCAL_DATA_CLEARED_EVENT } from "@/config/constants";
 import { localStorageService } from "@/storage/localStorage";
 import { tauriClient } from "@/bridge/tauriClient";
 import type { AppLanguage, AppWindowSize, UserSettings } from "@/types/settings";
@@ -78,7 +78,40 @@ export const useSettingsStore = defineStore("settings", {
       void this.persist();
     },
     /**
-     * 将本地偏好恢复为默认值并写回持久化层（用于「清除本地数据」确认后）。
+     * 清除本机用户数据：SQLite 中的使用记录与设置、Web 层 localStorage 辅助项，
+     * 然后将偏好恢复为默认值并持久化（Tauri 会重新写入默认设置）。
+     */
+    async clearAllLocalUserData(): Promise<void> {
+      if (isTauri()) {
+        try {
+          await tauriClient.clearLocalUserData();
+        } catch {
+          /* 仍尝试重置偏好与本地缓存 */
+        }
+        try {
+          localStorage.removeItem(APP_SIDEBAR_COLLAPSED_STORAGE_KEY);
+          localStorage.removeItem(SETTINGS_STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+      } else {
+        try {
+          localStorage.clear();
+        } catch {
+          /* ignore */
+        }
+      }
+      this.$patch({ ...DEFAULT_SETTINGS });
+      i18n.global.locale.value = this.language;
+      await this.persist();
+      try {
+        globalThis.dispatchEvent(new CustomEvent(LOCAL_DATA_CLEARED_EVENT));
+      } catch {
+        /* ignore */
+      }
+    },
+    /**
+     * 将本地偏好恢复为默认值并写回持久化层（不清除使用记录）。
      */
     async resetToDefaultSettings(): Promise<void> {
       this.$patch({ ...DEFAULT_SETTINGS });

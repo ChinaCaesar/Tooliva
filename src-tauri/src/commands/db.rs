@@ -55,10 +55,9 @@ pub struct HomeStatsPayload {
     pub today_saved_minutes: i64,
 }
 
-/// 单条「最近使用」展示记录，对应某工具一次代表性使用事件。
+/// 单条「最近使用」展示记录：每个 `tool_key` 在库中至多对应一行（最近一次）。
 ///
-/// 当该结构出现在 `HomeDashboardPayload.recent_items` 中时，数组内 `tool_key` 互不相同，
-/// 每项均为该工具在 `usage_events` 中最近一次活动；整体按 `used_at_ts` 降序、`id` 降序，至多 3 条。
+/// 当该结构出现在 `HomeDashboardPayload.recent_items` 中时，至多 3 条，按 `used_at_ts` 降序。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HomeRecentUsagePayload {
@@ -82,6 +81,9 @@ pub struct HomeDashboardPayload {
 pub struct RecordToolUsagePayload {
     pub tool_key: String,
     pub file_name: String,
+    /// 保留字段以兼容旧前端；不再落库。
+    #[serde(default)]
+    #[allow(dead_code)]
     pub saved_seconds: i64,
 }
 
@@ -117,13 +119,27 @@ pub fn save_app_settings(payload: AppSettingsPayload, app: AppHandle) -> Result<
 pub fn record_tool_usage(payload: RecordToolUsagePayload, app: AppHandle) -> Result<(), String> {
     let conn = open_database(&app)?;
     let now_ts = current_unix_timestamp();
-    let saved_seconds = payload.saved_seconds.max(0);
     conn.execute(
-        "INSERT INTO usage_events (tool_key, file_name, saved_seconds, used_at)
-         VALUES (?1, ?2, ?3, ?4)",
-        params![payload.tool_key, payload.file_name, saved_seconds, now_ts],
+        "INSERT INTO tool_last_usage (tool_key, file_name, used_at)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(tool_key) DO UPDATE SET
+           file_name = excluded.file_name,
+           used_at = excluded.used_at",
+        params![payload.tool_key, payload.file_name, now_ts],
     )
-    .map_err(|err| format!("写入使用记录失败：{err}"))?;
+    .map_err(|err| format!("写入最近使用记录失败：{err}"))?;
+    Ok(())
+}
+
+/// 清除 SQLite 中的使用记录与已保存设置行（不含应用数据目录下其他文件）。
+/// 前端应在成功后重新写入默认设置。
+#[tauri::command]
+pub fn clear_local_user_data(app: AppHandle) -> Result<(), String> {
+    let conn = open_database(&app)?;
+    conn.execute("DELETE FROM tool_last_usage", [])
+        .map_err(|err| format!("清除使用记录失败：{err}"))?;
+    conn.execute("DELETE FROM settings WHERE key = ?1", params![SETTINGS_KEY])
+        .map_err(|err| format!("清除设置记录失败：{err}"))?;
     Ok(())
 }
 
@@ -131,49 +147,19 @@ pub fn record_tool_usage(payload: RecordToolUsagePayload, app: AppHandle) -> Res
 pub fn get_home_dashboard(app: AppHandle) -> Result<HomeDashboardPayload, String> {
     let conn = open_database(&app)?;
 
-    let mut stats_stmt = conn
-        .prepare(
-            "SELECT
-                COUNT(*) AS total_usage_count,
-                COALESCE(SUM(saved_seconds), 0) AS total_saved_seconds,
-                SUM(CASE WHEN date(used_at, 'unixepoch', 'localtime') = date('now', 'localtime') THEN 1 ELSE 0 END) AS today_usage_count,
-                COALESCE(SUM(CASE WHEN date(used_at, 'unixepoch', 'localtime') = date('now', 'localtime') THEN saved_seconds ELSE 0 END), 0) AS today_saved_seconds
-             FROM usage_events",
-        )
-        .map_err(|err| format!("准备统计语句失败：{err}"))?;
+    // 不再聚合「次数 / 节省时间」等；保留字段供旧版前端兼容，恒为零与空列表。
+    let stats = HomeStatsPayload {
+        total_usage_count: 0,
+        today_usage_count: 0,
+        total_saved_minutes: 0,
+        today_saved_minutes: 0,
+    };
 
-    let stats = stats_stmt
-        .query_row([], |row| {
-            let total_usage_count: i64 = row.get(0)?;
-            let total_saved_seconds: i64 = row.get(1)?;
-            let today_usage_count: i64 = row.get(2)?;
-            let today_saved_seconds: i64 = row.get(3)?;
-            Ok(HomeStatsPayload {
-                total_usage_count,
-                today_usage_count,
-                total_saved_minutes: convert_seconds_to_minutes(total_saved_seconds),
-                today_saved_minutes: convert_seconds_to_minutes(today_saved_seconds),
-            })
-        })
-        .map_err(|err| format!("读取统计数据失败：{err}"))?;
-
-    // 按工具去重：每个 tool_key 仅保留最近一次事件，再取全局最近的 3 个工具（需 SQLite 窗口函数支持）。
     let mut recent_stmt = conn
         .prepare(
-            "SELECT id, tool_key, file_name, used_at
-             FROM (
-                 SELECT id,
-                        tool_key,
-                        file_name,
-                        used_at,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY tool_key
-                            ORDER BY used_at DESC, id DESC
-                        ) AS rn
-                 FROM usage_events
-             ) ranked
-             WHERE rn = 1
-             ORDER BY used_at DESC, id DESC
+            "SELECT rowid, tool_key, file_name, used_at
+             FROM tool_last_usage
+             ORDER BY used_at DESC, rowid DESC
              LIMIT 3",
         )
         .map_err(|err| format!("准备最近使用语句失败：{err}"))?;
@@ -194,33 +180,10 @@ pub fn get_home_dashboard(app: AppHandle) -> Result<HomeDashboardPayload, String
         recent_items.push(row.map_err(|err| format!("解析最近使用数据失败：{err}"))?);
     }
 
-    let mut top_stmt = conn
-        .prepare(
-            "SELECT tool_key, COUNT(*) AS usage_count
-             FROM usage_events
-             GROUP BY tool_key
-             ORDER BY usage_count DESC, tool_key ASC
-             LIMIT 5",
-        )
-        .map_err(|err| format!("准备高频工具语句失败：{err}"))?;
-    let top_rows = top_stmt
-        .query_map([], |row| {
-            Ok(HomeTopToolPayload {
-                tool_key: row.get(0)?,
-                usage_count: row.get(1)?,
-            })
-        })
-        .map_err(|err| format!("读取高频工具数据失败：{err}"))?;
-
-    let mut top_tools = Vec::new();
-    for row in top_rows {
-        top_tools.push(row.map_err(|err| format!("解析高频工具数据失败：{err}"))?);
-    }
-
     Ok(HomeDashboardPayload {
         stats,
         recent_items,
-        top_tools,
+        top_tools: Vec::new(),
     })
 }
 
@@ -344,17 +307,49 @@ fn initialize_tables(connection: &Connection) -> Result<(), String> {
                 value TEXT NOT NULL,
                 updated_at INTEGER NOT NULL
              );
-             CREATE TABLE IF NOT EXISTS usage_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tool_key TEXT NOT NULL,
+             CREATE TABLE IF NOT EXISTS tool_last_usage (
+                tool_key TEXT PRIMARY KEY,
                 file_name TEXT NOT NULL,
-                saved_seconds INTEGER NOT NULL,
                 used_at INTEGER NOT NULL
              );
-             CREATE INDEX IF NOT EXISTS idx_usage_events_used_at ON usage_events(used_at DESC);
-             CREATE INDEX IF NOT EXISTS idx_usage_events_tool_key ON usage_events(tool_key);",
+             CREATE INDEX IF NOT EXISTS idx_tool_last_usage_used_at ON tool_last_usage(used_at DESC);",
         )
         .map_err(|err| format!("初始化数据库结构失败：{err}"))?;
+    migrate_legacy_usage_events_if_present(connection)?;
+    Ok(())
+}
+
+/// 将旧版 `usage_events` 中「每工具最近一次」迁入 `tool_last_usage` 后删除旧表。
+fn migrate_legacy_usage_events_if_present(connection: &Connection) -> Result<(), String> {
+    let legacy_exists: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='usage_events'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    if legacy_exists == 0 {
+        return Ok(());
+    }
+    connection
+        .execute_batch(
+            "INSERT OR REPLACE INTO tool_last_usage (tool_key, file_name, used_at)
+             SELECT tool_key, file_name, used_at FROM (
+                 SELECT tool_key,
+                        file_name,
+                        used_at,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY tool_key
+                            ORDER BY used_at DESC, id DESC
+                        ) AS rn
+                 FROM usage_events
+             ) ranked
+             WHERE rn = 1;
+             DROP INDEX IF EXISTS idx_usage_events_used_at;
+             DROP INDEX IF EXISTS idx_usage_events_tool_key;
+             DROP TABLE IF EXISTS usage_events;",
+        )
+        .map_err(|err| format!("迁移使用记录表失败：{err}"))?;
     Ok(())
 }
 
@@ -365,9 +360,3 @@ fn current_unix_timestamp() -> i64 {
         .unwrap_or(0)
 }
 
-fn convert_seconds_to_minutes(seconds: i64) -> i64 {
-    if seconds <= 0 {
-        return 0;
-    }
-    (seconds + 59) / 60
-}

@@ -28,7 +28,8 @@ pub fn run() {
             commands::db::get_app_settings,
             commands::db::save_app_settings,
             commands::db::record_tool_usage,
-            commands::db::get_home_dashboard
+            commands::db::get_home_dashboard,
+            commands::db::clear_local_user_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -16,7 +16,6 @@ type CompressFormat = "auto" | "jpg" | "png" | "webp";
 /** 分辨率策略：保持原始像素上限，或由最大宽高推导输出像素上限 */
 export type CompressResolutionPreset = "original" | "bounded";
 const SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
-const SAVED_SECONDS_PER_USAGE = 90;
 const MAX_VISIBLE_ITEMS = 200;
 const DEFAULT_QUALITY = 80;
 const DEFAULT_FORMAT: CompressFormat = "auto";
@@ -415,8 +414,7 @@ export function useImageCompressActions() {
         try {
           await tauriClient.recordToolUsage({
             toolKey: "image-compress",
-            fileName: current.fileName,
-            savedSeconds: SAVED_SECONDS_PER_USAGE
+            fileName: current.fileName
           });
         } catch {
           // 统计失败不影响主流程。

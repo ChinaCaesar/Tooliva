@@ -8,7 +8,8 @@ export const IMAGE_WATERMARK_PROGRESS_EVENT = "image-watermark-progress";
 export interface RecordToolUsagePayload {
   toolKey: string;
   fileName: string;
-  savedSeconds: number;
+  /** 已废弃：后端不再持久化，可省略。 */
+  savedSeconds?: number;
 }
 
 export interface HomeStatsPayload {
@@ -27,8 +28,10 @@ export interface HomeRecentUsagePayload {
 }
 
 export interface HomeDashboardPayload {
+  /** 已废弃语义：恒为零，不再聚合本地使用统计。 */
   stats: HomeStatsPayload;
   recentItems: HomeRecentUsagePayload[];
+  /** 已废弃：恒为空数组，不再返回高频工具。 */
   topTools: HomeTopToolPayload[];
 }
 
@@ -214,7 +217,7 @@ export class TauriClient {
   }
 
   /**
-   * 记录工具使用事件，用于首页统计与最近使用列表。
+   * 更新某工具的「最近使用」展示信息（每工具仅保留一条；不记录累计次数或节省时间）。
    */
   public async recordToolUsage(payload: RecordToolUsagePayload): Promise<void> {
     await this.call<void>("record_tool_usage", { payload });
@@ -225,6 +228,11 @@ export class TauriClient {
    */
   public async getHomeDashboard(): Promise<HomeDashboardPayload> {
     return this.call<HomeDashboardPayload>("get_home_dashboard");
+  }
+
+  /** 清除 SQLite 中的使用记录与设置行；调用后需由前端重新写入默认设置。 */
+  public async clearLocalUserData(): Promise<void> {
+    await this.call<void>("clear_local_user_data");
   }
 
   /**

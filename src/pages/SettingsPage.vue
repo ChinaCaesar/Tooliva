@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
 import { open, message } from "@tauri-apps/plugin-dialog";
@@ -36,6 +36,40 @@ const {
 } = storeToRefs(settingsStore);
 
 const appVersion = computed(() => HOME_PAGE_CONFIG.footer.version);
+
+const clearDataModalOpen = ref(false);
+const clearDataAcknowledged = ref(false);
+const clearDataClearing = ref(false);
+const clearDataModalPanelRef = ref<HTMLElement | null>(null);
+
+watch(clearDataModalOpen, (open) => {
+  if (open) {
+    clearDataAcknowledged.value = false;
+    void nextTick(() => {
+      clearDataModalPanelRef.value?.focus();
+    });
+  }
+});
+
+function openClearDataModal(): void {
+  clearDataModalOpen.value = true;
+}
+
+function closeClearDataModal(): void {
+  if (clearDataClearing.value) return;
+  clearDataModalOpen.value = false;
+}
+
+async function confirmClearLocalDataInModal(): Promise<void> {
+  if (!clearDataAcknowledged.value || clearDataClearing.value) return;
+  clearDataClearing.value = true;
+  try {
+    await settingsStore.clearAllLocalUserData();
+    clearDataModalOpen.value = false;
+  } finally {
+    clearDataClearing.value = false;
+  }
+}
 
 function onLanguageChange(event: Event): void {
   const target = event.target as HTMLSelectElement;
@@ -112,11 +146,6 @@ async function onClearCache(): Promise<void> {
   else window.alert(body);
 }
 
-async function onClearLocalData(): Promise<void> {
-  const ok = window.confirm(t("pages.settings.dashboard.clearDataConfirm"));
-  if (!ok) return;
-  await settingsStore.resetToDefaultSettings();
-}
 
 async function onCheckUpdates(): Promise<void> {
   const body = t("pages.settings.dashboard.checkUpdatesHint");
@@ -300,7 +329,7 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
               </label>
             </SettingsRow>
             <SettingsRow :title="$t('pages.settings.dashboard.clearDataTitle')" :description="$t('pages.settings.dashboard.clearDataDesc')">
-              <button type="button" class="btn-danger" @click="onClearLocalData">
+              <button type="button" class="btn-danger" @click="openClearDataModal">
                 {{ $t("pages.settings.dashboard.clearData") }}
               </button>
             </SettingsRow>
@@ -327,6 +356,47 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="clearDataModalOpen"
+        class="clear-data-modal-backdrop"
+        aria-hidden="false"
+        @click.self="closeClearDataModal"
+      >
+        <div
+          ref="clearDataModalPanelRef"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="clear-data-modal-title"
+          tabindex="-1"
+          class="clear-data-modal-panel"
+          @keydown.escape.prevent="closeClearDataModal"
+        >
+          <h2 id="clear-data-modal-title" class="clear-data-modal-title">
+            {{ $t("pages.settings.dashboard.clearDataModalTitle") }}
+          </h2>
+          <p class="clear-data-modal-body">{{ $t("pages.settings.dashboard.clearDataModalBody") }}</p>
+          <label class="clear-data-modal-ack">
+            <input v-model="clearDataAcknowledged" type="checkbox" />
+            <span>{{ $t("pages.settings.dashboard.clearDataModalAck") }}</span>
+          </label>
+          <div class="clear-data-modal-actions">
+            <button type="button" class="btn-ghost" :disabled="clearDataClearing" @click="closeClearDataModal">
+              {{ $t("pages.settings.dashboard.clearDataModalCancel") }}
+            </button>
+            <button
+              type="button"
+              class="btn-danger"
+              :disabled="!clearDataAcknowledged || clearDataClearing"
+              @click="confirmClearLocalDataInModal"
+            >
+              {{ $t("pages.settings.dashboard.clearDataModalConfirm") }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -496,5 +566,70 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
   margin: 0;
   font-size: 11px;
   color: #94a3b8;
+}
+
+.clear-data-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+.clear-data-modal-panel {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  padding: 22px 22px 18px;
+  outline: none;
+}
+.clear-data-modal-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.clear-data-modal-body {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #475569;
+}
+.clear-data-modal-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #334155;
+  cursor: pointer;
+}
+.clear-data-modal-ack input {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: #dc2626;
+}
+.clear-data-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.btn-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 </style>

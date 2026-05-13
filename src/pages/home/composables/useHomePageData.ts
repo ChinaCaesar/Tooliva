@@ -1,5 +1,6 @@
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import type { HomeRecentUsagePayload } from "@/bridge/tauriClient";
+import { LOCAL_DATA_CLEARED_EVENT } from "@/config/constants";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { HOME_PAGE_CONFIG } from "@/pages/home/config/home.config";
 import { isTauri } from "@tauri-apps/api/core";
@@ -251,8 +252,21 @@ export function useHomePageData() {
     }
   }
 
+  function onLocalDataCleared(): void {
+    if (!isTauri()) {
+      recentItems.value = [];
+      return;
+    }
+    void hydrateDashboardFromSqlite();
+  }
+
   onMounted(() => {
     void hydrateDashboardFromSqlite();
+    globalThis.addEventListener(LOCAL_DATA_CLEARED_EVENT, onLocalDataCleared);
+  });
+
+  onUnmounted(() => {
+    globalThis.removeEventListener(LOCAL_DATA_CLEARED_EVENT, onLocalDataCleared);
   });
 
   return {
