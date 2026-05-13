@@ -1,0 +1,150 @@
+---
+description: Desktop 应用 UI 细节规范（提炼自首页与 App Shell），新建或改版页面时对齐字号、间距、配色与交互态
+globs:
+  - src/**/*.vue
+  - src/styles/**/*.css
+alwaysApply: false
+---
+
+## 适用范围
+
+新建或改版 **壳内桌面页**（`AppShellLayout` 子路由、`home` 模块及同类工作台页）时，优先与首页已实现视觉保持一致。旧页面若仍存在 Tailwind Slate 色号（如 `#0f172a`），改版触摸到样式时应逐步向本规范对齐，避免同一应用内多套灰阶语义并存。
+
+---
+
+## 字体与排版
+
+**字体栈**（沿用 `src/styles/base.css` 的 `:root`）：
+
+- `font-family`: `"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif`
+- Web 顶层默认字色可作参考 `#1f2d3d`；**卡片/工作台内正文主色**已与首页统一为 **`#1f2937`**（Gray-800）。
+
+**字阶与字重（与首页、`HomeTopBar`、`HomeFeaturedToolsRow`、`RecentUsageList`、侧栏信息卡对齐）**
+
+| 用途 | font-size | line-height | font-weight | color（默认） |
+|------|-----------|-------------|-------------|---------------|
+| 页面级主标题 / 问候标题 | clamp(20px, 1.8vw, 24px)；顶栏标题约 16px | 约 1.25–1.4 | **700** / 顶栏标题 **600** | `#1f2937` |
+| 分区标题（卡片标题、「最近使用」等） | 14–15px | 约 1.4 | **600** | `#1f2937` |
+| 正文 / 列表项一行说明 | 12–13px | 约 1.45–1.55 | **400–500**（列表可加 **600** 于首行） | 正文 `#4b5563`；次要 `#9ca3af` |
+| 辅文 / 占位 / 次级链接 | 11–12px | 约 1.5 | **400–500** | `#9aa1ad`、`#aab0bc`、`#b3b8c2` |
+| Tab / Keyboard 徽章 | ~11px | 1 | 常规 | `#9ca3af`，边框 `#e7e9ee` |
+
+**字距**：正文与标题 **`letter-spacing: 0`**，勿随意加大字间距；中英文混排以系统默认微调为准。
+
+---
+
+## 灰阶与表面色（核心配色）
+
+这些是首页与顶栏反复复用的语义色值，新建组件应直接使用相同 hex，日后可再汇总为 CSS 变量。
+
+| 令牌含义 | HEX | 使用场景 |
+|----------|-----|----------|
+| 画布背景 | `#f5f6fa` | `AppShellLayout` body、首页 `.home-page` |
+| 卡片背景 | `#ffffff` | 主卡片、Chip、下拉浮层 |
+| 卡片边框 | `#eef0f4` | 默认实线边框、分割感弱的容器 |
+| 浅分割线 / 占位边框 | `#e0e3ea`、`#e7e9ee` | 虚线空态、`kbd`、弱分割 |
+| 悬停边框（蓝意图） | `#dbeafe`、`#c7d2fe`（聚焦环配合） | 可交互卡片、搜索框 focus |
+| 悬浮层阴影边 | `#eef0f4` | 顶栏搜索结果外框 |
+
+**文字灰阶层级**
+
+| 层级 | HEX | 场景 |
+|------|-----|------|
+| Primary | `#1f2937` | 标题、正文主色 |
+| Secondary | `#4b5563` | 列表正文、次级标题 |
+| Tertiary / meta | `#6b7280` | 顶栏次要信息、 Slogan |
+| Disabled / hint | `#9ca3af`、`#9aa1ad`、`#aab0bc` | 占位符、说明、次级链接默认态 |
+| 图标弱色 | `#b1b6c2`、`#c7cad1` | chevron、装饰点 |
+
+---
+
+## 品牌与功能色
+
+- **主操作 / 焦点（ Indigo ）**：`#6366f1` — 正文链接、`focus-visible` outline（桌面通用）、次级按钮悬停语义；聚焦环可加 `outline-offset: 2px`。**搜索框焦点**：边框 `#c7d2fe`，外环 `box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12)`。
+- **主推 CTA（暖色渐变）**：`linear-gradient(135deg, #fbb054 0%, #f78c2c 100%)`；文字 **`#ffffff`**；阴影示例 `0 4px 12px rgba(243, 132, 30, 0.25)`，hover 略提亮并重设阴影。**焦点**：`outline: 2px solid #f97316` 或大块按钮 `outline: 3px solid #fbbf24`。
+- **暖色链路文字**：默认 `#f97316`，hover `#ea580c` — 「了解更多」类文字按钮。
+- **成功勾选**：`#22c55e`；**权益类勾选**：`#f97316`（与同区 CTA 一致）。
+- **强调红（低频）**：`#ef4444` — 如页脚心形图标实心填充。
+- **危险/关闭 hover（窗口控制）**：背景 `#fee2e2`，图标 `#dc2626`。
+
+渐变工具卡背景的专用色由各业务配置（如 `linear-gradient` 在 mock），新工具卡应保持 **高饱和度 + 与白字/白图标对比** 的原有产品逻辑，不单列固定 hex。
+
+---
+
+## 间距与布局节奏
+
+首页采用 **4 的倍数** 为主、辅以 **14px / 22px** 打破呆板对齐：
+
+| 场景 | 数值 |
+|------|------|
+| 页面主体内边距（横纵） | 横向 **18px**、纵向约 **14px**（首页 `home-page__body`） |
+| 主滚动区内卡片纵向间距 | **14px** |
+| 单层卡片 `padding` | 常用 **14–18px**；首张大卡可加至 **22px（上）20px（左右）** |
+| 卡片内块级 `gap` | **10–16px** |
+| 列表项 / Chip 行间 | **8–12px** |
+| 小元素内边距（图标按钮、chip） | **6–12px** |
+| 顶栏横向 `padding` | 约 **12px–18px** |
+
+**原则**：同级别组件使用同级间距；从区块到元件递减（区 14–16 → 组 12 → 控件 8–10）。
+
+---
+
+## 圆角
+
+| 用途 | radius |
+|------|--------|
+| 外壳窗口卡片 | **16px**（`AppShellLayout` `.app-shell`） |
+| 首页大卡片 `.home-card` | **16px** |
+| 内嵌卡 / 侧栏块 / Chip | **12–14px** |
+| 小图标垫底、小按钮 | **8–12px** |
+| 胶囊搜索框 / 胶囊主按钮 | **999px** |
+
+---
+
+## 阴影与层级
+
+- **静置卡片**：`box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02)`
+- **悬停卡片**（主推工具）：`0 10px 24px rgba(15, 23, 42, 0.08)`，并配合边框色 `#dbeafe`
+- **下拉/搜索结果**：`0 12px 30px rgba(15, 23, 42, 0.08)`，边框 `#eef0f4`
+- **小图标底板**：`0 4px 10px rgba(0, 0, 0, 0.08)` 或小 chip `0 2px 6px rgba(0, 0, 0, 0.08)`
+- **插画装饰**：可用 `drop-shadow(0 8px 20px rgba(99, 102, 241, 0.14))` 量级，勿过重
+
+---
+
+## 边框与空态
+
+- 默认：**1px solid `#eef0f4`**
+- 弱占位 / 探索更多：**`border-style: dashed`**，颜色 `#d6d9e0`–`#e0e3ea`，背景 **`#fafbfd`** 或 **`#f5f6fa`**
+- **空状态容器**： dashed + 浅背景与侧栏语义一致（见 Recent 空状态）
+
+---
+
+## 滚动条（壳内纵向滚动区域）
+
+自定义滚动区域（如 `.home-page__scroll`）建议保持一致：
+
+```css
+scrollbar-width: thin;
+scrollbar-color: #d6d9e0 transparent;
+/* WebKit */
+width: 6px;
+thumb-background: #d6d9e0;
+thumb-border-radius: 3px;
+```
+
+---
+
+## 交互与无障碍
+
+- 可点击控件必须有 **`cursor: pointer`**（或 `:disabled` 时 `default`）。
+- **`focus-visible`**：**2px solid**，`outline-offset` 通常 **2px**； Indigo 控件用 **`#6366f1`**，暖色控件用 **`#f97316`** / **`#fbbf24`**。
+- **`prefers-reduced-motion: reduce`**：对有位移/缩放过渡的 hover 需提供关闭或仅用 Opacity/Border transition 的降级（首页卡片 hover 已采用此思路）。
+- 图标按钮需有 **`aria-label`** 或可读文案；装饰图用 **`alt=""` + `aria-hidden="true"`**。
+
+---
+
+## 实施建议
+
+1. **新页面**：在 `scoped` 样式中引用上表语义色与间距；避免随意新增第三套灰色。
+2. **收敛阶段**：可把上表令牌迁移到 `src/styles/base.css` 的 `:root { --dt-* }` 再在组件中替换，单次 PR 可控进行。
+3. **与遗留页**：`MembershipPage`、`SettingsPage`、侧栏等处若仍为旧 Slate scale，改版时逐项替换为本文灰阶即可。
