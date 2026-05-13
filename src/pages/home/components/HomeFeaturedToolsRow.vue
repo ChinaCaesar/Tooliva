@@ -136,6 +136,11 @@ function pushScrollSample(el: HTMLElement): void {
 function onPointerDown(e: PointerEvent): void {
   const el = trackRef.value;
   if (!el || e.button !== 0) return;
+  /** 在工具卡上按下时勿 setPointerCapture：否则 up 落在轨道上，click 无法合成，卡片点击进不了路由。 */
+  const t = e.target;
+  if (t instanceof Element && t.closest(".feat-card")) {
+    return;
+  }
   stopMomentum();
   pointerDown = true;
   maxAbsDx = 0;

@@ -38,7 +38,7 @@ export const useNotificationStore = defineStore("notifications", {
   }),
   actions: {
     /**
-     * 添加一条右上角通知，并在默认时长后自动移除。
+     * 添加一条顶部居中通知，并在默认时长后自动移除。
      */
     showNotification(payload: ShowNotificationPayload): string {
       const notification: AppNotificationItem = {

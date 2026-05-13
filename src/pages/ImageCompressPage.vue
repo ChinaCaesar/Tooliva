@@ -18,12 +18,10 @@ const {
   resolutionPreset,
   maxWidthBound,
   maxHeightBound,
-  resultSummary,
   canStart,
   allVisibleSelected,
   someVisibleSelected,
   selectedCount,
-  formatElapsed,
   formatBytes,
   formatCompressionRatio,
   pickImages,
@@ -225,36 +223,6 @@ const outputFooterPath = computed(() =>
                       </tr>
                     </tbody>
                   </table>
-                  </div>
-                </div>
-              </section>
-
-              <section v-if="resultSummary" class="result-panel">
-                <h3>{{ t("pages.imageCompress.result.title") }}</h3>
-                <div class="result-grid">
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageCompress.result.total") }}</span>
-                    <strong>{{ resultSummary.total }}</strong>
-                  </div>
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageCompress.result.success") }}</span>
-                    <strong class="result-item__success">{{ resultSummary.success }}</strong>
-                  </div>
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageCompress.result.failed") }}</span>
-                    <strong class="result-item__failed">{{ resultSummary.failed }}</strong>
-                  </div>
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageCompress.result.elapsed") }}</span>
-                    <strong>{{ formatElapsed(resultSummary.elapsedMs) }}</strong>
-                  </div>
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageCompress.result.ratio") }}</span>
-                    <strong>{{ formatCompressionRatio(resultSummary.compressionRatio) }}</strong>
-                  </div>
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageCompress.result.sizeChange") }}</span>
-                    <strong>{{ formatBytes(resultSummary.totalInputBytes) }} → {{ formatBytes(resultSummary.totalOutputBytes) }}</strong>
                   </div>
                 </div>
               </section>
@@ -1422,53 +1390,6 @@ const outputFooterPath = computed(() =>
   border-radius: 999px;
 }
 
-.result-panel {
-  flex-shrink: 0;
-  margin-top: 4px;
-  border: 1px solid #bbf7d0;
-  border-radius: 14px;
-  background: rgba(240, 253, 244, 0.95);
-  padding: 14px 16px;
-}
-
-.result-panel h3 {
-  margin: 0;
-  color: #166534;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.result-grid {
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.result-item {
-  border: 1px solid #bbf7d0;
-  background: #fff;
-  border-radius: 10px;
-  padding: 10px;
-  min-width: 0;
-}
-
-.result-item__label {
-  color: var(--text-secondary);
-  font-size: 12px;
-  display: block;
-  margin-bottom: 4px;
-}
-
-.result-item__success {
-  color: #22c55e;
-}
-
-.result-item__failed {
-  color: #dc2626;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .upload-stage,
   .primary-btn,
@@ -1494,12 +1415,6 @@ const outputFooterPath = computed(() =>
   }
 }
 
-@media (max-width: 1024px) {
-  .result-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 768px) {
   .page-shell {
     padding: 10px 12px 12px;
@@ -1517,10 +1432,6 @@ const outputFooterPath = computed(() =>
   .list-card__actions {
     width: 100%;
     justify-content: flex-start;
-  }
-
-  .result-grid {
-    grid-template-columns: 1fr;
   }
 
   .bottom-bar {

@@ -21,12 +21,10 @@ const {
   sharpenLevel,
   preserveTransparentBackground,
   concurrency,
-  resultSummary,
   canStart,
   outputFooterPath,
   effectiveOutputDirectory,
   selectedCount,
-  formatElapsed,
   pickImages,
   pickSourceDirectory,
   pickAddFolder,
@@ -207,28 +205,6 @@ function itemPreviewSrc(path: string): string {
                         </tr>
                       </tbody>
                     </table>
-                  </div>
-                </div>
-              </section>
-
-              <section v-if="resultSummary" class="result-panel">
-                <h3>{{ t("pages.imageUpscale.result.title") }}</h3>
-                <div class="result-grid">
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageUpscale.result.total") }}</span>
-                    <strong>{{ resultSummary.total }}</strong>
-                  </div>
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageUpscale.result.success") }}</span>
-                    <strong class="result-item__success">{{ resultSummary.success }}</strong>
-                  </div>
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageUpscale.result.failed") }}</span>
-                    <strong class="result-item__failed">{{ resultSummary.failed }}</strong>
-                  </div>
-                  <div class="result-item">
-                    <span class="result-item__label">{{ t("pages.imageUpscale.result.elapsed") }}</span>
-                    <strong>{{ formatElapsed(resultSummary.elapsedMs) }}</strong>
                   </div>
                 </div>
               </section>
@@ -459,8 +435,7 @@ function itemPreviewSrc(path: string): string {
 
 .control-card,
 .settings-block,
-.task-section,
-.result-panel {
+.task-section {
   border: 1px solid var(--border);
   border-radius: 14px;
   background: #fafbfd;
@@ -472,8 +447,7 @@ function itemPreviewSrc(path: string): string {
 
 .control-card__title,
 .settings-block__title,
-.task-toolbar__title,
-.result-panel h3 {
+.task-toolbar__title {
   margin: 0;
   font-size: 14px;
   line-height: 1.4;
@@ -578,10 +552,6 @@ function itemPreviewSrc(path: string): string {
   justify-content: center;
   padding: 0 18px;
   line-height: 1;
-}
-
-.result-panel {
-  padding: 14px 16px;
 }
 
 .list-card {
@@ -962,43 +932,6 @@ function itemPreviewSrc(path: string): string {
   padding: 0;
 }
 
-.result-panel h3 {
-  margin-bottom: 12px;
-}
-
-.result-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.result-item {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #fff;
-  padding: 10px;
-}
-
-.result-item__label {
-  display: block;
-  color: var(--text-hint);
-  font-size: 11px;
-  margin-bottom: 4px;
-}
-
-.result-item strong {
-  color: var(--text);
-  font-size: 16px;
-}
-
-.result-item__success {
-  color: #22c55e !important;
-}
-
-.result-item__failed {
-  color: var(--danger) !important;
-}
-
 .bottom-bar {
   flex-shrink: 0;
   margin-top: 10px;
@@ -1144,8 +1077,7 @@ function itemPreviewSrc(path: string): string {
     overflow: visible;
   }
 
-  .control-grid,
-  .result-grid {
+  .control-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -1,4 +1,4 @@
-mod filter;
+pub mod filter;
 mod run;
 mod types;
 

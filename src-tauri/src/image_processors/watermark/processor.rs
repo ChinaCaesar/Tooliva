@@ -12,21 +12,21 @@ use std::fs;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct WatermarkParams {
-    mode: String,
-    position: String,
-    opacity: u8,
-    margin: u32,
-    rotation: f32,
-    offset_x_ratio: Option<f32>,
-    offset_y_ratio: Option<f32>,
-    offset_x_px_on_original: Option<u32>,
-    offset_y_px_on_original: Option<u32>,
-    text: Option<String>,
-    font_size: Option<u32>,
-    text_color: Option<String>,
-    image_path: Option<String>,
-    image_scale_percent: Option<u32>,
+pub struct WatermarkParams {
+    pub mode: String,
+    pub position: String,
+    pub opacity: u8,
+    pub margin: u32,
+    pub rotation: f32,
+    pub offset_x_ratio: Option<f32>,
+    pub offset_y_ratio: Option<f32>,
+    pub offset_x_px_on_original: Option<u32>,
+    pub offset_y_px_on_original: Option<u32>,
+    pub text: Option<String>,
+    pub font_size: Option<u32>,
+    pub text_color: Option<String>,
+    pub image_path: Option<String>,
+    pub image_scale_percent: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -142,6 +142,163 @@ impl ImageProcessor for WatermarkProcessor {
             }),
         })
     }
+}
+
+/// 解析并校验水印参数（对外公开版本，供批量调度层复用）。
+pub fn parse_watermark_params(params_value: &Value) -> Result<WatermarkParams, ImagePipelineError> {
+    parse_params(params_value)
+}
+
+/// 对外公开版本的字体加载器；批量任务可在 `prepare` 阶段加载一次后复用。
+pub fn load_watermark_font() -> Result<FontArc, ImagePipelineError> {
+    load_system_font()
+}
+
+/// 解码外部水印图片（图片模式时使用）；批量任务可在 `prepare` 阶段读取一次后复用。
+pub fn decode_watermark_image(path: &std::path::Path) -> Result<image::DynamicImage, ImagePipelineError> {
+    let bytes = fs::read(path)
+        .map_err(|err| ImagePipelineError::IoFailed(format!("读取水印图片失败：{err}")))?;
+    image::load_from_memory(&bytes)
+        .map_err(|err| ImagePipelineError::DecodeFailed(format!("解码水印图片失败：{err}")))
+}
+
+/// 基于（可选的）已缓存字体生成文字水印图层。
+/// 当 `cached_font` 为 None 时退回到自动按需加载。
+pub fn build_text_overlay_with_cache(
+    input: &crate::image_core::types::LoadedImage,
+    params: &WatermarkParams,
+    cached_font: Option<&FontArc>,
+) -> Result<RgbaImage, ImagePipelineError> {
+    let content = params
+        .text
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| ImagePipelineError::InvalidInput("文字水印内容不能为空".to_string()))?;
+    let font_size = params.font_size.unwrap_or(24).max(8);
+    let owned_font;
+    let font: &FontArc = match cached_font {
+        Some(f) => f,
+        None => {
+            owned_font = load_system_font()?;
+            &owned_font
+        }
+    };
+    let scale = PxScale::from(font_size as f32);
+    let lines: Vec<&str> = content.lines().collect();
+    let line_height = ((font_size as f32) * 1.35).ceil() as u32;
+    let text_width = lines
+        .iter()
+        .map(|line| text_size(scale, font, line).0 as u32)
+        .max()
+        .unwrap_or(font_size)
+        .max(1);
+    let text_height = (lines.len() as u32).saturating_mul(line_height).max(font_size);
+    let mut overlay_image = ImageBuffer::from_pixel(
+        text_width.max(1),
+        text_height.max(1),
+        Rgba([255, 255, 255, 0]),
+    );
+    let color = parse_hex_rgba(params.text_color.as_deref().unwrap_or("#FFFFFF"), params.opacity)?;
+    for (line_index, line) in lines.iter().enumerate() {
+        let baseline_y = (line_index as u32).saturating_mul(line_height);
+        draw_text_mut(
+            &mut overlay_image,
+            color,
+            0,
+            baseline_y as i32,
+            scale,
+            font,
+            line,
+        );
+    }
+    if params.rotation.abs() > 0.1 {
+        return Ok(rotate_rgba(&overlay_image, params.rotation));
+    }
+    let max_overlay_width = input.image.width().saturating_mul(80) / 100;
+    if overlay_image.width() > max_overlay_width && max_overlay_width > 0 {
+        let resized_height =
+            overlay_image.height().saturating_mul(max_overlay_width) / overlay_image.width().max(1);
+        return Ok(resize(
+            &overlay_image,
+            max_overlay_width,
+            resized_height.max(1),
+            FilterType::Lanczos3,
+        ));
+    }
+    Ok(overlay_image)
+}
+
+/// 基于（可选的）已缓存水印源图生成图片水印图层。
+/// 当 `cached_source` 为 None 时按 `params.image_path` 实时加载（不推荐用于批量）。
+pub fn build_image_overlay_with_cache(
+    input: &crate::image_core::types::LoadedImage,
+    params: &WatermarkParams,
+    cached_source: Option<&image::DynamicImage>,
+) -> Result<RgbaImage, ImagePipelineError> {
+    let owned_source;
+    let source: &image::DynamicImage = match cached_source {
+        Some(s) => s,
+        None => {
+            let watermark_path = params
+                .image_path
+                .as_deref()
+                .ok_or_else(|| ImagePipelineError::InvalidInput("图片水印模式必须提供水印图片".to_string()))?;
+            owned_source = decode_watermark_image(std::path::Path::new(watermark_path))?;
+            &owned_source
+        }
+    };
+    let source_rgba = source.to_rgba8();
+    let scale_percent = params.image_scale_percent.unwrap_or(15).clamp(5, 60);
+    let target_width = (input.image.width().saturating_mul(scale_percent) / 100).max(1);
+    let target_height = source_rgba.height().saturating_mul(target_width) / source_rgba.width().max(1);
+    let mut resized = resize(&source_rgba, target_width, target_height.max(1), FilterType::Lanczos3);
+    apply_opacity(&mut resized, params.opacity);
+    if params.rotation.abs() > 0.1 {
+        return Ok(rotate_rgba(&resized, params.rotation));
+    }
+    Ok(resized)
+}
+
+/// 把已渲染好的 overlay 合成到 base 上并写出到目标路径；返回 `(width, height)`。
+/// 批量任务可结合 `.tmp + rename` 机制：先把 overlay 写到 `*.tmp`，
+/// 再由调度层做原子重命名。
+pub fn composite_and_save_watermark(
+    input: &crate::image_core::types::LoadedImage,
+    overlay_image: &RgbaImage,
+    params: &WatermarkParams,
+    output_path: &std::path::Path,
+) -> Result<(u32, u32), ImagePipelineError> {
+    let mut canvas = input.image.to_rgba8();
+    let (pos_x, pos_y) = resolve_position(
+        canvas.width(),
+        canvas.height(),
+        overlay_image.width(),
+        overlay_image.height(),
+        normalize_position(&params.position),
+        params.margin,
+        params.offset_x_px_on_original,
+        params.offset_y_px_on_original,
+        params.offset_x_ratio,
+        params.offset_y_ratio,
+    );
+    overlay(&mut canvas, overlay_image, pos_x.into(), pos_y.into());
+    if let Some(parent) = output_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|err| ImagePipelineError::IoFailed(err.to_string()))?;
+    }
+    save_output_image(&canvas, output_path, input.format)?;
+    Ok((canvas.width(), canvas.height()))
+}
+
+/// 判断水印参数是否使用文字模式。
+pub fn is_text_mode(params: &WatermarkParams) -> bool {
+    matches!(normalize_mode(&params.mode), Ok(WatermarkMode::Text))
+}
+
+/// 判断水印参数是否使用图片模式。
+pub fn is_image_mode(params: &WatermarkParams) -> bool {
+    matches!(normalize_mode(&params.mode), Ok(WatermarkMode::Image))
 }
 
 /**

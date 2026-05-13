@@ -15,7 +15,7 @@ export interface AppToolDef {
   /** 与 `resolveHomeToolRoute` 一致 */
   actionCode: string;
   /** 为真时参与首页主推横向区 */
-  recommended: boolean;
+  recommended: boolean; 
   /** 同场景内升序 */
   sortOrder: number;
 }

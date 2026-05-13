@@ -9,6 +9,24 @@ export interface TaskBatchSummary {
   elapsedMs: number;
 }
 
+function taskSuccessAudioUrl(): string {
+  const raw = import.meta.env.BASE_URL || "/";
+  const base = raw.endsWith("/") ? raw : `${raw}/`;
+  return `${base}resources/aud/success.mp3`;
+}
+
+function playBatchSuccessSound(): void {
+  try {
+    const audio = new Audio(taskSuccessAudioUrl());
+    audio.volume = 0.85;
+    void audio.play().catch(() => {
+      /* autoplay policy or missing file */
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * 为批量任务提供统一的完成通知入口。
  */
@@ -18,10 +36,13 @@ export function useTaskBatchNotification() {
   const notificationStore = useNotificationStore();
 
   /**
-   * 在批次结束时弹出右上角总结提示。
+   * 在批次结束时于页面顶部居中展示总结提示（受「任务完成提醒」设置控制）。
    */
   function notifyTaskBatchCompleted(toolTitleKey: string, summary: TaskBatchSummary, elapsedLabel: string): void {
     if (!settingsStore.taskDoneNotificationEnabled) return;
+    if (summary.failed === 0 && summary.success > 0) {
+      playBatchSuccessSound();
+    }
     notificationStore.showNotification({
       tone: summary.failed > 0 ? "warning" : "success",
       title: t("common.taskCompleteTitle"),

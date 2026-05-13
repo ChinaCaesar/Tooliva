@@ -46,9 +46,7 @@ const {
   margin,
   rotation,
   position,
-  resultSummary,
   canStart,
-  formatElapsed,
   previewImageUrl,
   previewRect,
   previewStyle,
@@ -216,28 +214,6 @@ function goOutputNamingSettings(): void {
                 <p v-if="hiddenItemCount > 0" class="list-card__tip" role="status">
                   {{ t("pages.imageWatermark.listOverflowTip", { count: hiddenItemCount }) }}
                 </p>
-
-                <div v-if="resultSummary" class="result-inline">
-                  <h4 class="result-inline__title">{{ t("pages.imageWatermark.result.title") }}</h4>
-                  <div class="result-inline__grid">
-                    <div class="result-inline__cell">
-                      <span class="result-inline__label">{{ t("pages.imageWatermark.result.total") }}</span>
-                      <strong>{{ resultSummary.total }}</strong>
-                    </div>
-                    <div class="result-inline__cell">
-                      <span class="result-inline__label">{{ t("pages.imageWatermark.result.success") }}</span>
-                      <strong class="result-inline__ok">{{ resultSummary.success }}</strong>
-                    </div>
-                    <div class="result-inline__cell">
-                      <span class="result-inline__label">{{ t("pages.imageWatermark.result.failed") }}</span>
-                      <strong class="result-inline__bad">{{ resultSummary.failed }}</strong>
-                    </div>
-                    <div class="result-inline__cell">
-                      <span class="result-inline__label">{{ t("pages.imageWatermark.result.elapsed") }}</span>
-                      <strong>{{ formatElapsed(resultSummary.elapsedMs) }}</strong>
-                    </div>
-                  </div>
-                </div>
 
                 <div class="list-card__body">
                   <div v-if="items.length === 0" class="list-empty">
@@ -858,49 +834,6 @@ function goOutputNamingSettings(): void {
   line-height: 1.5;
   color: var(--primary);
   background: #ffffff;
-}
-
-.result-inline {
-  flex-shrink: 0;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-weak);
-  background: #f5f6fa;
-}
-
-.result-inline__title {
-  margin: 0 0 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.result-inline__grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.result-inline__cell {
-  background: #ffffff;
-  border: 1px solid var(--border-weak);
-  border-radius: 12px;
-  padding: 8px;
-  min-width: 0;
-}
-
-.result-inline__label {
-  display: block;
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.result-inline__ok {
-  color: #22c55e;
-}
-
-.result-inline__bad {
-  color: #ef4444;
 }
 
 .list-card__body {
@@ -1841,10 +1774,6 @@ function goOutputNamingSettings(): void {
     margin-top: 8px;
     display: flex;
     justify-content: center;
-  }
-
-  .result-inline__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

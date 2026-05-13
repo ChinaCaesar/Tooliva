@@ -56,17 +56,23 @@ function closeNotification(notificationId: string): void {
 .notification-layer {
   position: fixed;
   top: 20px;
-  right: 20px;
+  left: 0;
+  right: 0;
   z-index: 2000;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 12px;
-  width: min(360px, calc(100vw - 32px));
+  width: 100%;
+  padding: 0 24px;
+  box-sizing: border-box;
   pointer-events: none;
 }
 
 .notification-card {
   pointer-events: auto;
+  width: min(560px, calc(100vw - 48px));
+  max-width: 100%;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -76,6 +82,7 @@ function closeNotification(notificationId: string): void {
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.14);
   backdrop-filter: blur(14px);
   padding: 14px 14px 12px;
+  box-sizing: border-box;
 }
 
 .notification-card--success {
@@ -213,8 +220,11 @@ function closeNotification(notificationId: string): void {
 @media (max-width: 768px) {
   .notification-layer {
     top: 12px;
-    right: 12px;
-    width: min(360px, calc(100vw - 24px));
+    padding: 0 16px;
+  }
+
+  .notification-card {
+    width: min(560px, calc(100vw - 32px));
   }
 }
 </style>
