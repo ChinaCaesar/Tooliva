@@ -141,15 +141,16 @@ function itemPreviewSrc(path: string): string {
                   </div>
 
                   <div v-else class="table-wrap">
-                    <table class="task-table">
+                    <table class="task-table task-table--centered">
                       <thead>
                         <tr>
-                          <th scope="col">{{ t("pages.imageUpscale.table.fileName") }}</th>
+                          <th scope="col" class="task-table__th-name">{{ t("pages.imageUpscale.table.fileName") }}</th>
                           <th scope="col">{{ t("pages.imageUpscale.table.originalSize") }}</th>
                           <th scope="col">{{ t("pages.imageUpscale.table.outputSize") }}</th>
                           <th scope="col">{{ t("pages.imageUpscale.table.outputFormat") }}</th>
                           <th scope="col">{{ t("pages.imageUpscale.table.preview") }}</th>
                           <th scope="col">{{ t("pages.imageUpscale.table.status") }}</th>
+                          <th scope="col">{{ t("pages.imageUpscale.table.progress") }}</th>
                           <th scope="col" class="task-table__col-action">{{ t("pages.imageUpscale.table.operation") }}</th>
                         </tr>
                       </thead>
@@ -175,31 +176,32 @@ function itemPreviewSrc(path: string): string {
                             </div>
                           </td>
                           <td>
-                            <div class="task-table__status-cell">
-                              <span
-                                class="task-table__status"
-                                :class="{
-                                  'task-table__status--ok': item.status === 'completed',
-                                  'task-table__status--bad': item.status === 'failed'
-                                }"
-                              >
-                                {{ t(`pages.imageUpscale.status.${item.status}`) }}
-                              </span>
-                              <div class="task-table__progress task-table__progress--inline">
-                                <progress
-                                  class="task-table__progress-bar"
-                                  :value="item.progress"
-                                  max="100"
-                                >
-                                  {{ item.progress }}%
-                                </progress>
-                                <span class="task-table__progress-text">{{ item.progress }}%</span>
-                              </div>
-                            </div>
+                            <span
+                              class="task-table__status"
+                              :class="{
+                                'task-table__status--ok': item.status === 'completed',
+                                'task-table__status--bad': item.status === 'failed'
+                              }"
+                            >
+                              {{ t(`pages.imageUpscale.status.${item.status}`) }}
+                            </span>
+                          </td>
+                          <td class="task-table__cell-muted">
+                            <span class="task-table__progress-pct">{{ item.progress }}%</span>
                           </td>
                           <td class="task-table__col-action">
-                            <button type="button" class="btn btn--link" :disabled="isProcessing" @click="removeItem(item.id)">
-                              {{ t("pages.imageUpscale.remove") }}
+                            <button
+                              type="button"
+                              class="task-table__icon-btn task-table__icon-btn--danger"
+                              :disabled="isProcessing"
+                              :aria-label="t('pages.imageUpscale.removeAria')"
+                              @click="removeItem(item.id)"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6" />
+                              </svg>
                             </button>
                           </td>
                         </tr>
@@ -630,7 +632,7 @@ function itemPreviewSrc(path: string): string {
 }
 
 .list-card__body {
-  overflow-x: auto;
+  overflow-x: hidden;
   padding: 0;
   background: #ffffff;
 }
@@ -687,13 +689,26 @@ function itemPreviewSrc(path: string): string {
 }
 
 .table-wrap {
-  min-width: 880px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .task-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
+}
+
+.task-table--centered th,
+.task-table--centered td {
+  text-align: center;
+}
+
+.task-table--centered .task-table__th-name,
+.task-table--centered .task-table__cell-name {
+  text-align: start;
 }
 
 .task-table thead {
@@ -704,7 +719,7 @@ function itemPreviewSrc(path: string): string {
 }
 
 .task-table th {
-  text-align: left;
+  text-align: center;
   padding: 10px 12px;
   font-weight: 600;
   color: var(--text);
@@ -721,21 +736,28 @@ function itemPreviewSrc(path: string): string {
 }
 
 .task-table__col-action {
-  width: 88px;
-  text-align: right;
+  width: 56px;
+  text-align: center;
 }
 
 .task-table__cell-name {
-  max-width: 200px;
+  max-width: min(26vw, 180px);
+  min-width: 0;
+  width: 18%;
 }
 
 .task-table__name {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+  max-width: 100%;
+  margin: 0;
   color: var(--text);
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .task-table__err {
@@ -773,16 +795,53 @@ function itemPreviewSrc(path: string): string {
   font-weight: 600;
 }
 
-.task-table__status-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 120px;
+.task-table__progress-pct {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.task-table__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border-weak);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.task-table__icon-btn:hover:not(:disabled) {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.task-table__icon-btn:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+.task-table__icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.task-table__icon-btn--danger {
+  color: #b91c1c;
 }
 
 .task-table__thumb {
   width: 48px;
   height: 48px;
+  margin: 0 auto;
   border-radius: 8px;
   border: 1px solid var(--border);
   overflow: hidden;
@@ -804,49 +863,6 @@ function itemPreviewSrc(path: string): string {
   height: 22px;
   border-radius: 4px;
   background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
-}
-
-.task-table__progress--inline {
-  min-width: 0;
-}
-
-.task-table__progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.task-table__progress-bar {
-  flex: 1;
-  height: 6px;
-  border: 0;
-  border-radius: 999px;
-  background: #e2e8f0;
-  overflow: hidden;
-  appearance: none;
-}
-
-.task-table__progress-bar::-webkit-progress-bar {
-  background: #e2e8f0;
-  border-radius: 999px;
-}
-
-.task-table__progress-bar::-webkit-progress-value {
-  background: var(--primary);
-  border-radius: 999px;
-}
-
-.task-table__progress-bar::-moz-progress-bar {
-  background: var(--primary);
-  border-radius: 999px;
-}
-
-.task-table__progress-text {
-  flex: 0 0 36px;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: right;
 }
 
 .settings-rail {

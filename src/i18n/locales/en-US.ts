@@ -534,6 +534,7 @@ export const enUS = {
       fileListTitle: "Image list",
       clearList: "Clear list",
       remove: "Remove",
+      removeAria: "Remove from list",
       list: {
         title: "Image list",
         deleteSelected: "Delete selected",
@@ -639,6 +640,7 @@ export const enUS = {
       clearList: "Clear list",
       deleteSelected: "Delete selected",
       remove: "Delete",
+      removeAria: "Remove from list",
       start: "Start upscale",
       processing: "Upscaling...",
       taskRunning: "Upscaling image",
@@ -779,21 +781,39 @@ export const enUS = {
       },
       preview: {
         playAria: "Play / Pause",
+        viewportAria: "Video preview and safe area",
         rangeAria: "Selected range",
+        playheadAria: "Playhead (drag to preview)",
         startLabel: "Start",
         endLabel: "End",
+        currentLabel: "Current",
         durationLabel: "Duration",
         durationUnit: "s",
-        replaceVideo: "Replace video"
+        timeSep: "→",
+        replaceVideo: "Replace video",
+        deleteVideo: "Remove video",
+        deleteVideoModalTitle: "Remove this video?",
+        deleteVideoModalBody:
+          "The loaded video will be cleared from the preview. You can upload another file afterward.",
+        deleteVideoModalCancel: "Cancel",
+        deleteVideoModalConfirm: "Remove"
       },
       clips: {
         title: "GIF clips",
         countTpl: "{count} clip(s) added",
         addCurrent: "Add current selection",
         chipPrefix: "Clip",
-        editAria: "Edit clip",
+        colClip: "Clip",
+        colSize: "Size",
+        colFps: "FPS",
+        colStatusActions: "Status / actions",
         deleteAria: "Delete clip",
+        openFolderAria: "Open folder containing this GIF",
+        openFolderTip: "Open the folder that contains this GIF in your file manager",
         emptyTip: "Select a range above, then click \"Add current selection\" to add it to the list",
+        emptyStateTitle: "No GIF clips yet",
+        emptyStateDesc:
+          "Adjust the selection on the timeline above, then tap \"Add current selection\" under the preview to add your first clip.",
         startCol: "Start",
         endCol: "End",
         durationCol: "Duration",
@@ -948,6 +968,7 @@ export const enUS = {
       fileListTitle: "Watermark Tasks",
       clearList: "Clear List",
       remove: "Remove",
+      removeAria: "Remove from list",
       list: {
         title: "Image list",
         emptyTitle: "No images yet",
@@ -962,6 +983,7 @@ export const enUS = {
           watermarkType: "Watermark type",
           preview: "Preview",
           status: "Status",
+          progress: "Progress",
           action: "Action"
         }
       },

@@ -7,10 +7,7 @@ import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
 import type { WatermarkPosition } from "@/bridge/tauriClient";
 import { useSettingsStore } from "@/stores/settings.store";
-import {
-  useImageWatermarkActions,
-  type WatermarkItem
-} from "@/pages/image-watermark/composables/useImageWatermarkActions";
+import { useImageWatermarkActions } from "@/pages/image-watermark/composables/useImageWatermarkActions";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -56,6 +53,7 @@ const {
   previewRect,
   previewStyle,
   setPreviewCanvasRef,
+  setPreviewStageRef,
   pickImages,
   pickSourceDirectory,
   pickOutputDirectory,
@@ -84,12 +82,6 @@ const outputNamingLabel = computed(() =>
     ? t("pages.settings.dashboard.namingTimestamp")
     : t("pages.settings.dashboard.namingOriginal")
 );
-
-function formatDimensionCell(item: WatermarkItem): string {
-  if (!item.originalSize) return "—";
-  const parts = item.originalSize.split(/\s*→\s*/);
-  return parts[0]?.trim() || item.originalSize;
-}
 
 function itemPreviewSrc(path: string): string {
   if (!path || !isTauri()) return "";
@@ -123,6 +115,7 @@ function goOutputNamingSettings(): void {
             <div class="main-column__body">
               <div class="preview-shell">
                 <div
+                  :ref="setPreviewStageRef"
                   class="preview-stage"
                   :class="{ 'preview-stage--empty': !previewImageUrl }"
                   @pointerdown="handlePreviewStagePointerDown"
@@ -261,15 +254,14 @@ function goOutputNamingSettings(): void {
                   </div>
 
                   <div v-else class="table-wrap">
-                    <table class="task-table">
+                    <table class="task-table task-table--centered">
                       <thead>
                         <tr>
-                          <th scope="col">{{ t("pages.imageWatermark.list.table.fileName") }}</th>
-                          <th scope="col">{{ t("pages.imageWatermark.list.table.dimensions") }}</th>
-                          <th scope="col">{{ t("pages.imageWatermark.list.table.fileSize") }}</th>
+                          <th scope="col" class="task-table__th-name">{{ t("pages.imageWatermark.list.table.fileName") }}</th>
                           <th scope="col">{{ t("pages.imageWatermark.list.table.watermarkType") }}</th>
                           <th scope="col">{{ t("pages.imageWatermark.list.table.preview") }}</th>
                           <th scope="col">{{ t("pages.imageWatermark.list.table.status") }}</th>
+                          <th scope="col">{{ t("pages.imageWatermark.list.table.progress") }}</th>
                           <th scope="col" class="task-table__col-action">{{ t("pages.imageWatermark.list.table.action") }}</th>
                         </tr>
                       </thead>
@@ -280,8 +272,6 @@ function goOutputNamingSettings(): void {
                             <p v-if="item.error" class="task-table__err">{{ item.error }}</p>
                             <p v-if="item.outputPath" class="task-table__out">{{ item.outputPath }}</p>
                           </td>
-                          <td class="task-table__cell-muted">{{ formatDimensionCell(item) }}</td>
-                          <td class="task-table__cell-muted" :title="t('pages.imageWatermark.list.table.fileSizeHint')">—</td>
                           <td>{{ watermarkTypeLabel }}</td>
                           <td>
                             <div class="task-table__thumb">
@@ -295,33 +285,32 @@ function goOutputNamingSettings(): void {
                             </div>
                           </td>
                           <td>
-                            <div class="task-table__status-cell">
-                              <span
-                                class="task-table__status"
-                                :class="{
-                                  'task-table__status--ok': item.status === 'completed',
-                                  'task-table__status--bad': item.status === 'failed'
-                                }"
-                              >
-                                {{ t(`pages.imageWatermark.status.${item.status}`) }}
-                              </span>
-                              <div class="task-table__progress task-table__progress--inline">
-                                <div
-                                  class="task-table__progress-bar"
-                                  role="progressbar"
-                                  :aria-valuenow="item.progress"
-                                  aria-valuemin="0"
-                                  aria-valuemax="100"
-                                >
-                                  <span class="task-table__progress-fill" :style="{ width: `${item.progress}%` }" />
-                                </div>
-                                <span class="task-table__progress-text">{{ item.progress }}%</span>
-                              </div>
-                            </div>
+                            <span
+                              class="task-table__status"
+                              :class="{
+                                'task-table__status--ok': item.status === 'completed',
+                                'task-table__status--bad': item.status === 'failed'
+                              }"
+                            >
+                              {{ t(`pages.imageWatermark.status.${item.status}`) }}
+                            </span>
+                          </td>
+                          <td class="task-table__cell-muted">
+                            <span class="task-table__progress-pct">{{ item.progress }}%</span>
                           </td>
                           <td class="task-table__col-action">
-                            <button type="button" class="btn btn--link" :disabled="isProcessing" @click="removeItem(item.id)">
-                              {{ t("pages.imageWatermark.remove") }}
+                            <button
+                              type="button"
+                              class="task-table__icon-btn task-table__icon-btn--danger"
+                              :disabled="isProcessing"
+                              :aria-label="t('pages.imageWatermark.removeAria')"
+                              @click="removeItem(item.id)"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6" />
+                              </svg>
                             </button>
                           </td>
                         </tr>
@@ -345,7 +334,7 @@ function goOutputNamingSettings(): void {
                         <div class="task-table-mobile__main">
                           <strong class="task-table-mobile__name">{{ item.fileName }}</strong>
                           <div class="task-table-mobile__meta">
-                            {{ formatDimensionCell(item) }} · {{ watermarkTypeLabel }}
+                            {{ watermarkTypeLabel }}
                           </div>
                         </div>
                         <span
@@ -358,17 +347,22 @@ function goOutputNamingSettings(): void {
                           {{ t(`pages.imageWatermark.status.${item.status}`) }}
                         </span>
                       </div>
-                      <div class="task-table__progress task-table__progress--inline">
-                        <div class="task-table__progress-bar" role="progressbar" :aria-valuenow="item.progress" aria-valuemin="0" aria-valuemax="100">
-                          <span class="task-table__progress-fill" :style="{ width: `${item.progress}%` }" />
-                        </div>
-                        <span class="task-table__progress-text">{{ item.progress }}%</span>
-                      </div>
+                      <p class="task-table-mobile__pct">{{ item.progress }}%</p>
                       <p v-if="item.outputPath" class="task-table-mobile__path">{{ item.outputPath }}</p>
                       <p v-if="item.error" class="task-table-mobile__err">{{ item.error }}</p>
                       <div class="task-table-mobile__actions">
-                        <button type="button" class="btn btn--link" :disabled="isProcessing" @click="removeItem(item.id)">
-                          {{ t("pages.imageWatermark.remove") }}
+                        <button
+                          type="button"
+                          class="task-table__icon-btn task-table__icon-btn--danger"
+                          :disabled="isProcessing"
+                          :aria-label="t('pages.imageWatermark.removeAria')"
+                          @click="removeItem(item.id)"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -701,11 +695,10 @@ function goOutputNamingSettings(): void {
 
 .preview-canvas {
   position: relative;
+  flex-shrink: 0;
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-  max-width: 100%;
-  max-height: 100%;
   background:
     linear-gradient(45deg, #f1f5f9 25%, transparent 25%) -10px 0/20px 20px,
     linear-gradient(-45deg, #f1f5f9 25%, transparent 25%) -10px 0/20px 20px,
@@ -911,7 +904,7 @@ function goOutputNamingSettings(): void {
 }
 
 .list-card__body {
-  overflow-x: auto;
+  overflow-x: hidden;
   padding: 0;
   background: #ffffff;
 }
@@ -966,13 +959,26 @@ function goOutputNamingSettings(): void {
 }
 
 .table-wrap {
-  min-width: 880px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .task-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
+}
+
+.task-table--centered th,
+.task-table--centered td {
+  text-align: center;
+}
+
+.task-table--centered .task-table__th-name,
+.task-table--centered .task-table__cell-name {
+  text-align: start;
 }
 
 .task-table thead {
@@ -983,7 +989,7 @@ function goOutputNamingSettings(): void {
 }
 
 .task-table th {
-  text-align: left;
+  text-align: center;
   padding: 10px 12px;
   font-weight: 600;
   color: var(--text);
@@ -1000,21 +1006,28 @@ function goOutputNamingSettings(): void {
 }
 
 .task-table__col-action {
-  width: 88px;
-  text-align: right;
+  width: 56px;
+  text-align: center;
 }
 
 .task-table__cell-name {
-  max-width: 200px;
+  max-width: min(26vw, 180px);
+  min-width: 0;
+  width: 22%;
 }
 
 .task-table__name {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+  max-width: 100%;
+  margin: 0;
   font-weight: 600;
+  line-height: 1.35;
   color: var(--text);
+  white-space: normal;
 }
 
 .task-table__err {
@@ -1052,16 +1065,10 @@ function goOutputNamingSettings(): void {
   font-weight: 600;
 }
 
-.task-table__status-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 120px;
-}
-
 .task-table__thumb {
   width: 48px;
   height: 48px;
+  margin: 0 auto;
   border-radius: 8px;
   border: 1px solid var(--border);
   overflow: hidden;
@@ -1085,37 +1092,47 @@ function goOutputNamingSettings(): void {
   background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
 }
 
-.task-table__progress--inline {
-  min-width: 0;
-}
-
-.task-table__progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.task-table__progress-bar {
-  flex: 1;
-  height: 6px;
-  border-radius: 999px;
-  background: #e2e8f0;
-  overflow: hidden;
-}
-
-.task-table__progress-fill {
-  display: block;
-  height: 100%;
-  background: var(--primary);
-  border-radius: 999px;
-}
-
-.task-table__progress-text {
-  flex: 0 0 36px;
+.task-table__progress-pct {
   font-size: 12px;
   color: var(--text-muted);
-  text-align: right;
+}
+
+.task-table__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border-weak);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.task-table__icon-btn:hover:not(:disabled) {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.task-table__icon-btn:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+.task-table__icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.task-table__icon-btn--danger {
+  color: #b91c1c;
 }
 
 .task-table-mobile {
@@ -1785,13 +1802,26 @@ function goOutputNamingSettings(): void {
 
   .task-table-mobile__name {
     font-size: 14px;
-    word-break: break-all;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    line-height: 1.35;
   }
 
   .task-table-mobile__meta {
     margin-top: 6px;
     font-size: 12px;
     color: var(--text-muted);
+  }
+
+  .task-table-mobile__pct {
+    margin: 8px 0 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
   }
 
   .task-table-mobile__path {
@@ -1809,6 +1839,8 @@ function goOutputNamingSettings(): void {
 
   .task-table-mobile__actions {
     margin-top: 8px;
+    display: flex;
+    justify-content: center;
   }
 
   .result-inline__grid {

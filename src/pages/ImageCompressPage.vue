@@ -55,10 +55,6 @@ function dash(): string {
   return t("pages.imageCompress.table.dash");
 }
 
-function resolutionCell(item: { originalSize?: string }): string {
-  return item.originalSize ?? dash();
-}
-
 function onMaxWidthInput(event: Event): void {
   const raw = (event.target as HTMLInputElement).value;
   maxWidthBound.value = raw === "" ? null : Math.max(1, Number.parseInt(raw, 10) || 1);
@@ -161,7 +157,7 @@ const outputFooterPath = computed(() =>
                   </div>
 
                   <div v-else class="table-wrap">
-                  <table class="task-table">
+                  <table class="task-table task-table--centered">
                     <thead>
                       <tr>
                         <th class="task-table__col-check" scope="col">
@@ -175,9 +171,8 @@ const outputFooterPath = computed(() =>
                             @change="toggleSelectAllVisible"
                           />
                         </th>
-                        <th scope="col">{{ t("pages.imageCompress.table.fileName") }}</th>
+                        <th class="task-table__th-name" scope="col">{{ t("pages.imageCompress.table.fileName") }}</th>
                         <th scope="col">{{ t("pages.imageCompress.table.originalSize") }}</th>
-                        <th scope="col">{{ t("pages.imageCompress.table.resolution") }}</th>
                         <th scope="col">{{ t("pages.imageCompress.table.compressedSize") }}</th>
                         <th scope="col">{{ t("pages.imageCompress.table.status") }}</th>
                         <th scope="col">{{ t("pages.imageCompress.table.progress") }}</th>
@@ -196,9 +191,10 @@ const outputFooterPath = computed(() =>
                             @change="toggleItemSelected(item.id)"
                           />
                         </td>
-                        <td class="task-table__cell-name">{{ item.fileName }}</td>
+                        <td class="task-table__cell-name" :title="item.fileName">
+                          <span class="task-table__name">{{ item.fileName }}</span>
+                        </td>
                         <td>{{ item.originalBytes ?? dash() }}</td>
-                        <td>{{ resolutionCell(item) }}</td>
                         <td>{{ item.outputBytes ?? dash() }}</td>
                         <td
                           :class="{
@@ -209,16 +205,21 @@ const outputFooterPath = computed(() =>
                           {{ t(`pages.imageCompress.status.${item.status}`) }}
                         </td>
                         <td>
-                          <div class="progress-inline">
-                            <progress class="progress-native" :value="item.progress" max="100">
-                              {{ item.progress }}%
-                            </progress>
-                            <span class="progress-inline__pct">{{ item.progress }}%</span>
-                          </div>
+                          <span class="task-table__progress-pct">{{ item.progress }}%</span>
                         </td>
                         <td class="task-table__col-action">
-                          <button type="button" class="btn btn--link" :disabled="isProcessing" @click="removeItem(item.id)">
-                            {{ t("pages.imageCompress.remove") }}
+                          <button
+                            type="button"
+                            class="task-table__icon-btn task-table__icon-btn--danger"
+                            :disabled="isProcessing"
+                            :aria-label="t('pages.imageCompress.removeAria')"
+                            @click="removeItem(item.id)"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                              <path d="M3 6h18" />
+                              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6" />
+                            </svg>
                           </button>
                         </td>
                       </tr>
@@ -695,7 +696,7 @@ const outputFooterPath = computed(() =>
 }
 
 .list-card__body {
-  overflow-x: auto;
+  overflow-x: hidden;
   padding: 0;
   background: #ffffff;
 }
@@ -752,7 +753,9 @@ const outputFooterPath = computed(() =>
 }
 
 .table-wrap {
-  min-width: 960px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .task-table {
@@ -761,6 +764,7 @@ const outputFooterPath = computed(() =>
   font-size: 13px;
   color: var(--text-secondary);
   letter-spacing: 0;
+  table-layout: fixed;
 }
 
 .task-table thead {
@@ -774,8 +778,13 @@ const outputFooterPath = computed(() =>
 .task-table td {
   border-bottom: 1px solid #e7e9ee;
   padding: 10px 12px;
-  text-align: left;
+  text-align: center;
   vertical-align: middle;
+}
+
+.task-table--centered .task-table__th-name,
+.task-table--centered .task-table__cell-name {
+  text-align: start;
 }
 
 .task-table th {
@@ -785,12 +794,13 @@ const outputFooterPath = computed(() =>
 }
 
 .task-table__col-action {
-  width: 88px;
-  text-align: right;
+  width: 56px;
+  text-align: center;
 }
 
 .task-table__col-check {
-  width: 40px;
+  width: 48px;
+  text-align: center;
 }
 
 .btn {
@@ -906,8 +916,63 @@ const outputFooterPath = computed(() =>
 .task-table__cell-name {
   font-weight: 600;
   color: var(--text);
+  max-width: min(26vw, 180px);
+  min-width: 0;
+  width: 22%;
+}
+
+.task-table__name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   word-break: break-word;
-  max-width: 220px;
+  max-width: 100%;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.task-table__progress-pct {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.task-table__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border-weak);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.task-table__icon-btn:hover:not(:disabled) {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.task-table__icon-btn:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+.task-table__icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.task-table__icon-btn--danger {
+  color: #b91c1c;
 }
 
 .task-table__checkbox {
@@ -915,6 +980,7 @@ const outputFooterPath = computed(() =>
   height: 18px;
   cursor: pointer;
   accent-color: var(--primary);
+  vertical-align: middle;
 }
 
 .task-table__status--ok {
@@ -925,44 +991,6 @@ const outputFooterPath = computed(() =>
 .task-table__status--bad {
   color: #dc2626;
   font-weight: 600;
-}
-
-.progress-inline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 120px;
-}
-
-.progress-native {
-  flex: 1;
-  height: 10px;
-  border: none;
-  border-radius: 999px;
-  overflow: hidden;
-  accent-color: var(--primary);
-}
-
-.progress-native::-webkit-progress-bar {
-  background: #e7e9ee;
-  border-radius: 999px;
-}
-
-.progress-native::-webkit-progress-value {
-  background: var(--primary);
-  border-radius: 999px;
-}
-
-.progress-native::-moz-progress-bar {
-  background: var(--primary);
-  border-radius: 999px;
-}
-
-.progress-inline__pct {
-  font-size: 12px;
-  color: var(--text-muted);
-  min-width: 36px;
-  text-align: right;
 }
 
 .settings-rail {

@@ -306,6 +306,7 @@ export function useVideoToGifActions() {
 
   function clearVideo(): void {
     if (isProcessing.value) return;
+    hintMessage.value = "";
     currentVideoPath.value = "";
     currentVideoName.value = "";
     currentVideoUrl.value = "";
@@ -368,21 +369,6 @@ export function useVideoToGifActions() {
   function removeClip(clipId: string): void {
     if (isProcessing.value) return;
     clips.value = clips.value.filter((c) => c.id !== clipId);
-  }
-
-  function editClip(clipId: string): void {
-    const clip = clips.value.find((c) => c.id === clipId);
-    if (!clip) return;
-    selectionStartSec.value = clip.startSec;
-    selectionEndSec.value = clip.endSec;
-    if (fpsOptions.includes(clip.fps)) {
-      fpsValue.value = clip.fps;
-      return;
-    }
-    fpsValue.value = fpsOptions.slice(1).reduce(
-      (best, n) => (Math.abs(n - clip.fps) < Math.abs(best - clip.fps) ? n : best),
-      fpsOptions[0]
-    );
   }
 
   function setFpsPreset(value: number): void {
@@ -512,21 +498,20 @@ export function useVideoToGifActions() {
     outputDirectory.value = selected;
   }
 
-  async function openOutputFolder(): Promise<void> {
-    let dir = outputDirectory.value.trim();
-    if (!dir) {
-      const done = clips.value.find((c) => c.outputPath);
-      dir = done?.outputPath ? parentDir(done.outputPath) : "";
+  async function openClipOutputFolder(clipId: string): Promise<void> {
+    const clip = clips.value.find((c) => c.id === clipId);
+    if (!clip?.outputPath) {
+      hintMessage.value = t("pages.videoToGif.errors.openDirectory");
+      return;
     }
-    if (!dir && currentVideoPath.value) {
-      dir = parentDir(currentVideoPath.value);
-    }
+    const dir = parentDir(clip.outputPath);
     if (!dir) {
       hintMessage.value = t("pages.videoToGif.errors.openDirectory");
       return;
     }
     try {
       await tauriClient.openDirectoryInFileManager({ directoryPath: dir });
+      hintMessage.value = "";
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       hintMessage.value = message
@@ -646,11 +631,10 @@ export function useVideoToGifActions() {
     onPreviewTimeUpdate,
     addCurrentClip,
     removeClip,
-    editClip,
     setFpsPreset,
     startConversion,
     pickOutputDirectory,
-    openOutputFolder,
+    openClipOutputFolder,
     handleDrop,
     onDragOver,
     onDragLeave,

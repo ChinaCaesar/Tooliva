@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useVideoToGifActions } from "@/pages/video-to-gif/composables/useVideoToGifActions";
 
@@ -17,7 +17,6 @@ const {
   hintMessage,
   clips,
   isProcessing,
-  resultSummary,
   canStart,
   sizePreset,
   customWidth,
@@ -36,17 +35,16 @@ const {
   estimateDuration,
   estimateResolution,
   pickVideo,
-  replaceVideo,
+  clearVideo,
   onVideoMetadataReady,
   updateSelectionStart,
   updateSelectionEnd,
   onPreviewTimeUpdate,
   addCurrentClip,
   removeClip,
-  editClip,
   setFpsPreset,
   startConversion,
-  openOutputFolder,
+  openClipOutputFolder,
   handleDrop,
   onDragOver,
   onDragLeave,
@@ -103,7 +101,7 @@ watch(currentVideoUrl, async () => {
   isPaused.value = true;
 });
 
-const tickMarks = computed(() => {
+const rulerLabels = computed(() => {
   const total = videoDurationSec.value;
   if (total <= 0) return [] as Array<{ left: number; label: string }>;
   const segments = 4;
@@ -113,42 +111,311 @@ const tickMarks = computed(() => {
   });
 });
 
-function onRangeStartInput(event: Event): void {
-  const raw = (event.target as HTMLInputElement).valueAsNumber;
-  updateSelectionStart(raw / 1000);
+const RULER_TICK_COUNT = 41;
+const rulerTicks = computed(() => {
+  if (videoDurationSec.value <= 0) return [] as Array<{ left: number; major: boolean }>;
+  const segments = RULER_TICK_COUNT - 1;
+  return Array.from({ length: RULER_TICK_COUNT }, (_, i) => ({
+    left: (i / segments) * 100,
+    major: i % 10 === 0
+  }));
+});
+
+function clampPreviewSec(sec: number): number {
+  const max = Math.max(0, videoDurationSec.value);
+  if (!Number.isFinite(sec)) return 0;
+  return Math.min(max, Math.max(0, sec));
 }
 
-function onRangeEndInput(event: Event): void {
-  const raw = (event.target as HTMLInputElement).valueAsNumber;
-  updateSelectionEnd(raw / 1000);
-}
+const selectionStartPct = computed(() => {
+  const total = videoDurationSec.value;
+  if (total <= 0) return 0;
+  return Math.max(0, Math.min(100, (selectionStartSec.value / total) * 100));
+});
 
-function onStartTimeInput(event: Event): void {
-  const raw = (event.target as HTMLInputElement).valueAsNumber;
-  if (!Number.isFinite(raw)) return;
-  updateSelectionStart(raw);
-}
+const selectionEndPct = computed(() => {
+  const total = videoDurationSec.value;
+  if (total <= 0) return 100;
+  return Math.max(0, Math.min(100, (selectionEndSec.value / total) * 100));
+});
 
-function onEndTimeInput(event: Event): void {
-  const raw = (event.target as HTMLInputElement).valueAsNumber;
-  if (!Number.isFinite(raw)) return;
-  updateSelectionEnd(raw);
-}
+const playheadPct = computed(() => {
+  const total = videoDurationSec.value;
+  if (total <= 0) return 0;
+  const sec = clampPreviewSec(previewCurrentSec.value);
+  return Math.max(0, Math.min(100, (sec / total) * 100));
+});
 
-const rangeMaxMs = computed(() => Math.max(1000, Math.round(videoDurationSec.value * 1000)));
-const rangeStartMs = computed(() => Math.round(selectionStartSec.value * 1000));
-const rangeEndMs = computed(() => Math.round(selectionEndSec.value * 1000));
-const rangeFillStyle = computed(() => {
-  const total = rangeMaxMs.value || 1;
-  const a = (rangeStartMs.value / total) * 100;
-  const b = (rangeEndMs.value / total) * 100;
+const selectionStyle = computed(() => {
+  const a = selectionStartPct.value;
+  const b = selectionEndPct.value;
   return { left: `${a}%`, width: `${Math.max(0, b - a)}%` };
 });
 
-const playheadStyle = computed(() => {
-  if (videoDurationSec.value <= 0) return { left: "0%" };
-  const ratio = (previewCurrentSec.value / videoDurationSec.value) * 100;
-  return { left: `${Math.min(100, Math.max(0, ratio))}%` };
+const trackRef = ref<HTMLElement | null>(null);
+type DragMode = "start" | "end" | "playhead";
+const dragMode = ref<DragMode | null>(null);
+
+function ratioFromClientX(clientX: number): number {
+  const el = trackRef.value;
+  if (!el) return 0;
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0) return 0;
+  const x = clientX - rect.left;
+  return Math.max(0, Math.min(1, x / rect.width));
+}
+
+function secondsFromClientX(clientX: number): number {
+  return ratioFromClientX(clientX) * videoDurationSec.value;
+}
+
+let pointerMoveListener: ((ev: PointerEvent) => void) | null = null;
+let pointerUpListener: ((ev: PointerEvent) => void) | null = null;
+
+function detachPointerListeners(): void {
+  if (pointerMoveListener) {
+    globalThis.removeEventListener("pointermove", pointerMoveListener);
+    pointerMoveListener = null;
+  }
+  if (pointerUpListener) {
+    globalThis.removeEventListener("pointerup", pointerUpListener);
+    globalThis.removeEventListener("pointercancel", pointerUpListener);
+    pointerUpListener = null;
+  }
+}
+
+function beginDrag(event: PointerEvent, mode: DragMode): void {
+  if (isProcessing.value || videoDurationSec.value <= 0) return;
+  event.preventDefault();
+  event.stopPropagation();
+  dragMode.value = mode;
+  if (mode === "playhead" || mode === "start" || mode === "end") {
+    videoRef.value?.pause();
+  }
+  applyDrag(event.clientX, mode);
+
+  detachPointerListeners();
+  pointerMoveListener = (ev) => {
+    if (!dragMode.value) return;
+    applyDrag(ev.clientX, dragMode.value);
+  };
+  pointerUpListener = () => {
+    dragMode.value = null;
+    detachPointerListeners();
+  };
+  globalThis.addEventListener("pointermove", pointerMoveListener);
+  globalThis.addEventListener("pointerup", pointerUpListener);
+  globalThis.addEventListener("pointercancel", pointerUpListener);
+}
+
+function applyDrag(clientX: number, mode: DragMode): void {
+  const sec = secondsFromClientX(clientX);
+  if (mode === "start") {
+    updateSelectionStart(sec);
+  } else if (mode === "end") {
+    updateSelectionEnd(sec);
+  } else {
+    const clamped = clampPreviewSec(sec);
+    const v = videoRef.value;
+    if (v) v.currentTime = clamped;
+    onPreviewTimeUpdate(clamped);
+  }
+}
+
+function onStartHandlePointerDown(event: PointerEvent): void {
+  beginDrag(event, "start");
+}
+
+function onEndHandlePointerDown(event: PointerEvent): void {
+  beginDrag(event, "end");
+}
+
+function onPlayheadPointerDown(event: PointerEvent): void {
+  beginDrag(event, "playhead");
+}
+
+function onTrackPointerDown(event: PointerEvent): void {
+  if (isProcessing.value || videoDurationSec.value <= 0) return;
+  const target = event.target as HTMLElement | null;
+  if (target?.closest(".vtg-track__handle") || target?.closest(".vtg-track__playhead")) {
+    return;
+  }
+  beginDrag(event, "playhead");
+}
+
+onBeforeUnmount(() => {
+  detachPointerListeners();
+});
+
+function parseTimeCode(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const colon = trimmed.match(/^(\d{1,2}):(\d{1,2})(?:\.(\d{1,2}))?$/);
+  if (colon) {
+    const mm = Number.parseInt(colon[1], 10);
+    const ss = Number.parseInt(colon[2], 10);
+    const fracStr = (colon[3] || "0").padEnd(2, "0").slice(0, 2);
+    const frac = Number.parseInt(fracStr, 10) / 100;
+    return mm * 60 + ss + frac;
+  }
+  const num = Number.parseFloat(trimmed);
+  return Number.isFinite(num) ? num : null;
+}
+
+function onStartTimeBlur(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const parsed = parseTimeCode(input.value);
+  if (parsed !== null) updateSelectionStart(parsed);
+  input.value = formatTimeCode(selectionStartSec.value);
+}
+
+function onEndTimeBlur(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const parsed = parseTimeCode(input.value);
+  if (parsed !== null) updateSelectionEnd(parsed);
+  input.value = formatTimeCode(selectionEndSec.value);
+}
+
+function stepStartTime(delta: number): void {
+  if (isProcessing.value) return;
+  updateSelectionStart(selectionStartSec.value + delta);
+}
+
+function stepEndTime(delta: number): void {
+  if (isProcessing.value) return;
+  updateSelectionEnd(selectionEndSec.value + delta);
+}
+
+const thumbnails = ref<string[]>([]);
+const thumbnailSlotCount = ref(10);
+const isThumbnailLoading = ref(false);
+let thumbnailGenerationToken = 0;
+
+function pickThumbnailCount(duration: number): number {
+  if (duration <= 0) return 0;
+  if (duration < 4) return 6;
+  if (duration < 12) return 8;
+  if (duration < 40) return 10;
+  if (duration < 120) return 12;
+  return 14;
+}
+
+async function generateThumbnails(url: string, duration: number, count: number): Promise<string[]> {
+  if (!url || duration <= 0 || count <= 0) return [];
+  const video = document.createElement("video");
+  video.muted = true;
+  video.preload = "auto";
+  video.playsInline = true;
+  video.crossOrigin = "anonymous";
+  video.src = url;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const onReady = () => {
+        cleanup();
+        resolve();
+      };
+      const onErr = () => {
+        cleanup();
+        reject(new Error("video metadata load failed"));
+      };
+      const cleanup = (): void => {
+        video.removeEventListener("loadedmetadata", onReady);
+        video.removeEventListener("loadeddata", onReady);
+        video.removeEventListener("error", onErr);
+      };
+      video.addEventListener("loadedmetadata", onReady);
+      video.addEventListener("loadeddata", onReady);
+      video.addEventListener("error", onErr);
+    });
+
+    const naturalW = video.videoWidth || 320;
+    const naturalH = video.videoHeight || 180;
+    const targetW = 160;
+    const targetH = Math.max(40, Math.round((targetW * naturalH) / naturalW));
+    const canvas = document.createElement("canvas");
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return [];
+
+    const safeDur = Math.max(0.05, Math.min(duration, video.duration || duration));
+    const results: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const target = ((i + 0.5) / count) * safeDur;
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const onSeek = () => {
+          if (settled) return;
+          settled = true;
+          video.removeEventListener("seeked", onSeek);
+          resolve();
+        };
+        video.addEventListener("seeked", onSeek);
+        try {
+          video.currentTime = Math.min(safeDur, Math.max(0, target));
+        } catch {
+          onSeek();
+        }
+        setTimeout(onSeek, 2000);
+      });
+      ctx.drawImage(video, 0, 0, targetW, targetH);
+      results.push(canvas.toDataURL("image/jpeg", 0.72));
+    }
+    return results;
+  } finally {
+    video.removeAttribute("src");
+    try {
+      video.load();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+async function refreshThumbnails(): Promise<void> {
+  const url = currentVideoUrl.value;
+  const duration = videoDurationSec.value;
+  const count = pickThumbnailCount(duration);
+  thumbnailSlotCount.value = Math.max(1, count);
+  if (!url || duration <= 0 || count <= 0) {
+    thumbnails.value = [];
+    return;
+  }
+  const token = ++thumbnailGenerationToken;
+  isThumbnailLoading.value = true;
+  try {
+    const result = await generateThumbnails(url, duration, count);
+    if (token === thumbnailGenerationToken) {
+      thumbnails.value = result;
+    }
+  } catch {
+    if (token === thumbnailGenerationToken) {
+      thumbnails.value = [];
+    }
+  } finally {
+    if (token === thumbnailGenerationToken) {
+      isThumbnailLoading.value = false;
+    }
+  }
+}
+
+watch(
+  [currentVideoUrl, videoDurationSec],
+  () => {
+    thumbnails.value = [];
+    if (currentVideoUrl.value && videoDurationSec.value > 0) {
+      void nextTick(refreshThumbnails);
+    }
+  },
+  { flush: "post" }
+);
+
+const thumbnailSlots = computed(() => {
+  const list = thumbnails.value;
+  const target = thumbnailSlotCount.value;
+  if (list.length >= target) return list.slice(0, target);
+  const placeholders = new Array<string>(Math.max(0, target - list.length)).fill("");
+  return [...list, ...placeholders];
 });
 
 function onCustomWidthInput(event: Event): void {
@@ -164,6 +431,30 @@ function onCustomHeightInput(event: Event): void {
 function toggleSettingsExpanded(): void {
   settingsExpanded.value = !settingsExpanded.value;
 }
+
+const removeVideoModalOpen = ref(false);
+const removeVideoModalPanelRef = ref<HTMLElement | null>(null);
+
+watch(removeVideoModalOpen, (open) => {
+  if (open) {
+    void nextTick(() => removeVideoModalPanelRef.value?.focus());
+  }
+});
+
+function openRemoveVideoModal(): void {
+  if (isProcessing.value) return;
+  removeVideoModalOpen.value = true;
+}
+
+function closeRemoveVideoModal(): void {
+  removeVideoModalOpen.value = false;
+}
+
+function confirmRemoveVideo(): void {
+  videoRef.value?.pause();
+  clearVideo();
+  removeVideoModalOpen.value = false;
+}
 </script>
 
 <template>
@@ -176,30 +467,6 @@ function toggleSettingsExpanded(): void {
             <h2 class="vtg-head__title">{{ t("pages.videoToGif.title") }}</h2>
             <p class="vtg-head__desc">{{ t("pages.videoToGif.description") }}</p>
           </div>
-        </div>
-        <div class="vtg-head__meta">
-          <span class="vtg-badge">
-            <svg viewBox="0 0 24 24" class="vtg-badge__icon" aria-hidden="true">
-              <path
-                d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3Zm-1.2 14.4-3.4-3.4 1.4-1.4 2 2 4.6-4.6 1.4 1.4-6 6Z"
-                fill="currentColor"
-              />
-            </svg>
-            {{ t("pages.videoToGif.safetyBadge") }}
-          </span>
-          <button
-            type="button"
-            class="vtg-theme-toggle"
-            :aria-label="t('pages.videoToGif.themeToggleAria')"
-            title="Theme"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M21 12.8A9 9 0 0 1 11.2 3a7 7 0 1 0 9.8 9.8Z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
         </div>
       </header>
 
@@ -241,119 +508,267 @@ function toggleSettingsExpanded(): void {
           </section>
 
           <section v-else class="vtg-card vtg-player">
-            <div class="vtg-player__stage">
-              <video
-                ref="videoRef"
-                class="vtg-player__video"
-                :src="currentVideoUrl"
-                preload="metadata"
-                playsinline
-                @loadedmetadata="onLoadedMetadata"
-                @timeupdate="onTimeUpdate"
-                @play="onPlay"
-                @pause="onPause"
-              />
-              <button
-                type="button"
-                class="vtg-player__play"
-                :class="{ 'vtg-player__play--hidden': !isPaused }"
-                :aria-label="t('pages.videoToGif.preview.playAria')"
-                @click="togglePlay"
-              >
-                <svg viewBox="0 0 64 64" aria-hidden="true">
-                  <circle cx="32" cy="32" r="30" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.65)" stroke-width="2" />
-                  <path d="M26 20 L46 32 L26 44 Z" fill="#ffffff" />
-                </svg>
-              </button>
+            <div class="vtg-player__viewport" :aria-label="t('pages.videoToGif.preview.viewportAria')">
+              <div class="vtg-player__composition">
+                <button
+                  type="button"
+                  class="vtg-player__remove"
+                  :disabled="isProcessing"
+                  :aria-label="t('pages.videoToGif.preview.deleteVideo')"
+                  :title="t('pages.videoToGif.preview.deleteVideo')"
+                  @click="openRemoveVideoModal"
+                >
+                  <svg viewBox="0 0 24 24" class="vtg-player__remove-icon" aria-hidden="true">
+                    <path
+                      d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v9h-2V9Zm4 0h2v9h-2V9ZM5 9h14l-1 12H6L5 9Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
+                <div class="vtg-player__stage">
+                  <video
+                    ref="videoRef"
+                    class="vtg-player__video"
+                    :src="currentVideoUrl"
+                    preload="metadata"
+                    playsinline
+                    @loadedmetadata="onLoadedMetadata"
+                    @timeupdate="onTimeUpdate"
+                    @play="onPlay"
+                    @pause="onPause"
+                  />
+                  <button
+                    type="button"
+                    class="vtg-player__play"
+                    :aria-label="t('pages.videoToGif.preview.playAria')"
+                    @click="togglePlay"
+                  >
+                    <img
+                      class="vtg-player__play-img"
+                      src="/resources/toGif/video_play.png"
+                      alt=""
+                      width="56"
+                      height="56"
+                      :class="{ 'vtg-player__play-img--hidden': !isPaused }"
+                    />
+                    <img
+                      class="vtg-player__play-img"
+                      src="/resources/toGif/video_pause.png"
+                      alt=""
+                      width="56"
+                      height="56"
+                      :class="{ 'vtg-player__play-img--hidden': isPaused }"
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div class="vtg-timeline">
-              <div class="vtg-timeline__ticks" aria-hidden="true">
-                <div
-                  v-for="(tick, idx) in tickMarks"
-                  :key="idx"
-                  class="vtg-timeline__tick"
-                  :style="{ left: tick.left + '%' }"
-                >
-                  <span>{{ tick.label }}</span>
+              <div class="vtg-ruler" aria-hidden="true">
+                <div class="vtg-ruler__labels">
+                  <span
+                    v-for="(label, idx) in rulerLabels"
+                    :key="`label-${idx}`"
+                    class="vtg-ruler__label"
+                    :class="{
+                      'vtg-ruler__label--first': idx === 0,
+                      'vtg-ruler__label--last': idx === rulerLabels.length - 1
+                    }"
+                    :style="{ left: label.left + '%' }"
+                  >{{ label.label }}</span>
+                </div>
+                <div class="vtg-ruler__ticks">
+                  <span
+                    v-for="(tick, idx) in rulerTicks"
+                    :key="`tick-${idx}`"
+                    class="vtg-ruler__tick"
+                    :class="{ 'vtg-ruler__tick--major': tick.major }"
+                    :style="{ left: tick.left + '%' }"
+                  />
                 </div>
               </div>
+
               <div
-                class="vtg-timeline__track"
+                class="vtg-track"
+                :class="{ 'vtg-track--dragging': dragMode !== null, 'vtg-track--disabled': isProcessing }"
                 :aria-label="t('pages.videoToGif.preview.rangeAria')"
               >
-                <div class="vtg-timeline__strip" aria-hidden="true" />
-                <div class="vtg-timeline__fill" :style="rangeFillStyle" />
-                <div class="vtg-timeline__playhead" :style="playheadStyle" aria-hidden="true" />
-                <input
-                  type="range"
-                  class="vtg-timeline__handle vtg-timeline__handle--start"
-                  min="0"
-                  :max="rangeMaxMs"
-                  step="100"
-                  :value="rangeStartMs"
-                  :disabled="isProcessing"
-                  :aria-label="t('pages.videoToGif.preview.startLabel')"
-                  @input="onRangeStartInput"
-                />
-                <input
-                  type="range"
-                  class="vtg-timeline__handle vtg-timeline__handle--end"
-                  min="0"
-                  :max="rangeMaxMs"
-                  step="100"
-                  :value="rangeEndMs"
-                  :disabled="isProcessing"
-                  :aria-label="t('pages.videoToGif.preview.endLabel')"
-                  @input="onRangeEndInput"
-                />
+                <div
+                  ref="trackRef"
+                  class="vtg-track__inner"
+                  @pointerdown="onTrackPointerDown"
+                >
+                  <div class="vtg-track__thumbs">
+                    <div
+                      v-for="(thumb, idx) in thumbnailSlots"
+                      :key="idx"
+                      class="vtg-track__thumb"
+                      :class="{ 'vtg-track__thumb--empty': !thumb }"
+                    >
+                      <img v-if="thumb" :src="thumb" alt="" draggable="false" />
+                    </div>
+                  </div>
+
+                  <div
+                    class="vtg-track__mask vtg-track__mask--left"
+                    :style="{ width: selectionStartPct + '%' }"
+                    aria-hidden="true"
+                  />
+                  <div
+                    class="vtg-track__mask vtg-track__mask--right"
+                    :style="{ left: selectionEndPct + '%' }"
+                    aria-hidden="true"
+                  />
+
+                  <div class="vtg-track__selection" :style="selectionStyle" aria-hidden="true">
+                    <button
+                      type="button"
+                      class="vtg-track__handle vtg-track__handle--start"
+                      :disabled="isProcessing"
+                      :aria-label="t('pages.videoToGif.preview.startLabel')"
+                      @pointerdown="onStartHandlePointerDown"
+                    >
+                      <span class="vtg-track__handle-grip">
+                        <span class="vtg-track__handle-bar" />
+                        <span class="vtg-track__handle-bar" />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      class="vtg-track__handle vtg-track__handle--end"
+                      :disabled="isProcessing"
+                      :aria-label="t('pages.videoToGif.preview.endLabel')"
+                      @pointerdown="onEndHandlePointerDown"
+                    >
+                      <span class="vtg-track__handle-grip">
+                        <span class="vtg-track__handle-bar" />
+                        <span class="vtg-track__handle-bar" />
+                      </span>
+                    </button>
+                  </div>
+
+                  <div
+                    class="vtg-track__playhead"
+                    :style="{ left: playheadPct + '%' }"
+                    :aria-label="t('pages.videoToGif.preview.playheadAria')"
+                    :title="t('pages.videoToGif.preview.playheadAria')"
+                    @pointerdown="onPlayheadPointerDown"
+                  >
+                    <span class="vtg-track__playhead-pin" aria-hidden="true" />
+                    <span class="vtg-track__playhead-line" aria-hidden="true" />
+                  </div>
+                </div>
               </div>
-              <div class="vtg-timeline__meta">
-                <div class="vtg-meta-cell">
-                  <svg class="vtg-meta-cell__icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Zm1-13h-2v6l5 3 1-1.7-4-2.3Z" fill="currentColor" />
-                  </svg>
-                  <label class="vtg-meta-cell__label" for="vtg-start">
-                    {{ t("pages.videoToGif.preview.startLabel") }}
-                  </label>
-                  <input
-                    id="vtg-start"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    :max="videoDurationSec"
-                    class="vtg-meta-cell__input"
-                    :value="selectionStartSec.toFixed(1)"
+
+              <div class="vtg-preview-toolbar">
+                <div class="vtg-time-row">
+                  <div class="vtg-time-cell">
+                    <span class="vtg-time-cell__label">{{ t("pages.videoToGif.preview.startLabel") }}</span>
+                    <div class="vtg-time-cell__field">
+                      <input
+                        type="text"
+                        class="vtg-time-cell__input"
+                        :value="formatTimeCode(selectionStartSec)"
+                        :disabled="isProcessing"
+                        inputmode="decimal"
+                        @blur="onStartTimeBlur"
+                        @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+                      />
+                      <span class="vtg-time-cell__spin">
+                        <button
+                          type="button"
+                          class="vtg-time-cell__spin-btn"
+                          tabindex="-1"
+                          :disabled="isProcessing"
+                          aria-label="+"
+                          @click="stepStartTime(0.1)"
+                        >
+                          <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M5 0 0 6h10L5 0Z" fill="currentColor" /></svg>
+                        </button>
+                        <button
+                          type="button"
+                          class="vtg-time-cell__spin-btn"
+                          tabindex="-1"
+                          :disabled="isProcessing"
+                          aria-label="-"
+                          @click="stepStartTime(-0.1)"
+                        >
+                          <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M0 0h10L5 6 0 0Z" fill="currentColor" /></svg>
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+
+                  <span class="vtg-time-row__arrow" aria-hidden="true">
+                    <svg viewBox="0 0 24 12">
+                      <path d="M2 6h18m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </span>
+
+                  <div class="vtg-time-cell">
+                    <span class="vtg-time-cell__label">{{ t("pages.videoToGif.preview.endLabel") }}</span>
+                    <div class="vtg-time-cell__field">
+                      <input
+                        type="text"
+                        class="vtg-time-cell__input"
+                        :value="formatTimeCode(selectionEndSec)"
+                        :disabled="isProcessing"
+                        inputmode="decimal"
+                        @blur="onEndTimeBlur"
+                        @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+                      />
+                      <span class="vtg-time-cell__spin">
+                        <button
+                          type="button"
+                          class="vtg-time-cell__spin-btn"
+                          tabindex="-1"
+                          :disabled="isProcessing"
+                          aria-label="+"
+                          @click="stepEndTime(0.1)"
+                        >
+                          <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M5 0 0 6h10L5 0Z" fill="currentColor" /></svg>
+                        </button>
+                        <button
+                          type="button"
+                          class="vtg-time-cell__spin-btn"
+                          tabindex="-1"
+                          :disabled="isProcessing"
+                          aria-label="-"
+                          @click="stepEndTime(-0.1)"
+                        >
+                          <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M0 0h10L5 6 0 0Z" fill="currentColor" /></svg>
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="vtg-time-stat">
+                    <span class="vtg-time-stat__label">{{ t("pages.videoToGif.preview.durationLabel") }}</span>
+                    <strong class="vtg-time-stat__value vtg-time-stat__value--primary">
+                      {{ selectionDurationSec.toFixed(1) }} {{ t("pages.videoToGif.preview.durationUnit") }}
+                    </strong>
+                  </div>
+
+                  <div class="vtg-time-stat">
+                    <span class="vtg-time-stat__label">{{ t("pages.videoToGif.preview.currentLabel") }}</span>
+                    <strong class="vtg-time-stat__value">{{ formatTimeCode(previewCurrentSec) }}</strong>
+                  </div>
+                </div>
+
+                <div class="vtg-preview-toolbar__cta">
+                  <button
+                    type="button"
+                    class="vtg-btn vtg-btn--primary vtg-btn--cta"
                     :disabled="isProcessing"
-                    @change="onStartTimeInput"
-                  />
-                  <span class="vtg-meta-cell__time">{{ formatTimeCode(selectionStartSec) }}</span>
+                    @click="addCurrentClip"
+                  >
+                    <svg viewBox="0 0 24 24" class="vtg-btn__icon" aria-hidden="true">
+                      <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z" fill="currentColor" />
+                    </svg>
+                    {{ t("pages.videoToGif.clips.addCurrent") }}
+                  </button>
                 </div>
-                <div class="vtg-meta-cell">
-                  <label class="vtg-meta-cell__label" for="vtg-end">{{ t("pages.videoToGif.preview.endLabel") }}</label>
-                  <input
-                    id="vtg-end"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    :max="videoDurationSec"
-                    class="vtg-meta-cell__input"
-                    :value="selectionEndSec.toFixed(1)"
-                    :disabled="isProcessing"
-                    @change="onEndTimeInput"
-                  />
-                  <span class="vtg-meta-cell__time">{{ formatTimeCode(selectionEndSec) }}</span>
-                </div>
-                <div class="vtg-meta-cell">
-                  <svg class="vtg-meta-cell__icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Zm1-13h-2v6l5 3 1-1.7-4-2.3Z" fill="currentColor" />
-                  </svg>
-                  <span class="vtg-meta-cell__label">{{ t("pages.videoToGif.preview.durationLabel") }}</span>
-                  <strong class="vtg-meta-cell__duration">{{ selectionDurationSec.toFixed(1) }} {{ t("pages.videoToGif.preview.durationUnit") }}</strong>
-                </div>
-                <button type="button" class="vtg-btn vtg-btn--ghost vtg-btn--small" :disabled="isProcessing" @click="replaceVideo">
-                  {{ t("pages.videoToGif.preview.replaceVideo") }}
-                </button>
               </div>
             </div>
           </section>
@@ -364,15 +779,32 @@ function toggleSettingsExpanded(): void {
                 <h3 class="vtg-clips__title">{{ t("pages.videoToGif.clips.title") }}</h3>
                 <span class="vtg-clips__count">{{ t("pages.videoToGif.clips.countTpl", { count: clips.length }) }}</span>
               </div>
-              <button type="button" class="vtg-btn vtg-btn--primary vtg-btn--small" :disabled="isProcessing" @click="addCurrentClip">
-                <svg viewBox="0 0 24 24" class="vtg-btn__icon" aria-hidden="true">
-                  <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z" fill="currentColor" />
-                </svg>
-                {{ t("pages.videoToGif.clips.addCurrent") }}
-              </button>
             </div>
 
-            <ul v-if="clips.length > 0" class="vtg-clip-list">
+            <div v-if="clips.length === 0" class="vtg-panel-empty vtg-panel-empty--tight" aria-live="polite">
+              <div class="vtg-panel-empty__icon" aria-hidden="true">
+                <svg viewBox="0 0 80 64" class="vtg-panel-empty__svg">
+                  <rect x="10" y="16" width="34" height="26" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5" />
+                  <rect x="32" y="24" width="34" height="26" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
+                  <circle cx="56" cy="20" r="10" fill="#e2e8f0" />
+                  <path d="M56 16v8M52 20h8" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+              </div>
+              <p class="vtg-panel-empty__title">{{ t("pages.videoToGif.clips.emptyStateTitle") }}</p>
+              <p class="vtg-panel-empty__desc">{{ t("pages.videoToGif.clips.emptyStateDesc") }}</p>
+            </div>
+
+            <ul v-else class="vtg-clip-list">
+              <li class="vtg-clip-row vtg-clip-row--header" aria-hidden="true">
+                <span class="vtg-clip-row__drag vtg-clip-row__drag--header" />
+                <span class="vtg-clip-row__head-cell">{{ t("pages.videoToGif.clips.colClip") }}</span>
+                <span class="vtg-clip-row__head-cell">{{ t("pages.videoToGif.clips.startCol") }}</span>
+                <span class="vtg-clip-row__head-cell">{{ t("pages.videoToGif.clips.endCol") }}</span>
+                <span class="vtg-clip-row__head-cell">{{ t("pages.videoToGif.clips.durationCol") }}</span>
+                <span class="vtg-clip-row__head-cell">{{ t("pages.videoToGif.clips.colSize") }}</span>
+                <span class="vtg-clip-row__head-cell">{{ t("pages.videoToGif.clips.colFps") }}</span>
+                <span class="vtg-clip-row__head-cell">{{ t("pages.videoToGif.clips.colStatusActions") }}</span>
+              </li>
               <li v-for="(clip, idx) in clips" :key="clip.id" class="vtg-clip-row">
                 <div class="vtg-clip-row__drag" aria-hidden="true">
                   <svg viewBox="0 0 24 24"><path d="M9 7h2v2H9V7Zm4 0h2v2h-2V7ZM9 11h2v2H9v-2Zm4 0h2v2h-2v-2ZM9 15h2v2H9v-2Zm4 0h2v2h-2v-2Z" fill="currentColor" /></svg>
@@ -381,15 +813,12 @@ function toggleSettingsExpanded(): void {
                   {{ t("pages.videoToGif.clips.chipPrefix") }} {{ (idx + 1).toString().padStart(2, '0') }}
                 </span>
                 <div class="vtg-clip-row__time">
-                  <span class="vtg-clip-row__label">{{ t("pages.videoToGif.clips.startCol") }}</span>
                   <strong>{{ formatTimeCode(clip.startSec) }}</strong>
                 </div>
                 <div class="vtg-clip-row__time">
-                  <span class="vtg-clip-row__label">{{ t("pages.videoToGif.clips.endCol") }}</span>
                   <strong>{{ formatTimeCode(clip.endSec) }}</strong>
                 </div>
                 <div class="vtg-clip-row__time">
-                  <span class="vtg-clip-row__label">{{ t("pages.videoToGif.clips.durationCol") }}</span>
                   <strong>{{ formatClipDuration(clip) }}</strong>
                 </div>
                 <span class="vtg-clip-row__badge">
@@ -398,68 +827,68 @@ function toggleSettingsExpanded(): void {
                 <span class="vtg-clip-row__badge vtg-clip-row__badge--fps">
                   {{ t("pages.videoToGif.clips.fpsUnit", { fps: clip.fps }) }}
                 </span>
-                <div class="vtg-clip-row__actions">
-                  <button
-                    type="button"
-                    class="vtg-icon-btn"
-                    :aria-label="t('pages.videoToGif.clips.editAria')"
-                    :disabled="isProcessing"
-                    @click="editClip(clip.id)"
+                <div class="vtg-clip-row__tail">
+                  <span
+                    v-if="clip.status === 'completed'"
+                    class="vtg-clip-row__status vtg-clip-row__status--ok"
+                    :title="clip.outputPath"
                   >
-                    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm17.71-10.04a1 1 0 0 0 0-1.42l-2.5-2.5a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.99-1.66Z" fill="currentColor" /></svg>
-                  </button>
-                  <button
-                    type="button"
-                    class="vtg-icon-btn vtg-icon-btn--danger"
-                    :aria-label="t('pages.videoToGif.clips.deleteAria')"
-                    :disabled="isProcessing"
-                    @click="removeClip(clip.id)"
+                    {{ t("pages.videoToGif.status.completed") }}
+                  </span>
+                  <span
+                    v-else-if="clip.status === 'failed'"
+                    class="vtg-clip-row__status vtg-clip-row__status--bad"
+                    :title="clip.error"
                   >
-                    <svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 7Zm9-3v1h4v2H5V5h4V4h6Z" fill="currentColor" /></svg>
-                  </button>
+                    {{ t("pages.videoToGif.status.failed") }}
+                  </span>
+                  <div class="vtg-clip-row__actions">
+                    <button
+                      type="button"
+                      class="vtg-icon-btn vtg-icon-btn--danger"
+                      :aria-label="t('pages.videoToGif.clips.deleteAria')"
+                      :title="t('pages.videoToGif.clips.deleteAria')"
+                      :disabled="isProcessing"
+                      @click="removeClip(clip.id)"
+                    >
+                      <svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 7Zm9-3v1h4v2H5V5h4V4h6Z" fill="currentColor" /></svg>
+                    </button>
+                    <button
+                      v-if="clip.status === 'completed' && clip.outputPath"
+                      type="button"
+                      class="vtg-icon-btn"
+                      :aria-label="t('pages.videoToGif.clips.openFolderAria')"
+                      :title="t('pages.videoToGif.clips.openFolderTip')"
+                      :disabled="isProcessing"
+                      @click="openClipOutputFolder(clip.id)"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" class="vtg-clip-row__folder-icon">
+                        <path
+                          d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div v-if="clip.status === 'running'" class="vtg-clip-row__progress" :style="{ width: clip.progress + '%' }" />
-                <span
-                  v-if="clip.status === 'completed'"
-                  class="vtg-clip-row__status vtg-clip-row__status--ok"
-                  :title="clip.outputPath"
-                >
-                  {{ t("pages.videoToGif.status.completed") }}
-                </span>
-                <span
-                  v-else-if="clip.status === 'failed'"
-                  class="vtg-clip-row__status vtg-clip-row__status--bad"
-                  :title="clip.error"
-                >
-                  {{ t("pages.videoToGif.status.failed") }}
-                </span>
               </li>
             </ul>
 
-            <p class="vtg-clips__tip">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 5a1.5 1.5 0 1 1-1.5 1.5A1.5 1.5 0 0 1 12 7Zm2 11h-4v-1h1v-5h-1v-1h3v6h1Z" fill="currentColor" />
-              </svg>
-              {{ t("pages.videoToGif.clips.emptyTip") }}
-            </p>
           </section>
 
-          <section v-else class="vtg-card vtg-empty">
-            <div class="vtg-empty__art" aria-hidden="true">
-              <img src="/resources/toGif/Image-5_50.png" alt="" />
-            </div>
-            <div class="vtg-empty__text">
-              <strong>{{ t("pages.videoToGif.emptyVideo.title") }}</strong>
-              <p>{{ t("pages.videoToGif.emptyVideo.desc") }}</p>
-            </div>
-          </section>
-
-          <section v-if="resultSummary" class="vtg-card vtg-result">
-            <h4>{{ t("pages.videoToGif.result.title") }}</h4>
-            <div class="vtg-result__grid">
-              <div><span>{{ t("pages.videoToGif.result.total") }}</span><strong>{{ resultSummary.total }}</strong></div>
-              <div><span>{{ t("pages.videoToGif.result.success") }}</span><strong class="ok">{{ resultSummary.success }}</strong></div>
-              <div><span>{{ t("pages.videoToGif.result.failed") }}</span><strong class="bad">{{ resultSummary.failed }}</strong></div>
+          <section v-else class="vtg-card" aria-live="polite">
+            <div class="vtg-panel-empty vtg-panel-empty--tight">
+              <div class="vtg-panel-empty__icon" aria-hidden="true">
+                <svg viewBox="0 0 80 64" class="vtg-panel-empty__svg">
+                  <rect x="10" y="16" width="34" height="26" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5" />
+                  <rect x="32" y="24" width="34" height="26" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
+                  <circle cx="56" cy="20" r="10" fill="#e2e8f0" />
+                  <path d="M56 16v8M52 20h8" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+              </div>
+              <p class="vtg-panel-empty__title">{{ t("pages.videoToGif.emptyVideo.title") }}</p>
+              <p class="vtg-panel-empty__desc">{{ t("pages.videoToGif.emptyVideo.desc") }}</p>
             </div>
           </section>
 
@@ -619,7 +1048,13 @@ function toggleSettingsExpanded(): void {
 
               <div class="vtg-row vtg-row--toggle">
                 <span class="vtg-row__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24"><path d="M9 21H7v-7H4l8-8 8 8h-3v7h-2v-7H9v7Z" fill="currentColor" /></svg>
+                  <img
+                    src="/resources/toGif/ratio.png"
+                    alt=""
+                    width="200"
+                    height="200"
+                    decoding="async"
+                  />
                 </span>
                 <div class="vtg-row__toggle-body">
                   <div>
@@ -640,7 +1075,13 @@ function toggleSettingsExpanded(): void {
 
               <div class="vtg-row vtg-row--toggle">
                 <span class="vtg-row__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24"><path d="M5 4h14v3l-5 5 5 5v3H5v-3l5-5-5-5V4Z" fill="currentColor" /></svg>
+                  <img
+                    src="/resources/toGif/optimize.png"
+                    alt=""
+                    width="200"
+                    height="200"
+                    decoding="async"
+                  />
                 </span>
                 <div class="vtg-row__toggle-body">
                   <div>
@@ -648,16 +1089,7 @@ function toggleSettingsExpanded(): void {
                     <span class="vtg-row__hint" v-if="hasVideo">{{ t("pages.videoToGif.settings.smartCompressLabel") }}</span>
                     <span class="vtg-row__hint" v-else>{{ t("pages.videoToGif.settings.reduceSizeHint") }}</span>
                   </div>
-                  <label v-if="hasVideo" class="vtg-checkbox">
-                    <input
-                      type="checkbox"
-                      v-model="reduceSize"
-                      :disabled="isProcessing"
-                      :aria-label="t('pages.videoToGif.settings.reduceSize')"
-                    />
-                    <span class="vtg-checkbox__mark" />
-                  </label>
-                  <label v-else class="vtg-switch">
+                  <label class="vtg-switch">
                     <input
                       type="checkbox"
                       v-model="reduceSize"
@@ -708,51 +1140,89 @@ function toggleSettingsExpanded(): void {
               :aria-busy="isProcessing"
               @click="startConversion"
             >
-              <svg viewBox="0 0 24 24" class="vtg-btn__icon" aria-hidden="true">
-                <path d="M9 4v3l8-3-8-3v3H4v18h2V4h3Zm10 4-4 4 4 4v-3h-6v-2h6V8Z" fill="currentColor" />
-              </svg>
+              <img
+                class="vtg-btn__icon vtg-btn__icon--to-gif"
+                src="/resources/toGif/toGif.png"
+                alt=""
+                width="144"
+                height="153"
+                decoding="async"
+                aria-hidden="true"
+              />
               {{ isProcessing ? t("pages.videoToGif.footer.processing") : t("pages.videoToGif.footer.start") }}
-            </button>
-            <button
-              type="button"
-              class="vtg-btn vtg-btn--ghost vtg-btn--block"
-              :disabled="isProcessing"
-              @click="openOutputFolder"
-            >
-              <svg viewBox="0 0 24 24" class="vtg-btn__icon" aria-hidden="true">
-                <path d="M5 20h14v-2H5v2Zm7-18-5 5h3v6h4v-6h3l-5-5Z" fill="currentColor" />
-              </svg>
-              {{ t("pages.videoToGif.footer.exportGif") }}
             </button>
           </div>
         </aside>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="removeVideoModalOpen"
+        class="vtg-remove-modal-backdrop"
+        aria-hidden="false"
+        @click.self="closeRemoveVideoModal"
+      >
+        <div
+          ref="removeVideoModalPanelRef"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="vtg-remove-modal-title"
+          tabindex="-1"
+          class="vtg-remove-modal-panel"
+          @keydown.escape.prevent="closeRemoveVideoModal"
+        >
+          <h2 id="vtg-remove-modal-title" class="vtg-remove-modal-title">
+            {{ t("pages.videoToGif.preview.deleteVideoModalTitle") }}
+          </h2>
+          <p class="vtg-remove-modal-body">{{ t("pages.videoToGif.preview.deleteVideoModalBody") }}</p>
+          <div class="vtg-remove-modal-actions">
+            <button type="button" class="vtg-btn vtg-btn--ghost" @click="closeRemoveVideoModal">
+              {{ t("pages.videoToGif.preview.deleteVideoModalCancel") }}
+            </button>
+            <button type="button" class="vtg-btn vtg-btn--danger" @click="confirmRemoveVideo">
+              {{ t("pages.videoToGif.preview.deleteVideoModalConfirm") }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
 .vtg-page {
-  --vtg-shell-pad-x: clamp(12px, 2.8vw, 28px);
-  --vtg-bg: #f5f7fb;
-  --vtg-surface: #ffffff;
-  --vtg-surface-soft: #f7f9ff;
-  --vtg-border: #e4e8f1;
-  --vtg-border-strong: #d6dce8;
-  --vtg-text: #1f2740;
-  --vtg-text-secondary: #4a5475;
-  --vtg-text-muted: #7a849c;
-  --vtg-text-hint: #9aa3bb;
-  --vtg-primary: #2563eb;
-  --vtg-primary-strong: #1d4ed8;
-  --vtg-primary-soft: #e0ecff;
-  --vtg-primary-tint: #eef4ff;
+  /* Aligned with ImageWatermarkPage / desktop-app-ui tokens */
+  --surface: #ffffff;
+  --surface-muted: #f5f6fa;
+  --border: #eef0f4;
+  --border-weak: #e7e9ee;
+  --text: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-hint: #9ca3af;
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --vtg-shell-pad-x: 18px;
+  --vtg-bg: var(--surface-muted);
+  --vtg-surface: var(--surface);
+  --vtg-surface-soft: #fafbfd;
+  --vtg-border: var(--border);
+  --vtg-border-strong: #e0e3ea;
+  --vtg-text: var(--text);
+  --vtg-text-secondary: var(--text-secondary);
+  --vtg-text-muted: var(--text-muted);
+  --vtg-text-hint: var(--text-hint);
+  --vtg-primary: var(--primary);
+  --vtg-primary-strong: var(--primary-dark);
+  --vtg-primary-soft: #c7d2fe;
+  --vtg-primary-tint: #eef2ff;
   --vtg-danger: #ef4444;
-  --vtg-success: #16a34a;
+  --vtg-success: #22c55e;
   --vtg-success-soft: #dcfce7;
   --vtg-purple-from: #8b5cf6;
   --vtg-purple-to: #6366f1;
-  --vtg-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
+  --vtg-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.02);
   flex: 1;
   min-height: 0;
   height: 100%;
@@ -765,9 +1235,9 @@ function toggleSettingsExpanded(): void {
 
 .vtg-shell {
   width: 100%;
-  max-width: 100%;
+  max-width: 1480px;
   margin: 0 auto;
-  padding: 18px var(--vtg-shell-pad-x) 24px;
+  padding: 14px var(--vtg-shell-pad-x) 10px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -809,24 +1279,21 @@ function toggleSettingsExpanded(): void {
 
 .vtg-head__title {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.25;
+  font-size: clamp(20px, 1.8vw, 24px);
+  line-height: 1.3;
   font-weight: 700;
+  letter-spacing: 0;
   color: var(--vtg-text);
 }
 
 .vtg-head__desc {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--vtg-text-secondary);
 }
 
-.vtg-head__meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+
 
 .vtg-badge {
   display: inline-flex;
@@ -845,28 +1312,6 @@ function toggleSettingsExpanded(): void {
   height: 14px;
 }
 
-.vtg-theme-toggle {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--vtg-text-muted);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.vtg-theme-toggle:hover {
-  background: var(--vtg-primary-tint);
-  color: var(--vtg-primary);
-}
-
-.vtg-theme-toggle svg {
-  width: 18px;
-  height: 18px;
-}
 
 .vtg-body {
   display: grid;
@@ -900,9 +1345,9 @@ function toggleSettingsExpanded(): void {
 }
 
 .vtg-field__label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--vtg-text);
+  color: var(--vtg-text-secondary);
 }
 
 .vtg-field__suffix {
@@ -918,7 +1363,7 @@ function toggleSettingsExpanded(): void {
 
 .vtg-custom-dims {
   display: grid;
-  grid-template-columns: auto 1fr auto auto 1fr;
+  grid-template-columns: auto 0.5fr auto auto 1fr;
   align-items: center;
   gap: 8px 10px;
 }
@@ -948,7 +1393,7 @@ function toggleSettingsExpanded(): void {
 .vtg-card {
   background: var(--vtg-surface);
   border: 1px solid var(--vtg-border);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: var(--vtg-shadow-card);
 }
 
@@ -962,52 +1407,60 @@ function toggleSettingsExpanded(): void {
 }
 
 .vtg-upload--active {
-  border-color: var(--vtg-primary);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  border-color: var(--vtg-primary-soft);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 .vtg-upload__inner {
-  border: 2px dashed var(--vtg-border-strong);
-  border-radius: 12px;
-  padding: 36px 22px 28px;
+  border: 1px dashed #e0e3ea;
+  border-radius: 14px;
+  padding: 28px 20px 24px;
   text-align: center;
-  background: var(--vtg-primary-tint);
+  background: #f5f6fa;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .vtg-upload__art {
-  width: 150px;
-  height: 96px;
+  width: 88px;
+  height: auto;
+  min-height: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 4px;
 }
 
 .vtg-upload__art img {
   width: 100%;
+  max-width: 88px;
   height: auto;
 }
 
 .vtg-upload__title {
-  margin: 6px 0 2px;
+  margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: var(--vtg-text);
+  line-height: 1.4;
+  color: var(--text);
 }
 
 .vtg-upload__desc {
   margin: 0;
+  max-width: 420px;
   font-size: 13px;
-  color: var(--vtg-text-muted);
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .vtg-upload__hint {
   margin: 8px 0 0;
-  font-size: 12px;
-  color: var(--vtg-text-hint);
+  max-width: 420px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
 }
 
 .vtg-tip {
@@ -1016,10 +1469,11 @@ function toggleSettingsExpanded(): void {
   gap: 10px;
   padding: 12px 14px;
   border-radius: 10px;
-  background: var(--vtg-primary-tint);
-  border: 1px solid var(--vtg-primary-soft);
+  background: #fafbfd;
+  border: 1px solid var(--vtg-border);
   color: var(--vtg-text-secondary);
   font-size: 13px;
+  line-height: 1.45;
 }
 
 .vtg-tip__dot {
@@ -1069,19 +1523,34 @@ function toggleSettingsExpanded(): void {
   line-height: 1.2;
 }
 
+.vtg-btn:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
 .vtg-btn__icon {
   width: 16px;
   height: 16px;
 }
 
+/* Raster GIF branding: preserve intrinsic ratio, slightly larger than default 16px SVG */
+.vtg-btn__icon--to-gif {
+  width: 24px;
+  height: auto;
+  aspect-ratio: 144 / 153;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .vtg-btn--primary {
   background: var(--vtg-primary);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.22);
 }
 
 .vtg-btn--primary:hover:not(:disabled) {
   background: var(--vtg-primary-strong);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.28);
 }
 
 .vtg-btn--primary:disabled {
@@ -1093,17 +1562,78 @@ function toggleSettingsExpanded(): void {
 .vtg-btn--ghost {
   background: #fff;
   color: var(--vtg-text-secondary);
-  border: 1px solid var(--vtg-border-strong);
+  border: 1px solid var(--border-weak);
 }
 
 .vtg-btn--ghost:hover:not(:disabled) {
-  border-color: var(--vtg-primary-soft);
+  border-color: #dbeafe;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.06);
   color: var(--vtg-primary);
 }
 
 .vtg-btn--ghost:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.vtg-btn--danger {
+  background: var(--vtg-danger);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.28);
+}
+
+.vtg-btn--danger:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.vtg-btn--danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.vtg-remove-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.vtg-remove-modal-panel {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  padding: 22px 22px 18px;
+  outline: none;
+}
+
+.vtg-remove-modal-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.vtg-remove-modal-body {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.vtg-remove-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .vtg-btn--large {
@@ -1113,8 +1643,8 @@ function toggleSettingsExpanded(): void {
 }
 
 .vtg-btn--small {
-  padding: 7px 14px;
-  font-size: 12.5px;
+  padding: 6px 12px;
+  font-size: 12px;
 }
 
 .vtg-btn--block {
@@ -1124,20 +1654,117 @@ function toggleSettingsExpanded(): void {
 }
 
 .vtg-player {
+  --vtg-preview-max-h: min(54vh, 520px);
   padding: 14px 16px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+/* AE 风格：外层面板 + 内层合成安全区，避免画面与页面背景贴在一起 */
+.vtg-player__viewport {
+  padding: 10px;
+  border-radius: 10px;
+  background: linear-gradient(175deg, #3e3e42 0%, #2d2d30 55%, #252526 100%);
+  border: 1px solid #1e1e1e;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.vtg-player__composition {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  min-height: 168px;
+  max-height: calc(var(--vtg-preview-max-h) + 24px);
+  border-radius: 6px;
+  background-color: #141414;
+  background-image:
+    linear-gradient(45deg, #1c1c1c 25%, transparent 25%),
+    linear-gradient(-45deg, #1c1c1c 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1c1c1c 75%),
+    linear-gradient(-45deg, transparent 75%, #1c1c1c 75%);
+  background-size: 12px 12px;
+  background-position:
+    0 0,
+    0 6px,
+    6px -6px,
+    -6px 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 12px 24px rgba(0, 0, 0, 0.45);
+}
+
+.vtg-player__remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(10, 10, 10, 0.55);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  opacity: 0.45;
+  transition:
+    opacity 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.vtg-player__composition:has(.vtg-player__stage:hover) .vtg-player__remove:not(:disabled),
+.vtg-player__remove:hover:not(:disabled),
+.vtg-player__remove:focus-visible {
+  opacity: 1;
+}
+
+.vtg-player__remove:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.88);
+  border-color: rgba(254, 202, 202, 0.45);
+  color: #fff;
+}
+
+.vtg-player__remove:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.vtg-player__remove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.vtg-player__remove-icon {
+  width: 20px;
+  height: 20px;
+}
+
 .vtg-player__stage {
   position: relative;
-  width: 100%;
+  width: min(100%, calc(var(--vtg-preview-max-h) * 16 / 9));
   max-width: 100%;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #1f2740;
+  max-height: var(--vtg-preview-max-h);
   aspect-ratio: 16 / 9;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #0a0a0a;
+  box-shadow:
+    0 0 0 1px #0d0d0d,
+    0 0 0 2px #4a4a4a,
+    0 6px 20px rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1155,188 +1782,494 @@ function toggleSettingsExpanded(): void {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity 0.2s ease;
 }
 
-.vtg-player__play svg {
-  width: 64px;
-  height: 64px;
+.vtg-player__stage:hover .vtg-player__play,
+.vtg-player__play:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-.vtg-player__play--hidden {
-  opacity: 0;
+.vtg-player__play:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.vtg-player__play-img {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
   pointer-events: none;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.55));
+}
+
+.vtg-player__play-img--hidden {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .vtg-timeline {
+  --vtg-track-height: 76px;
+  --vtg-handle-width: 18px;
+  --vtg-selection-border: #6366f1;
+  --vtg-selection-border-soft: #c7d2fe;
+  --vtg-track-bg: #ffffff;
+  --vtg-track-border: #eef0f4;
+  --vtg-mask-overlay: rgba(245, 246, 250, 0.88);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
+  padding: 6px 2px 4px;
 }
 
-.vtg-timeline__ticks {
+.vtg-ruler {
   position: relative;
-  height: 18px;
+  height: 36px;
+  padding: 0 var(--vtg-handle-width);
 }
 
-.vtg-timeline__tick {
+.vtg-ruler__labels {
+  position: relative;
+  height: 16px;
+}
+
+.vtg-ruler__label {
   position: absolute;
   top: 0;
   transform: translateX(-50%);
-  font-size: 11px;
-  color: var(--vtg-text-muted);
+  font-size: 12px;
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
-.vtg-timeline__tick:first-child {
+.vtg-ruler__label--first {
   transform: translateX(0);
 }
 
-.vtg-timeline__tick:last-child {
+.vtg-ruler__label--last {
   transform: translateX(-100%);
 }
 
-.vtg-timeline__track {
+.vtg-ruler__ticks {
   position: relative;
-  height: 56px;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #0f1a36;
+  height: 14px;
+  margin-top: 4px;
 }
 
-.vtg-timeline__strip {
+.vtg-ruler__tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 5px;
+  background: #cbd5e1;
+  transform: translateX(-50%);
+  border-radius: 0.5px;
+}
+
+.vtg-ruler__tick--major {
+  height: 9px;
+  background: #94a3b8;
+  width: 1.5px;
+}
+
+.vtg-track {
+  position: relative;
+  height: var(--vtg-track-height);
+  border-radius: 10px;
+  background: var(--vtg-track-bg);
+  border: 1px solid var(--vtg-track-border);
+  padding: 0 var(--vtg-handle-width);
+  box-sizing: border-box;
+  user-select: none;
+  overflow: visible;
+}
+
+.vtg-track__inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.vtg-track--disabled .vtg-track__inner {
+  cursor: not-allowed;
+}
+
+.vtg-track--dragging .vtg-track__inner {
+  cursor: grabbing;
+}
+
+.vtg-track__thumbs {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 100%) 0 0/calc(100% / 12) 100%,
-    linear-gradient(120deg, #1d2b5b 0%, #2a3a78 35%, #6c44d6 70%, #3a3a86 100%);
-  opacity: 0.95;
+  display: flex;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #f5f6fa;
 }
 
-.vtg-timeline__fill {
+.vtg-track__thumb {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  background: #eef0f4;
+  overflow: hidden;
+  position: relative;
+}
+
+.vtg-track__thumb + .vtg-track__thumb {
+  margin-left: 1px;
+}
+
+.vtg-track__thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.vtg-track__thumb--empty {
+  background: linear-gradient(
+    135deg,
+    #f5f6fa 0%,
+    #eef0f4 50%,
+    #f5f6fa 100%
+  );
+  background-size: 200% 100%;
+  animation: vtg-thumb-shimmer 1.6s linear infinite;
+}
+
+@keyframes vtg-thumb-shimmer {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.vtg-track__mask {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(37, 99, 235, 0.22);
-  border-left: 2px solid var(--vtg-primary);
-  border-right: 2px solid var(--vtg-primary);
-}
-
-.vtg-timeline__playhead {
-  position: absolute;
-  top: -6px;
-  bottom: -6px;
-  width: 2px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--vtg-mask-overlay);
   pointer-events: none;
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.25);
+  z-index: 2;
 }
 
-.vtg-timeline__handle {
+.vtg-track__mask--left {
+  left: 0;
+}
+
+.vtg-track__mask--right {
+  right: 0;
+}
+
+.vtg-track__selection {
   position: absolute;
   top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  appearance: none;
-  background: transparent;
+  bottom: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-top: 2px solid var(--vtg-selection-border);
+  border-bottom: 2px solid var(--vtg-selection-border);
+  box-sizing: border-box;
+}
+
+.vtg-track__handle {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: var(--vtg-handle-width);
+  background: var(--vtg-selection-border);
+  border: none;
+  padding: 0;
+  cursor: ew-resize;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.22);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+  z-index: 5;
+}
+
+.vtg-track__handle:hover:not(:disabled),
+.vtg-track__handle:focus-visible {
+  background: var(--vtg-primary-strong);
+}
+
+.vtg-track__handle:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: -3px;
+}
+
+.vtg-track__handle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.vtg-track__handle--start {
+  left: calc(-1 * var(--vtg-handle-width));
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+.vtg-track__handle--end {
+  right: calc(-1 * var(--vtg-handle-width));
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.vtg-track__handle-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   pointer-events: none;
 }
 
-.vtg-timeline__handle::-webkit-slider-runnable-track {
-  background: transparent;
-  height: 100%;
+.vtg-track__handle-bar {
+  display: block;
+  width: 2px;
+  height: 14px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.95);
 }
 
-.vtg-timeline__handle::-moz-range-track {
-  background: transparent;
-  height: 100%;
-}
-
-.vtg-timeline__handle::-webkit-slider-thumb {
-  appearance: none;
+.vtg-track__playhead {
+  position: absolute;
+  top: -8px;
+  bottom: -2px;
+  width: 14px;
+  margin-left: -7px;
+  z-index: 6;
+  cursor: grab;
   pointer-events: auto;
-  width: 16px;
-  height: 56px;
-  border-radius: 6px;
-  background: var(--vtg-primary);
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.5);
-  cursor: ew-resize;
 }
 
-.vtg-timeline__handle::-moz-range-thumb {
-  pointer-events: auto;
-  width: 16px;
-  height: 56px;
-  border-radius: 6px;
-  background: var(--vtg-primary);
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.5);
-  cursor: ew-resize;
+.vtg-track__playhead:active {
+  cursor: grabbing;
 }
 
-.vtg-timeline__meta {
+.vtg-track__playhead-pin {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 10px;
+  height: 8px;
+  transform: translateX(-50%);
+  background: var(--vtg-selection-border);
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+}
+
+.vtg-track__playhead-line {
+  position: absolute;
+  top: 8px;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  border-left: 1.5px dashed var(--vtg-selection-border);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.vtg-preview-toolbar {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 18px;
-  flex-wrap: wrap;
+  padding-top: 4px;
 }
 
-.vtg-meta-cell {
+.vtg-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-around;
+  gap: 16px 24px;
+  width: 80%;
+  margin: 0 auto;
+}
+
+.vtg-time-row__arrow {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 28px;
+  height: 36px;
+  color: var(--text-hint);
+  padding-bottom: 8px;
+}
+
+.vtg-time-row__arrow svg {
+  width: 22px;
+  height: 11px;
+}
+
+.vtg-time-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.vtg-time-cell__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0;
+}
+
+.vtg-time-cell__field {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vtg-time-cell__field:focus-within {
+  border-color: var(--vtg-primary-soft);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.vtg-time-cell__input {
+  width: 92px;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  text-align: center;
+  outline: none;
+}
+
+.vtg-time-cell__input:disabled {
+  color: var(--text-hint);
+  cursor: not-allowed;
+}
+
+.vtg-time-cell__spin {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+}
+
+.vtg-time-cell__spin-btn {
+  flex: 1 1 0;
+  width: 22px;
+  min-height: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--vtg-text-secondary);
-}
-
-.vtg-meta-cell__icon {
-  width: 14px;
-  height: 14px;
-  color: var(--vtg-text-muted);
-}
-
-.vtg-meta-cell__label {
-  color: var(--vtg-text-muted);
-}
-
-.vtg-meta-cell__input {
-  width: 78px;
-  padding: 6px 8px;
-  border: 1px solid var(--vtg-border);
-  border-radius: 8px;
-  font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
-  color: var(--vtg-text);
+  justify-content: center;
   background: #fff;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
-.vtg-meta-cell__input:focus-visible {
-  outline: 2px solid var(--vtg-primary);
-  outline-offset: 1px;
-  border-color: var(--vtg-primary-soft);
+.vtg-time-cell__spin-btn + .vtg-time-cell__spin-btn {
+  border-top: 1px solid var(--border);
 }
 
-.vtg-meta-cell__time {
-  display: none;
-}
-
-.vtg-meta-cell__duration {
+.vtg-time-cell__spin-btn:hover:not(:disabled) {
+  background: var(--vtg-primary-tint);
   color: var(--vtg-primary);
+}
+
+.vtg-time-cell__spin-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.vtg-time-cell__spin-btn svg {
+  width: 8px;
+  height: 5px;
+  display: block;
+}
+
+.vtg-time-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding-bottom: 2px;
+}
+
+.vtg-time-stat__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0;
+}
+
+.vtg-time-stat__value {
+  font-size: 15px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: var(--text);
+  padding-top: 7px;
+}
+
+.vtg-time-stat__value--primary {
+  color: var(--vtg-primary);
+}
+
+.vtg-preview-toolbar__cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.vtg-preview-toolbar__cta .vtg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: min(100%, 460px);
+  justify-content: center;
+}
+
+.vtg-btn--cta {
+  padding: 13px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.28);
+}
+
+.vtg-btn--cta .vtg-btn__icon {
+  width: 18px;
+  height: 18px;
 }
 
 .vtg-clips {
@@ -1364,7 +2297,9 @@ function toggleSettingsExpanded(): void {
 .vtg-clips__title {
   margin: 0;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
   color: var(--vtg-text);
 }
 
@@ -1380,21 +2315,76 @@ function toggleSettingsExpanded(): void {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .vtg-clip-row {
   position: relative;
   display: grid;
-  grid-template-columns: 18px 64px 1fr 1fr 1fr auto auto auto;
+  /* 压缩时间/尺寸列，为帧率、状态操作保留最小可读宽度；避免 overflow 裁切右侧列 */
+  grid-template-columns:
+    18px
+    minmax(64px, 0.72fr)
+    minmax(72px, 1fr)
+    minmax(72px, 1fr)
+    minmax(56px, 0.85fr)
+    minmax(90px, 0.88fr)
+    minmax(64px, 0.72fr)
+    minmax(124px, 1.12fr);
   align-items: center;
-  gap: 14px;
-  padding: 10px 12px;
+  justify-items: stretch;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: 10px;
   background: var(--vtg-surface-soft);
   border: 1px solid var(--vtg-border);
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--vtg-text-secondary);
-  overflow: hidden;
+  overflow: visible;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.vtg-clip-row--header {
+  padding: 8px 10px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--vtg-border);
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  justify-items: stretch;
+}
+
+.vtg-clip-row__head-cell {
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--vtg-text-muted);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.vtg-clip-row--header .vtg-clip-row__head-cell:nth-child(2) {
+  text-align: start;
+}
+
+.vtg-clip-row--header .vtg-clip-row__head-cell:last-child {
+  text-align: end;
+}
+
+.vtg-clip-row__drag--header {
+  pointer-events: none;
+  justify-self: center;
 }
 
 .vtg-clip-row__drag {
@@ -1404,6 +2394,7 @@ function toggleSettingsExpanded(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  justify-self: center;
   cursor: grab;
 }
 
@@ -1416,19 +2407,34 @@ function toggleSettingsExpanded(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 10px;
+  justify-self: start;
+  max-width: 100%;
+  padding: 4px 8px;
   font-weight: 700;
   background: var(--vtg-primary);
   color: #fff;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .vtg-clip-row__label {
   display: inline-block;
   margin-right: 6px;
   color: var(--vtg-text-muted);
+}
+
+.vtg-clip-row__time {
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .vtg-clip-row__time strong {
@@ -1438,13 +2444,18 @@ function toggleSettingsExpanded(): void {
 }
 
 .vtg-clip-row__badge {
-  padding: 4px 10px;
+  justify-self: center;
+  max-width: 100%;
+  padding: 4px 8px;
   border-radius: 999px;
   background: #ffffff;
   border: 1px solid var(--vtg-border);
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--vtg-text-secondary);
   white-space: nowrap;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .vtg-clip-row__badge--fps {
@@ -1453,9 +2464,21 @@ function toggleSettingsExpanded(): void {
   background: var(--vtg-primary-tint);
 }
 
+.vtg-clip-row__tail {
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+
 .vtg-clip-row__actions {
   display: inline-flex;
+  align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .vtg-icon-btn {
@@ -1495,6 +2518,10 @@ function toggleSettingsExpanded(): void {
   height: 16px;
 }
 
+.vtg-clip-row__folder-icon {
+  display: block;
+}
+
 .vtg-clip-row__progress {
   position: absolute;
   left: 0;
@@ -1509,6 +2536,10 @@ function toggleSettingsExpanded(): void {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .vtg-clip-row__status--ok {
@@ -1521,105 +2552,56 @@ function toggleSettingsExpanded(): void {
   color: var(--vtg-danger);
 }
 
-.vtg-clips__tip {
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--vtg-surface-soft);
-  border: 1px dashed var(--vtg-border);
-  color: var(--vtg-text-muted);
-  font-size: 12.5px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.vtg-clips__tip svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  color: var(--vtg-primary);
-}
-
-.vtg-empty {
-  padding: 24px 22px;
+.vtg-panel-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  flex: 1;
-  min-height: 160px;
-}
-
-.vtg-empty__art {
-  width: 88px;
-  height: 88px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.vtg-empty__art img {
-  width: 100%;
-  height: auto;
-  opacity: 0.7;
-}
-
-.vtg-empty__text strong {
-  display: block;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--vtg-text);
-}
-
-.vtg-empty__text p {
-  margin: 4px 0 0;
-  font-size: 12.5px;
-  color: var(--vtg-text-muted);
-}
-
-.vtg-result {
-  padding: 12px 14px;
-  border-color: #bbf7d0;
-  background: rgba(240, 253, 244, 0.7);
-}
-
-.vtg-result h4 {
-  margin: 0 0 8px;
-  color: var(--vtg-success);
-  font-size: 13px;
-}
-
-.vtg-result__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+  margin: 12px;
+  padding: 28px 20px;
+  text-align: center;
+  border: 1px dashed #e0e3ea;
+  border-radius: 14px;
+  background: #f5f6fa;
+  box-sizing: border-box;
 }
 
-.vtg-result__grid > div {
-  padding: 8px 10px;
-  background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid #bbf7d0;
+.vtg-panel-empty--tight {
+  margin: 12px 12px 16px;
+  padding: 22px 16px 20px;
 }
 
-.vtg-result__grid span {
-  font-size: 11.5px;
-  color: var(--vtg-text-muted);
-  display: block;
+.vtg-card > .vtg-panel-empty {
+  margin: 12px;
 }
 
-.vtg-result__grid strong {
-  font-size: 16px;
-  color: var(--vtg-text);
+.vtg-panel-empty__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
 }
 
-.vtg-result__grid strong.ok {
-  color: var(--vtg-success);
+.vtg-panel-empty__desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 320px;
 }
 
-.vtg-result__grid strong.bad {
-  color: var(--vtg-danger);
+.vtg-panel-empty__icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.vtg-panel-empty__svg {
+  width: 72px;
+  height: auto;
+  opacity: 0.85;
 }
 
 .vtg-hint {
@@ -1648,8 +2630,10 @@ function toggleSettingsExpanded(): void {
 
 .vtg-settings__title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0;
   color: var(--vtg-text);
 }
 
@@ -1692,14 +2676,23 @@ function toggleSettingsExpanded(): void {
   height: 18px;
 }
 
+.vtg-row__icon img {
+  width: 18px;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+
 .vtg-row__icon--ghost {
   visibility: hidden;
 }
 
 .vtg-row__label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--vtg-text);
+  color: var(--vtg-text-secondary);
   letter-spacing: 0;
 }
 
@@ -1742,7 +2735,7 @@ function toggleSettingsExpanded(): void {
   border: 1px solid var(--vtg-border);
   background: #ffffff;
   color: var(--vtg-text-secondary);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   min-width: 48px;
@@ -1774,11 +2767,11 @@ function toggleSettingsExpanded(): void {
 .vtg-input {
   border: 1px solid var(--vtg-border);
   border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 13px;
+  padding: 0 10px;
+  font-size: 14px;
   background: #fff;
   color: var(--vtg-text);
-  min-height: 32px;
+  min-height: 36px;
   box-sizing: border-box;
 }
 
@@ -1801,10 +2794,10 @@ function toggleSettingsExpanded(): void {
   border: 1px solid var(--vtg-border);
   border-radius: 8px;
   padding: 7px 10px;
-  font-size: 13px;
+  font-size: 14px;
   background: #fff;
   color: var(--vtg-text);
-  min-height: 32px;
+  min-height: 36px;
   width: 100%;
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--vtg-text-muted) 50%),
@@ -1858,7 +2851,7 @@ function toggleSettingsExpanded(): void {
   appearance: none;
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #93c5fd, var(--vtg-primary));
+  background: linear-gradient(90deg, var(--vtg-primary-soft), var(--vtg-primary));
   outline: none;
 }
 
@@ -1870,7 +2863,7 @@ function toggleSettingsExpanded(): void {
   background: #ffffff;
   border: 2px solid var(--vtg-primary);
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.5);
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.35);
 }
 
 .vtg-quality__range::-moz-range-thumb {
@@ -1907,7 +2900,7 @@ function toggleSettingsExpanded(): void {
 .vtg-switch__slider {
   position: absolute;
   inset: 0;
-  background: #d6dce8;
+  background: #e2e8f0;
   border-radius: 999px;
   transition: background 0.2s ease;
 }
@@ -1986,8 +2979,9 @@ function toggleSettingsExpanded(): void {
 
 .vtg-estimate__title {
   margin: 0 0 10px;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
   color: var(--vtg-text);
 }
 
@@ -2033,13 +3027,11 @@ function toggleSettingsExpanded(): void {
 
 .vtg-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
 }
 
 @media (max-width: 1200px) {
   .vtg-body {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, min(520px, 46vw));
+    grid-template-columns: minmax(0, 1fr) minmax(280px, min(420px, 46vw));
   }
   .vtg-estimate__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2048,7 +3040,13 @@ function toggleSettingsExpanded(): void {
 
 @media (max-width: 1100px) {
   .vtg-body {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, min(480px, 50vw));
+    grid-template-columns: minmax(0, 1fr) minmax(280px, min(380px, 50vw));
+  }
+}
+
+@media (max-height: 760px) {
+  .vtg-player {
+    --vtg-preview-max-h: min(44vh, 420px);
   }
 }
 
@@ -2062,16 +3060,9 @@ function toggleSettingsExpanded(): void {
   .vtg-main {
     order: 1;
   }
-  .vtg-clip-row {
-    grid-template-columns: 18px 64px 1fr 1fr;
-    grid-auto-flow: row;
-    row-gap: 6px;
-  }
-  .vtg-clip-row__badge {
-    justify-self: start;
-  }
-  .vtg-clip-row__actions {
-    justify-self: end;
+  .vtg-clip-row,
+  .vtg-clip-row--header {
+    min-width: 0;
   }
 }
 

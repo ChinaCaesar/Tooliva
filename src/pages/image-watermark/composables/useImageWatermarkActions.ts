@@ -218,6 +218,11 @@ export function useImageWatermarkActions() {
   });
   const resultSummary = ref<WatermarkResultSummary | null>(null);
   const previewCanvasRef = ref<HTMLElement | null>(null);
+  /** 预览舞台可用区域（client 尺寸），用于与 `previewRect` 同源缩放，避免 CSS max-* 与计算尺寸不一致 */
+  const previewStageSize = ref<PreviewRect>({ width: PREVIEW_BASE.width, height: PREVIEW_BASE.height });
+  let previewStageResizeObserver: ResizeObserver | null = null;
+  let previewStageResizeRaf = 0;
+  let previewStageMeasureTimer: ReturnType<typeof setTimeout> | null = null;
   let disposeDropListener: UnlistenFn | null = null;
   let disposeWatermarkProgressListener: UnlistenFn | null = null;
   let previewRequestId = 0;
@@ -232,10 +237,12 @@ export function useImageWatermarkActions() {
   const previewRect = computed<PreviewRect>(() => {
     const naturalWidth = previewNaturalSize.value.width || PREVIEW_BASE.width;
     const naturalHeight = previewNaturalSize.value.height || PREVIEW_BASE.height;
-    const ratio = Math.min(PREVIEW_BASE.width / naturalWidth, PREVIEW_BASE.height / naturalHeight);
+    const capW = Math.min(PREVIEW_BASE.width, Math.max(1, previewStageSize.value.width));
+    const capH = Math.min(PREVIEW_BASE.height, Math.max(1, previewStageSize.value.height));
+    const ratio = Math.min(capW / naturalWidth, capH / naturalHeight);
     return {
-      width: Math.max(220, Math.round(naturalWidth * ratio)),
-      height: Math.max(180, Math.round(naturalHeight * ratio))
+      width: Math.max(1, Math.round(naturalWidth * ratio)),
+      height: Math.max(1, Math.round(naturalHeight * ratio))
     };
   });
   const previewOverlaySize = computed(() =>
@@ -293,6 +300,15 @@ export function useImageWatermarkActions() {
   );
 
   watch(
+    () => [previewRect.value.width, previewRect.value.height] as const,
+    () => {
+      void refreshPreviewGeometry();
+      scheduleTextOverlayPreviewRefresh();
+    },
+    { flush: "post" }
+  );
+
+  watch(
     primaryPreviewItem,
     (item) => {
       if (!item) {
@@ -328,10 +344,27 @@ export function useImageWatermarkActions() {
     previewDragRatio.value = resolvePresetRatios(value, previewRect.value, previewOverlaySize.value, margin.value);
   }, { immediate: true });
 
-  watch([previewRect, previewOverlaySize, margin], () => {
-    if (position.value === "custom") return;
-    previewDragRatio.value = resolvePresetRatios(position.value, previewRect.value, previewOverlaySize.value, margin.value);
-  });
+  watch(
+    () =>
+      [
+        previewRect.value.width,
+        previewRect.value.height,
+        previewOverlaySize.value.width,
+        previewOverlaySize.value.height,
+        margin.value,
+        position.value
+      ] as const,
+    () => {
+      if (position.value === "custom") return;
+      previewDragRatio.value = resolvePresetRatios(
+        position.value,
+        previewRect.value,
+        previewOverlaySize.value,
+        margin.value
+      );
+    },
+    { flush: "post" }
+  );
 
   /**
    * 打开系统选择器导入待处理图片。
@@ -443,10 +476,12 @@ export function useImageWatermarkActions() {
   function handlePreviewImageLoad(event: Event): void {
     const target = event.target as HTMLImageElement | null;
     if (!target?.naturalWidth || !target.naturalHeight) return;
-    previewNaturalSize.value = {
-      width: target.naturalWidth,
-      height: target.naturalHeight
-    };
+    const w = target.naturalWidth;
+    const h = target.naturalHeight;
+    if (previewNaturalSize.value.width === w && previewNaturalSize.value.height === h) {
+      return;
+    }
+    previewNaturalSize.value = { width: w, height: h };
   }
 
   /**
@@ -611,6 +646,64 @@ export function useImageWatermarkActions() {
     const resolvedElement =
       element instanceof HTMLElement ? element : element && typeof element === "object" && "$el" in element ? element.$el : null;
     previewCanvasRef.value = resolvedElement instanceof HTMLElement ? resolvedElement : null;
+  }
+
+  function measurePreviewStage(el: HTMLElement): void {
+    const w = el.clientWidth;
+    const h = el.clientHeight;
+    if (w < 2 || h < 2) return;
+    const prev = previewStageSize.value;
+    if (prev.width === w && prev.height === h) {
+      return;
+    }
+    previewStageSize.value = { width: w, height: h };
+  }
+
+  function scheduleMeasurePreviewStage(el: HTMLElement): void {
+    if (previewStageMeasureTimer) {
+      clearTimeout(previewStageMeasureTimer);
+      previewStageMeasureTimer = null;
+    }
+    previewStageMeasureTimer = setTimeout(() => {
+      previewStageMeasureTimer = null;
+      measurePreviewStage(el);
+    }, 48);
+  }
+
+  /**
+   * 绑定预览舞台并监听尺寸，使 `previewRect` 与真实可视区域一致。
+   */
+  function setPreviewStageRef(element: Element | { $el?: Element | null } | null): void {
+    if (previewStageResizeObserver) {
+      previewStageResizeObserver.disconnect();
+      previewStageResizeObserver = null;
+    }
+    if (previewStageResizeRaf) {
+      cancelAnimationFrame(previewStageResizeRaf);
+      previewStageResizeRaf = 0;
+    }
+    if (previewStageMeasureTimer) {
+      clearTimeout(previewStageMeasureTimer);
+      previewStageMeasureTimer = null;
+    }
+    if (!element) {
+      return;
+    }
+    const resolved =
+      element instanceof HTMLElement ? element : element && typeof element === "object" && "$el" in element ? element.$el : null;
+    if (!(resolved instanceof HTMLElement)) {
+      return;
+    }
+    const el = resolved;
+    measurePreviewStage(el);
+    previewStageResizeObserver = new ResizeObserver(() => {
+      if (previewStageResizeRaf) cancelAnimationFrame(previewStageResizeRaf);
+      previewStageResizeRaf = requestAnimationFrame(() => {
+        previewStageResizeRaf = 0;
+        scheduleMeasurePreviewStage(el);
+      });
+    });
+    previewStageResizeObserver.observe(el);
   }
 
   /**
@@ -975,6 +1068,18 @@ export function useImageWatermarkActions() {
   });
 
   onBeforeUnmount(() => {
+    if (previewStageResizeObserver) {
+      previewStageResizeObserver.disconnect();
+      previewStageResizeObserver = null;
+    }
+    if (previewStageResizeRaf) {
+      cancelAnimationFrame(previewStageResizeRaf);
+      previewStageResizeRaf = 0;
+    }
+    if (previewStageMeasureTimer) {
+      clearTimeout(previewStageMeasureTimer);
+      previewStageMeasureTimer = null;
+    }
     if (textOverlayRefreshTimer) {
       clearTimeout(textOverlayRefreshTimer);
       textOverlayRefreshTimer = null;
@@ -1020,6 +1125,7 @@ export function useImageWatermarkActions() {
     previewRect,
     previewStyle,
     setPreviewCanvasRef,
+    setPreviewStageRef,
     pickImages,
     pickSourceDirectory,
     pickOutputDirectory,
