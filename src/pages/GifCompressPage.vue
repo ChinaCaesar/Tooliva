@@ -574,8 +574,8 @@ async function onOpenOutput() {
         <div class="gif-card-head">
           <h3 id="gif-list-title" class="gif-card-head__title">{{ t("pages.gifCompress.listTitle") }}（{{ items.length }}）</h3>
           <div class="gif-card-head__actions">
-            <button type="button" class="gif-btn gif-btn--light" @click="pickFiles"><Plus :size="17" />{{ t("pages.gifCompress.addFiles") }}</button>
-            <button type="button" class="gif-btn gif-btn--light" :disabled="isRunning || items.length === 0" @click="clearList"><Trash2 :size="16" />{{ t("pages.gifCompress.clearList") }}</button>
+            <button type="button" class="gif-btn gif-btn--list-action" @click="pickFiles"><Plus :size="14" />{{ t("pages.gifCompress.addFiles") }}</button>
+            <button type="button" class="gif-btn gif-btn--list-action" :disabled="isRunning || items.length === 0" @click="clearList"><Trash2 :size="14" />{{ t("pages.gifCompress.clearList") }}</button>
           </div>
         </div>
 
@@ -665,6 +665,17 @@ async function onOpenOutput() {
 <style scoped>
 .gif-compress-page {
   --bottom-height: 108px;
+  --surface-muted: #f5f6fa;
+  --surface: #ffffff;
+  --border: #eef0f4;
+  --border-weak: #e7e9ee;
+  --text: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-hint: #9ca3af;
+  --primary: #6366f1;
+  --accent-link: #f97316;
+  --accent-link-hover: #ea580c;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -673,8 +684,9 @@ async function onOpenOutput() {
   width: 100%;
   min-width: 0;
   padding: 18px 12px 12px;
-  color: #121a37;
-  background: #f7f9fd;
+  color: var(--text-secondary);
+  letter-spacing: 0;
+  background: var(--surface-muted);
   overflow: auto;
   scrollbar-gutter: stable;
 }
@@ -691,7 +703,7 @@ async function onOpenOutput() {
 .gif-file-list,
 .gif-settings-scroll {
   scrollbar-width: thin;
-  scrollbar-color: #c9d4e7 transparent;
+  scrollbar-color: #d6d9e0 transparent;
 }
 
 .gif-compress-page::-webkit-scrollbar,
@@ -729,14 +741,17 @@ async function onOpenOutput() {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
-  border: 1px solid #dfe6f2;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(27, 49, 92, 0.04);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
   overflow: hidden;
 }
 
-.gif-card--list { padding: clamp(14px, 1.4vh, 20px) 16px 14px; }
+.gif-card--list {
+  padding: 0;
+  background: var(--surface);
+}
 .gif-card--preview { padding: clamp(16px, 1.8vh, 24px) 18px 16px; }
 .gif-card--settings { padding: clamp(14px, 1.4vh, 20px) 22px 18px; }
 
@@ -744,9 +759,10 @@ async function onOpenOutput() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
   flex: 0 0 auto;
   margin-bottom: clamp(12px, 1.5vh, 18px);
+  min-width: 0;
 }
 
 .gif-card-head--preview {
@@ -756,16 +772,17 @@ async function onOpenOutput() {
 
 .gif-card-head__title {
   margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #111936;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
 }
 
 .gif-card-head__sub {
   margin: 7px 0 0;
   font-size: 13px;
-  line-height: 1.45;
-  color: #71809e;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .gif-card-head__actions,
@@ -780,13 +797,55 @@ async function onOpenOutput() {
 .gif-card-head__actions { gap: 14px; }
 
 .gif-card--list .gif-card-head {
-  align-items: flex-start;
+  align-items: center;
+  margin: 0 0 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.gif-card--list .gif-card-head__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gif-card--list .gif-card-head__actions {
+  flex-shrink: 0;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+}
+
+.gif-card--list .gif-drop,
+.gif-card--list .gif-file-list,
+.gif-card--list .gif-hint,
+.gif-card--list .gif-list-foot {
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+.gif-card--list .gif-drop--empty {
+  margin: 12px;
+  border-style: dashed;
+  border-color: #e0e3ea;
+  border-radius: 14px;
+  background: #f5f6fa;
+}
+
+.gif-card--list .gif-drop--compact {
+  margin: 12px 12px 0;
+}
+
+.gif-card--list .gif-file-list {
+  margin-top: 0;
+  padding-bottom: 4px;
+}
+
+.gif-card--list .gif-list-foot {
+  margin-bottom: 12px;
 }
 
 .gif-btn,
@@ -815,6 +874,46 @@ async function onOpenOutput() {
   padding: 0 13px;
 }
 
+.gif-btn--list-action {
+  height: auto;
+  min-height: 28px;
+  padding: 6px 12px;
+  gap: 5px;
+  border-radius: 999px;
+  border: 1px solid var(--border-weak);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.gif-btn--list-action:hover:not(:disabled) {
+  border-color: #dbeafe;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.06);
+}
+
+.gif-btn--list-action:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+.gif-btn--light {
+  border-color: var(--border-weak);
+  background: #fff;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.gif-btn--light:hover:not(:disabled) {
+  border-color: #dbeafe;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.06);
+}
+
 .gif-btn:disabled,
 .gif-action:disabled {
   opacity: 0.55;
@@ -822,15 +921,30 @@ async function onOpenOutput() {
 }
 
 .gif-drop {
-  border: 1px dashed #c5cfe2;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  transition: border-color 0.16s, background 0.16s;
+  border: 1px dashed #d6d9e0;
+  border-radius: 12px;
+  background: #fafbfd;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.gif-drop:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.gif-drop:hover:not(.gif-drop--active) {
+  border-color: #c7d2fe;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
 }
 
 .gif-drop--active {
-  border-color: #2667ff;
-  background: #f3f7ff;
+  border-color: #c7d2fe;
+  background: #f5f6fa;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 .gif-drop--empty {
@@ -862,31 +976,44 @@ async function onOpenOutput() {
 }
 
 .gif-drop__mini-icon {
-  color: #3a4771;
+  color: var(--text-muted);
   margin-bottom: 8px;
 }
 
 .gif-drop__title,
 .gif-drop__compact-title {
   margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #121a37;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
 }
 
-.gif-drop__compact-title { font-size: 14px; }
+.gif-drop__compact-title {
+  font-size: 14px;
+}
+
 .gif-drop__title span,
-.gif-drop__compact-title span { color: #075df5; cursor: pointer; }
+.gif-drop__compact-title span {
+  color: var(--accent-link);
+  cursor: pointer;
+}
+
+.gif-drop__title span:hover,
+.gif-drop__compact-title span:hover {
+  color: var(--accent-link-hover);
+}
 
 .gif-drop__sub {
   margin: 10px 0 0;
   font-size: 13px;
-  color: #657493;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .gif-drop__rules {
   margin-top: clamp(22px, 5vh, 52px);
-  color: #71809e;
+  color: var(--text-hint);
   font-size: 13px;
   line-height: 1.8;
 }
@@ -958,14 +1085,14 @@ async function onOpenOutput() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 15px;
-  font-weight: 700;
-  color: #111936;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .gif-file__size {
   font-size: 13px;
-  color: #71809e;
+  color: var(--text-muted);
 }
 
 .gif-file__status {
@@ -990,8 +1117,22 @@ async function onOpenOutput() {
   justify-content: center;
   border: 0;
   background: transparent;
-  color: #15224b;
+  color: var(--text-secondary);
   cursor: pointer;
+  border-radius: 8px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.gif-file__remove:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.gif-file__remove:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
 }
 
 .gif-list-foot {
@@ -1001,13 +1142,15 @@ async function onOpenOutput() {
   margin-top: auto;
   padding-top: 15px;
   font-size: 13px;
-  color: #657493;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 .gif-hint {
   margin: 10px 0 0;
-  color: #dc2626;
+  color: #ef4444;
   font-size: 12px;
+  line-height: 1.5;
 }
 
 .gif-preview-grid {
