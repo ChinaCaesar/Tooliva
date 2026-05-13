@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { Crown } from "@lucide/vue";
+import { ChevronLeft, Crown, House } from "@lucide/vue";
 import { message } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
@@ -18,6 +18,7 @@ defineProps<{
 
 const emit = defineEmits<{
   toggleCollapse: [];
+  collapseForHome: [];
 }>();
 
 const route = useRoute();
@@ -41,6 +42,7 @@ function navSecondaryActive(item: AppNavSecondaryItem): boolean {
 }
 
 async function goHome(): Promise<void> {
+  emit("collapseForHome");
   await router.push(ROUTE_PATHS.home).catch(() => {
     /* 重复导航 */
   });
@@ -100,12 +102,12 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
         @click="emit('toggleCollapse')"
       >
         <span class="app-sidebar__collapse-icon-wrap" aria-hidden="true">
-          <svg viewBox="0 0 24 24" class="app-sidebar__collapse-icon" :class="{ 'app-sidebar__collapse-icon--collapsed': collapsed }">
-            <path
-              fill="currentColor"
-              d="M14.71 6.71a.996.996 0 000-1.41L13.3 3.88a.996.996 0 00-1.41 0L8.29 7.46a.996.996 0 000 1.41l3.59 3.59-3.59 3.59a.996.996 0 000 1.41l1.41 1.41a.996.996 0 001.41 0l4.59-4.59a.996.996 0 000-1.41L14.71 6.71z"
-            />
-          </svg>
+          <ChevronLeft
+            :size="18"
+            :stroke-width="2"
+            class="app-sidebar__collapse-lucide"
+            :class="{ 'app-sidebar__collapse-lucide--collapsed': collapsed }"
+          />
         </span>
       </button>
     </div>
@@ -119,12 +121,7 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
           @click="goHome"
         >
           <span class="app-sidebar__back-icon-wrap" aria-hidden="true">
-            <svg viewBox="0 0 24 24" class="app-sidebar__back-icon">
-              <path
-                fill="currentColor"
-                d="M10.78 4.97a.75.75 0 0 1 0 1.06L5.81 11h13.44a.75.75 0 0 1 0 1.5H5.81l4.97 4.97a.75.75 0 1 1-1.06 1.06l-6.25-6.25a.75.75 0 0 1 0-1.06l6.25-6.25a.75.75 0 0 1 1.06 0"
-              />
-            </svg>
+            <House :size="18" :stroke-width="2" class="app-sidebar__back-lucide" />
           </span>
           <span class="app-sidebar__label-text">{{ t("common.backToHome") }}</span>
         </button>
@@ -191,7 +188,7 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
 
 <style scoped>
 .app-sidebar {
-  --app-sidebar-width-expanded: 220px;
+  --app-sidebar-width-expanded: 160px;
   --app-sidebar-width-collapsed: 60px;
   width: var(--app-sidebar-width-expanded);
   flex-shrink: 0;
@@ -254,13 +251,12 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
   width: 22px;
   height: 22px;
 }
-.app-sidebar__collapse-icon {
-  width: 18px;
-  height: 18px;
+.app-sidebar__collapse-lucide {
   display: block;
+  color: inherit;
   transition: transform 0.22s cubic-bezier(0.33, 1, 0.68, 1);
 }
-.app-sidebar__collapse-icon--collapsed {
+.app-sidebar__collapse-lucide--collapsed {
   transform: rotate(180deg);
 }
 .app-sidebar__regions {
@@ -318,10 +314,9 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
   height: 22px;
   color: #475569;
 }
-.app-sidebar__back-icon {
-  width: 18px;
-  height: 18px;
+.app-sidebar__back-lucide {
   display: block;
+  color: inherit;
 }
 .app-sidebar__link--tool {
   display: flex;
@@ -457,11 +452,11 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
   .app-sidebar,
   .app-sidebar__link,
   .app-sidebar__collapse-btn,
-  .app-sidebar__collapse-icon,
+  .app-sidebar__collapse-lucide,
   .app-sidebar__label-text {
     transition-duration: 0.01ms !important;
   }
-  .app-sidebar__collapse-icon--collapsed {
+  .app-sidebar__collapse-lucide--collapsed {
     transform: none;
   }
   .app-sidebar__collapse-btn:active {

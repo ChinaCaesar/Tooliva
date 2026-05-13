@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, toRef } from "vue";
+import { computed, toRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ROUTE_PATHS } from "@/config/constants";
@@ -17,13 +17,23 @@ const { topBar, searchToolEntries, pageConfig } = useHomePageData();
 const appSidebarCollapse = useAppSidebarCollapse();
 const sidebarCollapsed = toRef(appSidebarCollapse, "collapsed");
 
-/** 首页不展示侧栏；其余壳内子页默认展示，除非路由 meta.hideAppSidebar 为 true */
+watch(
+  () => route.name,
+  (name) => {
+    if (name === "home") appSidebarCollapse.setCollapsed(true);
+  },
+  { immediate: true }
+);
+
+/** 壳内默认展示侧栏；路由 meta.hideAppSidebar 可隐藏（如登录等独立壳外页不适用） */
 const showAppSidebar = computed(() => {
-  const p = route.path;
-  if (p === ROUTE_PATHS.home || p === "/" || p === "") return false;
   if (route.meta.hideAppSidebar === true) return false;
   return true;
 });
+
+function collapseSidebar(): void {
+  appSidebarCollapse.setCollapsed(true);
+}
 
 const isApplePlatform = computed(() => /Mac|iPhone|iPad|iPod/i.test(navigator.platform));
 
@@ -77,6 +87,7 @@ function goMembership(): void {
         v-if="showAppSidebar"
         :collapsed="sidebarCollapsed"
         @toggle-collapse="appSidebarCollapse.toggle"
+        @collapse-for-home="collapseSidebar"
       />
       <main class="app-shell__main" :class="{ 'app-shell__main--full': !showAppSidebar }">
         <div class="app-shell__router">

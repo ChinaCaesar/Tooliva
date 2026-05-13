@@ -24,6 +24,7 @@ function writeStored(collapsed: boolean): void {
 export function useAppSidebarCollapse(): {
   collapsed: Ref<boolean>;
   toggle: () => void;
+  setCollapsed: (next: boolean) => void;
 } {
   const collapsed = ref<boolean>(readStored());
 
@@ -35,5 +36,10 @@ export function useAppSidebarCollapse(): {
     collapsed.value = !collapsed.value;
   }
 
-  return { collapsed, toggle };
+  function setCollapsed(next: boolean): void {
+    if (collapsed.value === next) return;
+    collapsed.value = next;
+  }
+
+  return { collapsed, toggle, setCollapsed };
 }
