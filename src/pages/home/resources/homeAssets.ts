@@ -27,9 +27,9 @@ export const HOME_ASSETS: Record<HomeAssetKey, string> = {
 
   /** 主推工具卡 / 最近使用：图片压缩（蓝） */
   pubIconImageCompress: homePublicResourceUrl("Image-4_35.png"),
-  /** 主推工具卡 / 最近使用：视频格式转换（紫） */
+  /** 主推工具卡 / 最近使用：视频转 GIF（沿用视频类图标资源，后续可替换） */
   pubIconVideoConvert: homePublicResourceUrl("icon_video_convert.png"),
-  /** 主推工具卡 / 最近使用：录屏工具（绿） */
+  /** 主推工具卡 / 最近使用：图片高清放大（沿用原侧栏切图资源，后续可替换） */
   pubIconScreenRecord: homePublicResourceUrl("Image-4_21.png"),
   /** 主推工具卡 / 最近使用：图片加水印（橙） */
   pubIconImageWatermark: homePublicResourceUrl("Image-4_23.png"),

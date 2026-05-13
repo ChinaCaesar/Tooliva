@@ -28,7 +28,7 @@ const {
 } = useHomePageData();
 
 /**
- * 路由可解析则跳转；否则回退为占位提示（视频转换/录屏工具等暂未实现）。
+ * 路由可解析则跳转；否则回退为占位提示（尚未接入路由的工具等）。
  */
 async function handleToolNavigate(actionCode: string): Promise<void> {
   const route = resolveHomeToolRoute(actionCode);

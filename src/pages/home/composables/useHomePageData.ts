@@ -75,7 +75,7 @@ function mapMockRecentToViewModels(): HomeRecentItemViewModel[] {
   const seen = new Set<string>();
   const out: HomeRecentItemViewModel[] = [];
   for (const item of HOME_RECENT_ITEMS_MOCK) {
-    const key = item.toolKey ?? "image-compress";
+    const key = normalizeHomeToolKey(item.toolKey ?? "image-compress");
     if (seen.has(key)) continue;
     seen.add(key);
     const meta = resolveRecentItemMeta(key);
@@ -97,42 +97,50 @@ function mapMockRecentToViewModels(): HomeRecentItemViewModel[] {
 /** 设计稿中的 4 个主推工具 key，未来新增/下线只需调整此集合。 */
 const KNOWN_HOME_TOOL_KEYS = new Set<string>([
   "image-compress",
-  "video-convert",
-  "screen-record",
+  "video-to-gif",
+  "image-upscale",
   "image-watermark"
 ]);
 
+/** 兼容旧版 SQLite `tool_key` 与历史数据。 */
+function normalizeHomeToolKey(toolKey: string): string {
+  if (toolKey === "video-convert") return "video-to-gif";
+  if (toolKey === "screen-record") return "image-upscale";
+  return toolKey;
+}
+
 function accentForToolKey(toolKey: string): string {
-  if (toolKey === "video-convert") return "linear-gradient(135deg, #a37cff 0%, #7c4dff 100%)";
-  if (toolKey === "screen-record") return "linear-gradient(135deg, #2ec591 0%, #19a374 100%)";
+  if (toolKey === "video-to-gif") return "linear-gradient(135deg, #a37cff 0%, #7c4dff 100%)";
+  if (toolKey === "image-upscale") return "linear-gradient(135deg, #2ec591 0%, #19a374 100%)";
   if (toolKey === "image-watermark") return "linear-gradient(135deg, #ff8a48 0%, #f76b1c 100%)";
   return "linear-gradient(135deg, #4286ff 0%, #2d6ff5 100%)";
 }
 
 function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: string; iconBackground: string } {
-  const iconBackground = accentForToolKey(toolKey);
-  if (!KNOWN_HOME_TOOL_KEYS.has(toolKey)) {
+  const key = normalizeHomeToolKey(toolKey);
+  const iconBackground = accentForToolKey(key);
+  if (!KNOWN_HOME_TOOL_KEYS.has(key)) {
     return {
       titleKey: "pages.home.tools.removedTool.shortTitle",
       iconUrl: HOME_ASSETS.pubIconImageCompress,
       iconBackground: "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
     };
   }
-  if (toolKey === "video-convert") {
+  if (key === "video-to-gif") {
     return {
-      titleKey: "pages.home.tools.videoConvert.shortTitle",
+      titleKey: "pages.home.tools.videoToGif.shortTitle",
       iconUrl: HOME_ASSETS.pubIconVideoConvert,
       iconBackground
     };
   }
-  if (toolKey === "screen-record") {
+  if (key === "image-upscale") {
     return {
-      titleKey: "pages.home.tools.screenRecord.shortTitle",
+      titleKey: "pages.home.tools.imageUpscale.shortTitle",
       iconUrl: HOME_ASSETS.pubIconScreenRecord,
       iconBackground
     };
   }
-  if (toolKey === "image-watermark") {
+  if (key === "image-watermark") {
     return {
       titleKey: "pages.home.tools.imageWatermark.shortTitle",
       iconUrl: HOME_ASSETS.pubIconImageWatermark,
@@ -234,7 +242,8 @@ export function useHomePageData() {
         recentItems.value = [];
       } else {
         recentItems.value = deduped.map((item) => {
-          const meta = resolveRecentItemMeta(item.toolKey);
+          const normalized = normalizeHomeToolKey(item.toolKey);
+          const meta = resolveRecentItemMeta(normalized);
           return {
             id: `recent-${item.id}`,
             iconUrl: meta.iconUrl,
@@ -243,7 +252,7 @@ export function useHomePageData() {
             fileName: item.fileName,
             relativeTimeKey: mapRelativeTimeKey(item.usedAtTs),
             isEmpty: false,
-            actionCode: KNOWN_HOME_TOOL_KEYS.has(item.toolKey) ? item.toolKey : undefined
+            actionCode: KNOWN_HOME_TOOL_KEYS.has(normalized) ? normalized : undefined
           };
         });
       }

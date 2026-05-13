@@ -3,6 +3,7 @@ import { ROUTE_PATHS } from "@/config/constants";
 import AppShellLayout from "@/layouts/app-shell/AppShellLayout.vue";
 import HomePage from "@/pages/HomePage.vue";
 import ImageCompressPage from "@/pages/ImageCompressPage.vue";
+import VideoToGifPage from "@/pages/VideoToGifPage.vue";
 import ImageUpscalePage from "@/pages/ImageUpscalePage.vue";
 import ImageWatermarkPage from "@/pages/ImageWatermarkPage.vue";
 import ImageWatermarkRemovalPage from "@/pages/ImageWatermarkRemovalPage.vue";
@@ -20,6 +21,7 @@ const routes: RouteRecordRaw[] = [
       { path: ROUTE_PATHS.membership.replace(/^\//, ""), name: "membership", component: MembershipPage },
       { path: ROUTE_PATHS.imageWatermark.replace(/^\//, ""), name: "image-watermark", component: ImageWatermarkPage },
       { path: ROUTE_PATHS.imageCompress.replace(/^\//, ""), name: "image-compress", component: ImageCompressPage },
+      { path: ROUTE_PATHS.videoToGif.replace(/^\//, ""), name: "video-to-gif", component: VideoToGifPage },
       { path: ROUTE_PATHS.imageUpscale.replace(/^\//, ""), name: "image-upscale", component: ImageUpscalePage },
       {
         path: ROUTE_PATHS.imageWatermarkRemoval.replace(/^\//, ""),

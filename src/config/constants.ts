@@ -53,6 +53,7 @@ export const ROUTE_PATHS = {
   home: "/",
   login: "/login",
   imageCompress: "/image-compress",
+  videoToGif: "/video-to-gif",
   imageUpscale: "/image-upscale",
   imageWatermarkRemoval: "/image-watermark-removal",
   imageWatermark: "/image-watermark",

@@ -25,20 +25,20 @@ export const HOME_CORE_TOOLS_MOCK: HomeToolCardItem[] = [
     actionCode: "image-compress"
   },
   {
-    id: "tool-video-convert",
+    id: "tool-video-to-gif",
     iconKey: "pubIconVideoConvert",
-    titleKey: "pages.home.tools.videoConvert.title",
-    descriptionKey: "pages.home.tools.videoConvert.description",
+    titleKey: "pages.home.tools.videoToGif.title",
+    descriptionKey: "pages.home.tools.videoToGif.description",
     gradient: "linear-gradient(135deg, #a37cff 0%, #7c4dff 100%)",
-    actionCode: "video-convert"
+    actionCode: "video-to-gif"
   },
   {
-    id: "tool-screen-record",
+    id: "tool-image-upscale",
     iconKey: "pubIconScreenRecord",
-    titleKey: "pages.home.tools.screenRecord.title",
-    descriptionKey: "pages.home.tools.screenRecord.description",
+    titleKey: "pages.home.tools.imageUpscale.title",
+    descriptionKey: "pages.home.tools.imageUpscale.description",
     gradient: "linear-gradient(135deg, #2ec591 0%, #19a374 100%)",
-    actionCode: "screen-record"
+    actionCode: "image-upscale"
   },
   {
     id: "tool-image-watermark",
@@ -62,24 +62,22 @@ export const HOME_FEATURED_TOOLS_MOCK: HomeFeaturedToolCardDef[] = [
     actionCode: "image-compress"
   },
   {
-    id: "feat-video-convert",
+    id: "feat-video-to-gif",
     cardType: "tool",
     iconKey: "pubIconVideoConvert",
-    titleKey: "pages.home.tools.videoConvert.title",
-    descriptionKey: "pages.home.tools.videoConvert.description",
+    titleKey: "pages.home.tools.videoToGif.title",
+    descriptionKey: "pages.home.tools.videoToGif.description",
     gradient: "linear-gradient(135deg, #a37cff 0%, #7c4dff 100%)",
-    actionCode: "video-convert",
-    placeholderMessageKey: "pages.home.placeholders.videoConvert"
+    actionCode: "video-to-gif"
   },
   {
-    id: "feat-screen-record",
+    id: "feat-image-upscale",
     cardType: "tool",
     iconKey: "pubIconScreenRecord",
-    titleKey: "pages.home.tools.screenRecord.title",
-    descriptionKey: "pages.home.tools.screenRecord.description",
+    titleKey: "pages.home.tools.imageUpscale.title",
+    descriptionKey: "pages.home.tools.imageUpscale.description",
     gradient: "linear-gradient(135deg, #2ec591 0%, #19a374 100%)",
-    actionCode: "screen-record",
-    placeholderMessageKey: "pages.home.placeholders.screenRecord"
+    actionCode: "image-upscale"
   },
   {
     id: "feat-image-watermark",
@@ -181,20 +179,20 @@ export const HOME_RECENT_ITEMS_MOCK: HomeRecentItem[] = [
   {
     id: "recent-2",
     iconKey: "pubIconVideoConvert",
-    titleKey: "pages.home.tools.videoConvert.shortTitle",
+    titleKey: "pages.home.tools.videoToGif.shortTitle",
     fileName: "clip_001.mp4",
     relativeTimeKey: "pages.home.relativeTime.oneHourAgo",
     taskId: "task-1002",
-    toolKey: "video-convert"
+    toolKey: "video-to-gif"
   },
   {
     id: "recent-3",
     iconKey: "pubIconScreenRecord",
-    titleKey: "pages.home.tools.screenRecord.shortTitle",
-    fileName: "demo.mp4",
+    titleKey: "pages.home.tools.imageUpscale.shortTitle",
+    fileName: "photo_hd.png",
     relativeTimeKey: "pages.home.recent.usedYesterday",
     taskId: "task-1003",
-    toolKey: "screen-record"
+    toolKey: "image-upscale"
   },
   {
     id: "recent-4",
@@ -275,7 +273,7 @@ export const HOME_FOOTER_LINKS_MOCK: HomeFooterLinkItem[] = [
 /** 顶栏搜索候选（与路由工具集合一致，可含首页横向条未展示的工具）。 */
 export const HOME_SEARCH_TOOL_ENTRIES_MOCK: { id: string; titleKey: string; actionCode: string }[] = [
   { id: "search-compress", titleKey: "pages.home.tools.imageCompress.title", actionCode: "image-compress" },
-  { id: "search-video-convert", titleKey: "pages.home.tools.videoConvert.title", actionCode: "video-convert" },
-  { id: "search-screen-record", titleKey: "pages.home.tools.screenRecord.title", actionCode: "screen-record" },
+  { id: "search-video-to-gif", titleKey: "pages.home.tools.videoToGif.title", actionCode: "video-to-gif" },
+  { id: "search-image-upscale", titleKey: "pages.home.tools.imageUpscale.title", actionCode: "image-upscale" },
   { id: "search-watermark", titleKey: "pages.home.tools.imageWatermark.title", actionCode: "image-watermark" }
 ];

@@ -86,7 +86,7 @@ export const zhCN = {
       topBar: {
         appName: "工具箱",
         tagline: "自媒体创作好帮手",
-        searchPlaceholder: "搜索工具（例如：图片压缩、视频转换）",
+        searchPlaceholder: "搜索工具（例如：图片压缩、视频转 GIF）",
         searchShortcut: "Ctrl K",
         searchShortcutMac: "⌘ K",
         memberCta: "开通会员",
@@ -155,9 +155,7 @@ export const zhCN = {
       },
       placeholders: {
         moreTools: "更多工具陆续上架中，敬请期待。",
-        viewAllRecent: "完整历史将在任务中心提供。",
-        videoConvert: "视频格式转换工具正在开发中，敬请期待。",
-        screenRecord: "录屏工具正在开发中，敬请期待。"
+        viewAllRecent: "完整历史将在任务中心提供。"
       },
       tools: {
         imageCompress: {
@@ -165,23 +163,18 @@ export const zhCN = {
           shortTitle: "图片压缩",
           description: "批量压缩图片\n保持高清画质"
         },
-        videoConvert: {
-          title: "视频格式转换",
-          shortTitle: "视频格式转换",
-          description: "支持多种格式\n批量极速转换"
-        },
-        screenRecord: {
-          title: "录屏工具",
-          shortTitle: "录屏工具",
-          description: "高清录制屏幕\n简单易用"
+        videoToGif: {
+          title: "视频转 GIF",
+          shortTitle: "视频转 GIF",
+          description: "截取片段\n导出动图"
         },
         removedTool: {
           shortTitle: "历史记录（已下线工具）"
         },
         imageUpscale: {
           title: "图片高清放大",
-          shortTitle: "图片放大",
-          description: "本地超分辨率能力规划中，当前可从首页进入查看说明。"
+          shortTitle: "图片高清放大",
+          description: "提升清晰度与细节\n本地离线处理"
         },
         imageWatermark: {
           title: "图片加水印",
@@ -645,6 +638,11 @@ export const zhCN = {
       title: "图片高清放大",
       description: "本工具将提供本地可离线使用的图片清晰度提升能力；当前版本尚未开放处理入口。",
       comingSoon: "功能开发中，后续版本将接入模型与批量任务。"
+    },
+    videoToGif: {
+      title: "视频转 GIF",
+      description: "将本地视频片段转换为 GIF 动图；当前版本尚未开放处理入口。",
+      comingSoon: "功能开发中，后续版本将提供截取、帧率与尺寸等选项。"
     },
     imageWatermarkRemoval: {
       title: "图片去水印",

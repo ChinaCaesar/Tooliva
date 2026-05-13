@@ -8,11 +8,11 @@ const { t } = useI18n();
   <div class="tool-workspace-page">
     <div class="tool-workspace-page__scroll">
       <header class="tool-workspace-head">
-        <h2 id="image-upscale-title" class="tool-workspace-head__title">{{ t("pages.imageUpscale.title") }}</h2>
-        <p class="tool-workspace-head__desc">{{ t("pages.imageUpscale.description") }}</p>
+        <h2 id="video-to-gif-title" class="tool-workspace-head__title">{{ t("pages.videoToGif.title") }}</h2>
+        <p class="tool-workspace-head__desc">{{ t("pages.videoToGif.description") }}</p>
       </header>
-      <section class="tool-workspace-placeholder" aria-labelledby="image-upscale-title">
-        <p class="tool-workspace-placeholder__note">{{ t("pages.imageUpscale.comingSoon") }}</p>
+      <section class="tool-workspace-placeholder" aria-labelledby="video-to-gif-title">
+        <p class="tool-workspace-placeholder__note">{{ t("pages.videoToGif.comingSoon") }}</p>
       </section>
     </div>
   </div>

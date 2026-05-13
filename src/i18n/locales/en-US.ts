@@ -86,7 +86,7 @@ export const enUS = {
       topBar: {
         appName: "Toolbox",
         tagline: "Your helper for creator workflows",
-        searchPlaceholder: "Search tools (e.g. image compress, video convert)",
+        searchPlaceholder: "Search tools (e.g. image compress, video to GIF)",
         searchShortcut: "Ctrl K",
         searchShortcutMac: "⌘ K",
         memberCta: "Go premium",
@@ -155,9 +155,7 @@ export const enUS = {
       },
       placeholders: {
         moreTools: "More tools are coming soon. Stay tuned.",
-        viewAllRecent: "Full history will live in the task center.",
-        videoConvert: "Video format converter is under development.",
-        screenRecord: "Screen recorder is under development."
+        viewAllRecent: "Full history will live in the task center."
       },
       tools: {
         imageCompress: {
@@ -165,23 +163,18 @@ export const enUS = {
           shortTitle: "Image compress",
           description: "Batch compress images\nwhile keeping clarity"
         },
-        videoConvert: {
-          title: "Video converter",
-          shortTitle: "Video converter",
-          description: "Multiple formats supported\nbatch convert at speed"
-        },
-        screenRecord: {
-          title: "Screen recorder",
-          shortTitle: "Screen recorder",
-          description: "HD screen recording\nsimple and easy to use"
+        videoToGif: {
+          title: "Video to GIF",
+          shortTitle: "Video to GIF",
+          description: "Trim a clip\nexport an animated GIF"
         },
         removedTool: {
           shortTitle: "History (removed tool)"
         },
         imageUpscale: {
-          title: "Image Upscale",
-          shortTitle: "Image Enhance",
-          description: "Local upscaling is planned; you can open this page for the current notice."
+          title: "Image upscale",
+          shortTitle: "Image upscale",
+          description: "Sharper detail locally\noffline-friendly workflow"
         },
         imageWatermark: {
           title: "Image watermark",
@@ -646,6 +639,12 @@ export const enUS = {
       description:
         "This tool will offer offline-friendly image clarity improvements; the current release does not expose processing yet.",
       comingSoon: "Under development. Models and batch jobs will arrive in a future update."
+    },
+    videoToGif: {
+      title: "Video to GIF",
+      description:
+        "Turn local video clips into animated GIFs; the current release does not expose processing yet.",
+      comingSoon: "Under development. Trim, frame rate, and sizing controls will arrive in a future update."
     },
     imageWatermarkRemoval: {
       title: "Remove watermark",
