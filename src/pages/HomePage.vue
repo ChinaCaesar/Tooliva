@@ -27,14 +27,26 @@ const {
   pageConfig
 } = useHomePageData();
 
-function handleToolNavigate(actionCode: string): void {
+/**
+ * 路由可解析则跳转；否则回退为占位提示（视频转换/录屏工具等暂未实现）。
+ */
+async function handleToolNavigate(actionCode: string): Promise<void> {
   const route = resolveHomeToolRoute(actionCode);
-  if (route) router.push(route);
+  if (route) {
+    router.push(route);
+    return;
+  }
+  const placeholderKey = `pages.home.placeholders.${actionCode.replace(/-([a-z])/g, (_, c) => c.toUpperCase())}`;
+  await showHomeInfoDialog(t(placeholderKey, t("pages.home.placeholders.moreTools")), t("pages.home.dialogs.placeholderTitle"));
 }
 
 function handleRecentItemClick(actionCode: string): void {
   const route = resolveHomeToolRoute(actionCode);
-  if (route) router.push(route);
+  if (route) {
+    router.push(route);
+    return;
+  }
+  void handleToolNavigate(actionCode);
 }
 
 async function handlePlaceholder(messageKey: string): Promise<void> {
@@ -53,73 +65,77 @@ async function handleChangelogViewAll(): Promise<void> {
     t(pageConfig.value.sections.sidebar.changelog.titleKey)
   );
 }
+
+async function handleViewAllRecent(): Promise<void> {
+  await handlePlaceholder("pages.home.placeholders.viewAllRecent");
+}
 </script>
 
 <template>
   <div class="home-page">
     <div class="home-page__body">
       <main class="home-page__main">
-        <div class="home-page__main-scroll">
-          <div class="home-page__main-stack">
+        <div class="home-page__scroll">
+          <!-- Card 1: 问候语 + 主推工具 -->
+          <section class="home-card home-card--hero">
             <HomeGreetingHero
-              class="home-page__hero"
               :title="t(greetingTitleKey)"
               :subtitle="t(pageConfig.sections.greeting.subtitleKey)"
+              :wave-icon-url="HOME_ASSETS.pubGreetingWave"
+              :illustration-url="HOME_ASSETS.pubHeroToolbox"
             />
-            <div class="home-page__featured-slot">
-              <HomeFeaturedToolsRow
-                :cards="featuredTools"
-                :cta-label="t('pages.home.featured.useNow')"
-                @tool-navigate="handleToolNavigate"
-                @placeholder="handlePlaceholder"
-              />
-            </div>
+            <HomeFeaturedToolsRow
+              :cards="featuredTools"
+              :cta-label="t('pages.home.featured.useNow')"
+              @tool-navigate="handleToolNavigate"
+              @placeholder="handlePlaceholder"
+            />
+          </section>
+
+          <!-- Card 2: 最近使用 -->
+          <section class="home-card">
             <RecentUsageList
-              class="home-page__recent-slot"
               :title="t(pageConfig.sections.recentUsage.titleKey)"
               :view-all-label="t(pageConfig.sections.recentUsage.viewAllKey)"
               :items="recentItems"
               empty-state-title-key="pages.home.recent.emptyStateTitle"
               empty-state-hint-key="pages.home.recent.emptyStateHint"
               @recent-item-click="handleRecentItemClick"
-              @view-all-recent="handlePlaceholder('pages.home.placeholders.viewAllRecent')"
+              @view-all-recent="handleViewAllRecent"
             />
+          </section>
+
+          <!-- Card 3: 价值卖点 -->
+          <section class="home-card">
             <HomeValuePropsStrip
-              class="home-page__value-slot"
               :section-title="t(pageConfig.sections.valueProps.titleKey)"
               :items="valueProps"
             />
-          </div>
+          </section>
         </div>
       </main>
 
       <aside class="home-page__sidebar">
         <div class="home-page__sidebar-scroll">
-          <div class="home-page__sidebar-pane">
-            <SidebarSecurityCard
-              :title="t(pageConfig.sections.sidebar.security.titleKey)"
-              :shield-url="HOME_ASSETS.pubShield"
-              :bullets="securityBullets"
-            />
-          </div>
-          <div class="home-page__sidebar-pane">
-            <SidebarMembershipCard
-              :title="t(pageConfig.sections.sidebar.membership.titleKey)"
-              :learn-more-label="t(pageConfig.sections.sidebar.membership.learnMoreKey)"
-              :bullets="membershipBullets"
-              :cta-label="t(pageConfig.sections.sidebar.membership.ctaKey)"
-              @learn-more="goMembership"
-              @cta="goMembership"
-            />
-          </div>
-          <div class="home-page__sidebar-pane">
-            <SidebarChangelogCard
-              :title="t(pageConfig.sections.sidebar.changelog.titleKey)"
-              :view-all-label="t(pageConfig.sections.sidebar.changelog.viewAllKey)"
-              :entries="changelogEntries"
-              @view-all="handleChangelogViewAll"
-            />
-          </div>
+          <SidebarSecurityCard
+            :title="t(pageConfig.sections.sidebar.security.titleKey)"
+            :shield-url="HOME_ASSETS.pubShield"
+            :bullets="securityBullets"
+          />
+          <SidebarMembershipCard
+            :title="t(pageConfig.sections.sidebar.membership.titleKey)"
+            :learn-more-label="t(pageConfig.sections.sidebar.membership.learnMoreKey)"
+            :bullets="membershipBullets"
+            :cta-label="t(pageConfig.sections.sidebar.membership.ctaKey)"
+            @learn-more="goMembership"
+            @cta="goMembership"
+          />
+          <SidebarChangelogCard
+            :title="t(pageConfig.sections.sidebar.changelog.titleKey)"
+            :view-all-label="t(pageConfig.sections.sidebar.changelog.viewAllKey)"
+            :entries="changelogEntries"
+            @view-all="handleChangelogViewAll"
+          />
         </div>
       </aside>
     </div>
@@ -134,16 +150,19 @@ async function handleChangelogViewAll(): Promise<void> {
   flex-direction: column;
   overflow: hidden;
   height: 100%;
+  background: #f5f6fa;
 }
+
 .home-page__body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: row;
-  gap: clamp(12px, 1.5vw, 18px);
-  padding: clamp(8px, 1.2vh, 14px) clamp(14px, 2vw, 22px) clamp(6px, 1vh, 10px);
+  gap: 14px;
+  padding: 14px 18px 4px;
   overflow: hidden;
 }
+
 .home-page__main {
   flex: 1;
   min-width: 0;
@@ -151,39 +170,41 @@ async function handleChangelogViewAll(): Promise<void> {
   display: flex;
   flex-direction: column;
 }
-.home-page__main-scroll {
+.home-page__scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 4px;
+  padding-right: 2px;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: #d6d9e0 transparent;
 }
-.home-page__main-stack {
-  flex: 1;
-  min-height: 0;
+.home-page__scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.home-page__scroll::-webkit-scrollbar-thumb {
+  background: #d6d9e0;
+  border-radius: 3px;
+}
+
+.home-card {
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 18px 18px 18px;
+  border: 1px solid #eef0f4;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
   display: flex;
   flex-direction: column;
-  gap: clamp(6px, 1vh, 12px);
-}
-.home-page__hero {
+  gap: 16px;
   flex-shrink: 0;
 }
-.home-page__featured-slot {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+.home-card--hero {
+  padding: 22px 20px 18px;
 }
-.home-page__recent-slot {
-  flex-shrink: 0;
-}
-.home-page__value-slot {
-  flex-shrink: 0;
-  margin-top: auto;
-  padding-top: clamp(4px, 0.8vh, 10px);
-}
+
 .home-page__sidebar {
   width: 300px;
   flex-shrink: 0;
@@ -195,24 +216,40 @@ async function handleChangelogViewAll(): Promise<void> {
   flex: 1;
   min-height: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 1vh, 10px);
-  padding-bottom: 4px;
+  gap: 14px;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: #d6d9e0 transparent;
 }
-.home-page__sidebar-pane {
-  flex: 1 1 0;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
+.home-page__sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
 }
-.home-page__sidebar-pane :deep(.side-card),
-.home-page__sidebar-pane :deep(.member-card),
-.home-page__sidebar-pane :deep(.changelog-card) {
-  flex: 1 1 0;
-  min-height: 0;
-  min-width: 0;
+.home-page__sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #d6d9e0;
+  border-radius: 3px;
+}
+
+@media (max-width: 1080px) {
+  .home-page__sidebar {
+    width: 280px;
+  }
+}
+@media (max-width: 900px) {
+  .home-page__body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .home-page__main,
+  .home-page__sidebar {
+    width: 100%;
+  }
+  .home-page__scroll,
+  .home-page__sidebar-scroll {
+    overflow: visible;
+  }
 }
 </style>

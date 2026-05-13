@@ -72,10 +72,10 @@ export const enUS = {
   pages: {
     home: {
       greeting: {
-        morning: "Good morning, creator! 👋",
-        afternoon: "Good afternoon, creator! 👋",
-        evening: "Good evening, creator! 👋",
-        night: "It's late — get some rest. 🌙"
+        morning: "Good morning, creator!",
+        afternoon: "Good afternoon, creator!",
+        evening: "Good evening, creator!",
+        night: "It's late — get some rest."
       },
       dialogs: {
         placeholderTitle: "Notice"
@@ -100,14 +100,14 @@ export const enUS = {
           description: "Professional toolkits that improve your workflow efficiency"
         },
         greeting: {
-          subtitle: "Create efficiently — start with the right tools."
+          subtitle: "Start with the right tool and create efficiently."
         },
         valueProps: {
-          title: "Local-first, private, and efficient"
+          title: "All-local processing, safe and efficient"
         },
         recentUsage: {
           title: "Recent usage",
-          viewAll: "View all >"
+          viewAll: "View all"
         },
         usageStats: {
           title: "Usage Stats"
@@ -117,12 +117,13 @@ export const enUS = {
         },
         sidebar: {
           security: {
-            title: "Local processing, safer workflow",
+            title: "Local processing, safe and efficient",
             points: {
-              local: "Media tasks run locally by default — not uploaded to the cloud",
-              files: "History and thumbnails stay in your local database",
-              offline: "Core tools remain usable offline once installed",
-              encryption: "Sensitive paths follow OS permissions and sandbox rules"
+              local: "All tools run locally on your device",
+              files: "Files never leave your machine",
+              privacy: "Your privacy is fully protected",
+              offline: "Offline usage is supported",
+              fast: "Lightning-fast and stable processing"
             }
           },
           membership: {
@@ -130,10 +131,11 @@ export const enUS = {
             learnMore: "Learn more",
             cta: "Go premium",
             points: {
-              priority: "Early access to new tools and templates",
-              templates: "Unlock advanced presets and batch flows",
-              batch: "Higher concurrency and queue priority (planned)",
-              support: "Priority support (planned)"
+              unlimited: "Unlimited use of every tool",
+              batch: "More efficient batch processing",
+              noAds: "Ad-free across all tools",
+              support: "Dedicated customer support",
+              futureFree: "Free access to future features"
             }
           },
           changelog: {
@@ -141,24 +143,37 @@ export const enUS = {
             viewAll: "View all",
             viewAllHint: "Full release notes will arrive in a future update.",
             v100: {
-              date: "2026-05-01",
-              summary: "Dashboard refresh with clearer local tool entry points."
+              date: "2024-05-20",
+              summary: "Toolbox initial release."
             },
             v090: {
-              date: "2026-04-12",
-              summary: "Improved image compression and home entry experience."
+              date: "2024-05-15",
+              summary: "UX improvements and bug fixes."
             }
           }
         }
       },
       placeholders: {
-        moreTools: "More tools are on the way.",
-        viewAllRecent: "Full history will live in the task center."
+        moreTools: "More tools are coming soon. Stay tuned.",
+        viewAllRecent: "Full history will live in the task center.",
+        videoConvert: "Video format converter is under development.",
+        screenRecord: "Screen recorder is under development."
       },
       tools: {
         imageCompress: {
-          title: "Image Compression",
-          description: "Fast and lossless compression"
+          title: "Image compress",
+          shortTitle: "Image compress",
+          description: "Batch compress images\nwhile keeping clarity"
+        },
+        videoConvert: {
+          title: "Video converter",
+          shortTitle: "Video converter",
+          description: "Multiple formats supported\nbatch convert at speed"
+        },
+        screenRecord: {
+          title: "Screen recorder",
+          shortTitle: "Screen recorder",
+          description: "HD screen recording\nsimple and easy to use"
         },
         removedTool: {
           shortTitle: "History (removed tool)"
@@ -169,9 +184,9 @@ export const enUS = {
           description: "Local upscaling is planned; you can open this page for the current notice."
         },
         imageWatermark: {
-          title: "Image Watermark",
-          shortTitle: "Watermark",
-          description: "Batch add text or logo watermark"
+          title: "Image watermark",
+          shortTitle: "Image watermark",
+          description: "Batch add text or\nlogo watermark"
         },
         imageWatermarkRemoval: {
           title: "Remove watermark",
@@ -181,8 +196,8 @@ export const enUS = {
         moreTools: {
           title: "Explore more",
           description: "Coming soon",
-          exploreTitle: "Explore more tools…",
-          exploreSubtitle: "Stay tuned"
+          exploreTitle: "Explore more tools",
+          exploreSubtitle: "More on the way\nStay tuned"
         }
       },
       membership: {
@@ -200,10 +215,11 @@ export const enUS = {
       },
       recent: {
         justNow: "Just now",
-        usedJustNow: "Used just now",
+        usedJustNow: "Just now",
         usedYesterday: "Yesterday",
-        emptyStateTitle: "No recent usage yet",
-        emptyStateHint: "Pick any tool below and run a task — your latest tools will show up here. Everything stays on your device."
+        usedTwoDaysAgo: "2 days ago",
+        emptyStateTitle: "No recent activity",
+        emptyStateHint: "Try any tool above and your usage will appear here."
       },
       quickActions: {
         history: "History",
@@ -213,7 +229,8 @@ export const enUS = {
       relativeTime: {
         twoMinutesAgo: "2 minutes ago",
         fifteenMinutesAgo: "15 minutes ago",
-        oneHourAgo: "1 hour ago"
+        oneHourAgo: "1 hour ago",
+        twoDaysAgo: "2 days ago"
       },
       footer: {
         copyright: "© 2024 Toolbox",
@@ -225,23 +242,23 @@ export const enUS = {
       valueProps: {
         local: {
           title: "Local processing",
-          description: "Run media jobs offline by default"
+          description: "Files never leave your device"
         },
         privacy: {
-          title: "Privacy-first",
-          description: "Files stay within your machine"
+          title: "Privacy protection",
+          description: "Your data stays local"
         },
         offline: {
           title: "Offline friendly",
-          description: "Core tools work without a network"
+          description: "Works without a network"
         },
         speed: {
           title: "Fast and stable",
-          description: "Local compute, instant output"
+          description: "Powerful local performance"
         },
         updates: {
           title: "Continuous updates",
-          description: "Tools and UX keep improving"
+          description: "More tools rolling out"
         }
       }
     },

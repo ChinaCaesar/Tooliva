@@ -1,5 +1,7 @@
 /**
  * 首页模块级配置，负责页面结构与可扩展能力开关。
+ *
+ * 所有展示文案均通过 i18n key 透传到组件，不在此处硬编码字符串。
  */
 export const HOME_PAGE_CONFIG = {
   sections: {
@@ -11,7 +13,9 @@ export const HOME_PAGE_CONFIG = {
     },
     recentUsage: {
       titleKey: "pages.home.sections.recentUsage.title",
-      viewAllKey: "pages.home.sections.recentUsage.viewAll"
+      viewAllKey: "pages.home.sections.recentUsage.viewAll",
+      emptyTitleKey: "pages.home.recent.emptyStateTitle",
+      emptyHintKey: "pages.home.recent.emptyStateHint"
     },
     sidebar: {
       security: {

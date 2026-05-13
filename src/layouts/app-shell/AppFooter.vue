@@ -5,15 +5,9 @@ defineProps<{
   versionPrefix: string;
   version: string;
   slogan: string;
-  heartIconUrl: string;
 }>();
 </script>
 
 <template>
-  <HomeFooterBar
-    :version-prefix="versionPrefix"
-    :version="version"
-    :slogan="slogan"
-    :heart-icon-url="heartIconUrl"
-  />
+  <HomeFooterBar :version-prefix="versionPrefix" :version="version" :slogan="slogan" />
 </template>

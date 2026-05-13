@@ -109,37 +109,21 @@ export interface HomeMembershipInfo {
 
 /**
  * 首页资源键，统一由资源索引文件提供真实地址。
+ *
+ * 与设计稿配套切图一一对应。小型 UI 图标改为内联 SVG，已不在此处登记。
  */
 export type HomeAssetKey =
-  | "logo"
-  | "search"
-  | "avatar"
-  | "settings"
-  | "toolImageCompress"
-  | "toolImageUpscale"
-  | "recentImage"
-  | "recentUpscale"
-  | "quickHistory"
-  | "quickFavorites"
-  | "quickDocs"
-  | "footerFeedback"
-  | "footerHelp"
   | "pubAppLogo"
-  | "pubSearch"
-  | "pubSettings"
   | "pubCrown"
-  | "pubIconCompress"
-  | "pubIconWatermark"
-  | "pubIconPlusMore"
+  | "pubHeroToolbox"
   | "pubShield"
-  | "pubGreenCheck"
-  | "pubOrangeCheck"
+  | "pubIconImageCompress"
+  | "pubIconVideoConvert"
+  | "pubIconScreenRecord"
+  | "pubIconImageWatermark"
   | "pubBottomLocal"
   | "pubBottomPrivacy"
   | "pubBottomOffline"
   | "pubBottomSpeed"
   | "pubBottomUpdates"
-  | "pubHeartFooter"
-  | "pubMinimize"
-  | "pubMaximize"
-  | "pubClose";
+  | "pubGreetingWave";

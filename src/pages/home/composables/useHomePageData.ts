@@ -47,7 +47,7 @@ interface HomeValuePropViewModel {
 interface HomeSidebarBulletViewModel {
   id: string;
   labelKey: string;
-  checkIconUrl: string;
+  checkStyle: "green" | "orange";
 }
 
 interface HomeChangelogEntryViewModel {
@@ -68,7 +68,7 @@ function dedupeRecentUsageByTool(items: HomeRecentUsagePayload[]): HomeRecentUsa
   }
   return Array.from(best.values())
     .sort((a, b) => b.usedAtTs - a.usedAtTs || b.id - a.id)
-    .slice(0, 3);
+    .slice(0, 4);
 }
 
 function mapMockRecentToViewModels(): HomeRecentItemViewModel[] {
@@ -89,23 +89,24 @@ function mapMockRecentToViewModels(): HomeRecentItemViewModel[] {
       isEmpty: false,
       actionCode: KNOWN_HOME_TOOL_KEYS.has(key) ? key : undefined
     });
-    if (out.length >= 3) break;
+    if (out.length >= 4) break;
   }
   return out;
 }
 
+/** 设计稿中的 4 个主推工具 key，未来新增/下线只需调整此集合。 */
 const KNOWN_HOME_TOOL_KEYS = new Set<string>([
   "image-compress",
-  "image-watermark",
-  "image-watermark-removal",
-  "image-upscale"
+  "video-convert",
+  "screen-record",
+  "image-watermark"
 ]);
 
 function accentForToolKey(toolKey: string): string {
-  if (toolKey === "image-watermark") return "linear-gradient(135deg, #ea580c 15%, #f97316 85%)";
-  if (toolKey === "image-watermark-removal") return "linear-gradient(135deg, #7c3aed 15%, #a78bfa 85%)";
-  if (toolKey === "image-upscale") return "linear-gradient(135deg, #059669 15%, #10b981 85%)";
-  return "linear-gradient(135deg, #1e40af 15%, #3b82f6 85%)";
+  if (toolKey === "video-convert") return "linear-gradient(135deg, #a37cff 0%, #7c4dff 100%)";
+  if (toolKey === "screen-record") return "linear-gradient(135deg, #2ec591 0%, #19a374 100%)";
+  if (toolKey === "image-watermark") return "linear-gradient(135deg, #ff8a48 0%, #f76b1c 100%)";
+  return "linear-gradient(135deg, #4286ff 0%, #2d6ff5 100%)";
 }
 
 function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: string; iconBackground: string } {
@@ -113,34 +114,34 @@ function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: st
   if (!KNOWN_HOME_TOOL_KEYS.has(toolKey)) {
     return {
       titleKey: "pages.home.tools.removedTool.shortTitle",
-      iconUrl: HOME_ASSETS.pubIconPlusMore,
+      iconUrl: HOME_ASSETS.pubIconImageCompress,
       iconBackground: "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
     };
   }
-  if (toolKey === "image-upscale") {
+  if (toolKey === "video-convert") {
     return {
-      titleKey: "pages.home.tools.imageUpscale.shortTitle",
-      iconUrl: HOME_ASSETS.toolImageUpscale,
+      titleKey: "pages.home.tools.videoConvert.shortTitle",
+      iconUrl: HOME_ASSETS.pubIconVideoConvert,
       iconBackground
     };
   }
-  if (toolKey === "image-watermark-removal") {
+  if (toolKey === "screen-record") {
     return {
-      titleKey: "pages.home.tools.imageWatermarkRemoval.shortTitle",
-      iconUrl: HOME_ASSETS.pubIconWatermark,
+      titleKey: "pages.home.tools.screenRecord.shortTitle",
+      iconUrl: HOME_ASSETS.pubIconScreenRecord,
       iconBackground
     };
   }
   if (toolKey === "image-watermark") {
     return {
       titleKey: "pages.home.tools.imageWatermark.shortTitle",
-      iconUrl: HOME_ASSETS.pubIconWatermark,
+      iconUrl: HOME_ASSETS.pubIconImageWatermark,
       iconBackground
     };
   }
   return {
-    titleKey: "pages.home.tools.imageCompress.title",
-    iconUrl: HOME_ASSETS.pubIconCompress,
+    titleKey: "pages.home.tools.imageCompress.shortTitle",
+    iconUrl: HOME_ASSETS.pubIconImageCompress,
     iconBackground
   };
 }
@@ -151,7 +152,8 @@ function mapRelativeTimeKey(usedAtTs: number): string {
   if (diffSeconds < 3600) return "pages.home.relativeTime.fifteenMinutesAgo";
   if (diffSeconds < 86400) return "pages.home.relativeTime.oneHourAgo";
   if (diffSeconds < 172800) return "pages.home.recent.usedYesterday";
-  return "pages.home.relativeTime.oneHourAgo";
+  if (diffSeconds < 259200) return "pages.home.recent.usedTwoDaysAgo";
+  return "pages.home.relativeTime.twoDaysAgo";
 }
 
 function greetingTitleKeyFromHour(): string {
@@ -173,8 +175,6 @@ export function useHomePageData() {
   const topBar = computed(() => ({
     ...HOME_PAGE_CONFIG.topBar,
     logoUrl: HOME_ASSETS.pubAppLogo,
-    searchIconUrl: HOME_ASSETS.pubSearch,
-    settingsIconUrl: HOME_ASSETS.pubSettings,
     crownIconUrl: HOME_ASSETS.pubCrown
   }));
 
@@ -204,7 +204,7 @@ export function useHomePageData() {
     HOME_SECURITY_BULLETS_MOCK.map((item) => ({
       id: item.id,
       labelKey: item.labelKey,
-      checkIconUrl: HOME_ASSETS.pubGreenCheck
+      checkStyle: "green"
     }))
   );
 
@@ -212,7 +212,7 @@ export function useHomePageData() {
     HOME_MEMBERSHIP_BULLETS_MOCK.map((item) => ({
       id: item.id,
       labelKey: item.labelKey,
-      checkIconUrl: HOME_ASSETS.pubOrangeCheck
+      checkStyle: "orange"
     }))
   );
 

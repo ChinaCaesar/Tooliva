@@ -72,10 +72,10 @@ export const zhCN = {
   pages: {
     home: {
       greeting: {
-        morning: "早上好，创作者！👋",
-        afternoon: "下午好，创作者！👋",
-        evening: "晚上好，创作者！👋",
-        night: "夜深了，注意休息！🌙"
+        morning: "早上好，创作者！",
+        afternoon: "下午好，创作者！",
+        evening: "晚上好，创作者！",
+        night: "夜深了，注意休息！"
       },
       dialogs: {
         placeholderTitle: "提示"
@@ -86,7 +86,7 @@ export const zhCN = {
       topBar: {
         appName: "工具箱",
         tagline: "自媒体创作好帮手",
-        searchPlaceholder: "搜索工具（例如：图片压缩、高清放大）",
+        searchPlaceholder: "搜索工具（例如：图片压缩、视频转换）",
         searchShortcut: "Ctrl K",
         searchShortcutMac: "⌘ K",
         memberCta: "开通会员",
@@ -107,7 +107,7 @@ export const zhCN = {
         },
         recentUsage: {
           title: "最近使用",
-          viewAll: "查看全部 >"
+          viewAll: "查看全部"
         },
         usageStats: {
           title: "使用统计"
@@ -119,10 +119,11 @@ export const zhCN = {
           security: {
             title: "本地处理，安全高效",
             points: {
-              local: "媒体文件默认在本地处理，不上传云端",
-              files: "处理记录与缩略图仅存于本机数据库",
-              offline: "断网环境下仍可使用已安装的工具能力",
-              encryption: "敏感路径访问受系统权限与沙箱约束"
+              local: "所有工具均在本地运行",
+              files: "文件不上传服务器",
+              privacy: "保护你的隐私安全",
+              offline: "支持离线使用",
+              fast: "极速处理，高效稳定"
             }
           },
           membership: {
@@ -130,10 +131,11 @@ export const zhCN = {
             learnMore: "了解更多",
             cta: "开通会员",
             points: {
-              priority: "优先体验新工具与模板",
-              templates: "解锁更多批量与高级参数预设",
-              batch: "更高并发与队列优先级（规划中）",
-              support: "专属客服与问题响应（规划中）"
+              unlimited: "全部工具无限制使用",
+              batch: "批量处理更高效率",
+              noAds: "去除所有工具广告",
+              support: "专属客服支持",
+              futureFree: "后续新功能免费用"
             }
           },
           changelog: {
@@ -141,24 +143,37 @@ export const zhCN = {
             viewAll: "查看全部",
             viewAllHint: "完整更新说明将在后续版本中提供。",
             v100: {
-              date: "2026-05-01",
-              summary: "首页仪表盘改版，优化本地工具入口。"
+              date: "2024-05-20",
+              summary: "工具箱新上线"
             },
             v090: {
-              date: "2026-04-12",
-              summary: "完善图片压缩与首页工具入口体验。"
+              date: "2024-05-15",
+              summary: "优化用户体验，修复已知问题"
             }
           }
         }
       },
       placeholders: {
-        moreTools: "更多工具陆续上架中。",
-        viewAllRecent: "完整历史将在任务中心提供。"
+        moreTools: "更多工具陆续上架中，敬请期待。",
+        viewAllRecent: "完整历史将在任务中心提供。",
+        videoConvert: "视频格式转换工具正在开发中，敬请期待。",
+        screenRecord: "录屏工具正在开发中，敬请期待。"
       },
       tools: {
         imageCompress: {
           title: "图片压缩",
-          description: "快速无损压缩"
+          shortTitle: "图片压缩",
+          description: "批量压缩图片\n保持高清画质"
+        },
+        videoConvert: {
+          title: "视频格式转换",
+          shortTitle: "视频格式转换",
+          description: "支持多种格式\n批量极速转换"
+        },
+        screenRecord: {
+          title: "录屏工具",
+          shortTitle: "录屏工具",
+          description: "高清录制屏幕\n简单易用"
         },
         removedTool: {
           shortTitle: "历史记录（已下线工具）"
@@ -170,8 +185,8 @@ export const zhCN = {
         },
         imageWatermark: {
           title: "图片加水印",
-          shortTitle: "图片水印",
-          description: "批量添加文字或 Logo 水印"
+          shortTitle: "图片加水印",
+          description: "批量添加文字或\nLogo水印"
         },
         imageWatermarkRemoval: {
           title: "图片去水印",
@@ -181,8 +196,8 @@ export const zhCN = {
         moreTools: {
           title: "探索更多",
           description: "即将推出",
-          exploreTitle: "探索更多工具…",
-          exploreSubtitle: "敬请期待"
+          exploreTitle: "探索更多工具",
+          exploreSubtitle: "持续更新中…\n敬请期待"
         }
       },
       membership: {
@@ -202,8 +217,9 @@ export const zhCN = {
         justNow: "刚刚",
         usedJustNow: "刚刚使用",
         usedYesterday: "昨天",
-        emptyStateTitle: "还没有最近使用记录",
-        emptyStateHint: "在下方选择任意工具处理文件后，这里会显示你最近用过的工具。所有处理均在本地完成。"
+        usedTwoDaysAgo: "2天前",
+        emptyStateTitle: "暂无最近使用",
+        emptyStateHint: "试用上方任意工具，使用记录会显示在这里。"
       },
       quickActions: {
         history: "历史记录",
@@ -213,7 +229,8 @@ export const zhCN = {
       relativeTime: {
         twoMinutesAgo: "2分钟前",
         fifteenMinutesAgo: "15分钟前",
-        oneHourAgo: "1小时前"
+        oneHourAgo: "1小时前",
+        twoDaysAgo: "2天前"
       },
       footer: {
         copyright: "© 2024 工具箱",
@@ -225,23 +242,23 @@ export const zhCN = {
       valueProps: {
         local: {
           title: "本地处理",
-          description: "默认离线完成媒体任务"
+          description: "文件不上传服务器"
         },
         privacy: {
-          title: "隐私保护",
-          description: "文件不出本机可控范围"
+          title: "保护隐私",
+          description: "您的数据只在本地"
         },
         offline: {
           title: "离线可用",
-          description: "无网环境仍可使用核心能力"
+          description: "无网络环境也能使用"
         },
         speed: {
           title: "高速稳定",
-          description: "本地算力直出结果"
+          description: "极速处理，性能强劲"
         },
         updates: {
           title: "持续更新",
-          description: "工具与体验迭代不停"
+          description: "更多工具持续更新中"
         }
       }
     },

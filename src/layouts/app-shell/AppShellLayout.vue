@@ -8,7 +8,6 @@ import AppFooter from "@/layouts/app-shell/AppFooter.vue";
 import { useAppSidebarCollapse } from "@/layouts/app-shell/composables/useAppSidebarCollapse";
 import HomeTopBar from "@/pages/home/components/HomeTopBar.vue";
 import { useHomePageData } from "@/pages/home/composables/useHomePageData";
-import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { resolveHomeToolRoute } from "@/pages/home/config/homeToolRoutes";
 
 const { t } = useI18n();
@@ -63,10 +62,8 @@ function goMembership(): void {
       :logo-url="topBar.logoUrl"
       :app-name="t(topBar.appNameKey)"
       :tagline="t(topBar.taglineKey)"
-      :search-icon-url="topBar.searchIconUrl"
       :search-placeholder="t(topBar.searchPlaceholderKey)"
       :search-shortcut-label="searchShortcutLabel"
-      :settings-icon-url="topBar.settingsIconUrl"
       :settings-aria-label="t('pages.home.topBar.settingsAria')"
       :member-cta-label="t(topBar.memberCtaKey)"
       :crown-icon-url="topBar.crownIconUrl"
@@ -96,7 +93,6 @@ function goMembership(): void {
       :version-prefix="t(pageConfig.footer.versionPrefixKey)"
       :version="pageConfig.footer.version"
       :slogan="t(pageConfig.footer.sloganKey)"
-      :heart-icon-url="HOME_ASSETS.pubHeartFooter"
     />
   </div>
 </template>
@@ -104,18 +100,19 @@ function goMembership(): void {
 <style scoped>
 .app-shell {
   border-radius: 16px;
-  background: #ffffff;
+  background: #f5f6fa;
   overflow: hidden;
   height: 100vh;
   max-height: 100dvh;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding-top: 10px;
+  padding-top: 0;
   box-sizing: border-box;
 }
 .app-shell__header {
-  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
+  position: relative;
+  z-index: 10;
 }
 .app-shell__body {
   flex: 1;
@@ -124,6 +121,7 @@ function goMembership(): void {
   flex-direction: row;
   gap: 0;
   overflow: hidden;
+  background: #f5f6fa;
 }
 .app-shell__main {
   flex: 1;
@@ -135,9 +133,6 @@ function goMembership(): void {
 }
 .app-shell__main--full {
   min-width: 100%;
-}
-.app-shell :deep(.home-top-bar) {
-  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
 }
 
 .app-shell__router {

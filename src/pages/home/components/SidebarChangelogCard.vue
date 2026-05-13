@@ -25,12 +25,20 @@ const { t } = useI18n();
   <section class="changelog-card">
     <div class="changelog-card__head">
       <h3 class="changelog-card__title">{{ title }}</h3>
-      <button type="button" class="changelog-card__link" @click="emit('viewAll')">{{ viewAllLabel }}</button>
+      <button type="button" class="changelog-card__link" @click="emit('viewAll')">
+        <span>{{ viewAllLabel }}</span>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
     </div>
+
     <ul class="changelog-card__list">
       <li v-for="e in entries" :key="e.id" class="changelog-card__item">
-        <div class="changelog-card__ver">{{ e.version }}</div>
-        <div class="changelog-card__meta">{{ t(e.dateKey) }}</div>
+        <div class="changelog-card__row">
+          <span class="changelog-card__ver">{{ e.version }}</span>
+          <span class="changelog-card__date">{{ t(e.dateKey) }}</span>
+        </div>
         <p class="changelog-card__summary">{{ t(e.summaryKey) }}</p>
       </li>
     </ul>
@@ -39,12 +47,13 @@ const { t } = useI18n();
 
 <style scoped>
 .changelog-card {
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #eef0f4;
+  background: #ffffff;
+  padding: 14px 14px;
   display: flex;
   flex-direction: column;
+  gap: 10px;
   min-height: 0;
   overflow: hidden;
 }
@@ -57,55 +66,69 @@ const { t } = useI18n();
 }
 .changelog-card__title {
   margin: 0;
-  font-size: 15px;
-  line-height: 22px;
+  font-size: 14px;
+  line-height: 1.4;
   font-weight: 600;
-  color: #0f172a;
+  color: #1f2937;
 }
 .changelog-card__link {
   border: none;
   background: transparent;
-  color: #2563eb;
+  color: #9ca3af;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  transition: color 160ms ease;
+}
+.changelog-card__link svg {
+  width: 12px;
+  height: 12px;
+}
+.changelog-card__link:hover {
+  color: #6366f1;
 }
 .changelog-card__link:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #6366f1;
   outline-offset: 2px;
   border-radius: 4px;
 }
+
 .changelog-card__list {
   list-style: none;
-  margin: 10px 0 0;
+  margin: 0;
   padding: 0;
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .changelog-card__item {
-  padding: 8px 0;
-  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-.changelog-card__item:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.changelog-card__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 .changelog-card__ver {
   font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
+  font-weight: 600;
+  color: #1f2937;
 }
-.changelog-card__meta {
+.changelog-card__date {
   font-size: 11px;
-  color: #94a3b8;
-  margin-top: 2px;
+  color: #9ca3af;
 }
 .changelog-card__summary {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 12px;
-  line-height: 18px;
-  color: #475569;
+  line-height: 1.55;
+  color: #6b7280;
 }
 </style>

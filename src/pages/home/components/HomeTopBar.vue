@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
-import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { closeWindow, minimizeWindow, toggleMaximizeWindow } from "@/utils/windowControl";
 
 interface SearchToolItem {
@@ -18,10 +17,8 @@ const props = withDefaults(
     logoUrl: string;
     appName: string;
     tagline: string;
-    searchIconUrl: string;
     searchPlaceholder: string;
     searchShortcutLabel: string;
-    settingsIconUrl: string;
     settingsAriaLabel: string;
     memberCtaLabel: string;
     crownIconUrl: string;
@@ -51,7 +48,9 @@ const filteredTools = computed(() => {
   return props.searchTools.filter((item) => item.title.toLowerCase().includes(keyword)).slice(0, 6);
 });
 
-const shouldShowSearchResults = computed(() => isSearchFocused.value && filteredTools.value.length > 0);
+const shouldShowSearchResults = computed(
+  () => isSearchFocused.value && searchKeyword.value.trim().length > 0 && filteredTools.value.length > 0
+);
 
 function goToSettingsPage(): void {
   router.push(ROUTE_PATHS.settings);
@@ -102,8 +101,11 @@ onUnmounted(() => {
     </div>
 
     <div class="home-top-bar__search-wrap" data-tauri-drag-region="false">
-      <div class="home-top-bar__search">
-        <img :src="searchIconUrl" alt="" class="home-top-bar__search-icon" />
+      <div class="home-top-bar__search" :class="{ 'is-focused': isSearchFocused }">
+        <svg class="home-top-bar__search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+          <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
         <input
           ref="searchInputRef"
           v-model="searchKeyword"
@@ -122,7 +124,7 @@ onUnmounted(() => {
           :key="item.id"
           type="button"
           class="home-top-bar__search-result"
-          @click="handleSelectTool(item.route)"
+          @mousedown.prevent="handleSelectTool(item.route)"
         >
           {{ item.title }}
         </button>
@@ -132,35 +134,63 @@ onUnmounted(() => {
     <div class="home-top-bar__actions" data-tauri-drag-region="false">
       <button type="button" class="home-top-bar__member" @click="emit('memberCta')">
         <img :src="crownIconUrl" alt="" class="home-top-bar__crown" />
-        {{ memberCtaLabel }}
+        <span>{{ memberCtaLabel }}</span>
       </button>
-      <button type="button" class="home-top-bar__setting-btn" @click="goToSettingsPage" :aria-label="settingsAriaLabel">
-        <img :src="settingsIconUrl" alt="" class="home-top-bar__setting-icon" />
+      <button
+        type="button"
+        class="home-top-bar__icon-btn"
+        :aria-label="settingsAriaLabel"
+        @click="goToSettingsPage"
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+            stroke="currentColor"
+            stroke-width="1.7"
+          />
+          <path
+            d="M19.4 13.6a7.7 7.7 0 0 0 .1-1.6 7.7 7.7 0 0 0-.1-1.6l2.1-1.6-2-3.4-2.4 1a7.7 7.7 0 0 0-2.8-1.6L13.9 2H10.1l-.4 2.8a7.7 7.7 0 0 0-2.8 1.6l-2.4-1-2 3.4 2.1 1.6a7.7 7.7 0 0 0 0 3.2L2.5 15.2l2 3.4 2.4-1a7.7 7.7 0 0 0 2.8 1.6l.4 2.8h3.8l.4-2.8a7.7 7.7 0 0 0 2.8-1.6l2.4 1 2-3.4-2.1-1.6Z"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linejoin="round"
+          />
+        </svg>
       </button>
-      <div v-if="props.showWindowControls && isTauri()" class="home-top-bar__window-ctrl" role="group" :aria-label="t('layout.appShell.windowControlsAria')">
+      <div
+        v-if="props.showWindowControls && isTauri()"
+        class="home-top-bar__window-ctrl"
+        role="group"
+        :aria-label="t('layout.appShell.windowControlsAria')"
+      >
         <button
           type="button"
-          class="home-top-bar__win-btn"
+          class="home-top-bar__icon-btn home-top-bar__win-btn"
           :aria-label="t('layout.appShell.minimizeAria')"
           @click="minimizeWindow()"
         >
-          <img :src="HOME_ASSETS.pubMinimize" alt="" class="home-top-bar__win-icon" />
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
         </button>
         <button
           type="button"
-          class="home-top-bar__win-btn"
+          class="home-top-bar__icon-btn home-top-bar__win-btn"
           :aria-label="t('layout.appShell.maximizeAria')"
           @click="toggleMaximizeWindow()"
         >
-          <img :src="HOME_ASSETS.pubMaximize" alt="" class="home-top-bar__win-icon" />
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="5.5" y="5.5" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.6" />
+          </svg>
         </button>
         <button
           type="button"
-          class="home-top-bar__win-btn home-top-bar__win-btn--close"
+          class="home-top-bar__icon-btn home-top-bar__win-btn home-top-bar__win-btn--close"
           :aria-label="t('layout.appShell.closeAria')"
           @click="closeWindow()"
         >
-          <img :src="HOME_ASSETS.pubClose" alt="" class="home-top-bar__win-icon" />
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
         </button>
       </div>
     </div>
@@ -171,11 +201,10 @@ onUnmounted(() => {
 .home-top-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
-  padding: 10px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 18px;
   background: #ffffff;
+  border-bottom: 1px solid #eef0f4;
   position: relative;
   flex-shrink: 0;
   width: 100%;
@@ -183,60 +212,75 @@ onUnmounted(() => {
   z-index: 80;
   flex-wrap: nowrap;
 }
+
 .home-top-bar__brand {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  min-width: 180px;
 }
 .home-top-bar__logo-wrap {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 10px;
-  background: #eff6ff;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .home-top-bar__logo {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
+  border-radius: 8px;
 }
 .home-top-bar__titles {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
+  line-height: 1.2;
 }
 .home-top-bar__app-name {
-  font-size: 18px;
-  line-height: 24px;
-  color: #111827;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  letter-spacing: 0;
 }
 .home-top-bar__tagline {
-  font-size: 12px;
-  line-height: 16px;
-  color: #64748b;
+  font-size: 11px;
+  color: #9ca3af;
+  letter-spacing: 0.2px;
 }
+
 .home-top-bar__search-wrap {
   position: relative;
   flex: 1;
-  max-width: 520px;
+  max-width: 560px;
   min-width: 0;
+  margin: 0 auto;
 }
 .home-top-bar__search {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #f9fafb;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  height: 38px;
+  padding: 0 12px 0 14px;
+  border-radius: 999px;
+  background: #f5f6fa;
+  border: 1px solid transparent;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.home-top-bar__search.is-focused {
+  background: #ffffff;
+  border-color: #c7d2fe;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 .home-top-bar__search-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
+  color: #9ca3af;
   flex-shrink: 0;
 }
 .home-top-bar__search-input {
@@ -244,132 +288,164 @@ onUnmounted(() => {
   min-width: 0;
   border: none;
   background: transparent;
-  color: #111827;
+  color: #1f2937;
   font-size: 13px;
   line-height: 20px;
   outline: none;
+  padding: 0;
+}
+.home-top-bar__search-input::-webkit-search-cancel-button {
+  appearance: none;
 }
 .home-top-bar__search-input::placeholder {
-  color: #9ca3af;
+  color: #b3b8c2;
 }
 .home-top-bar__kbd {
   flex-shrink: 0;
   font-size: 11px;
   line-height: 1;
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  color: #64748b;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #9ca3af;
+  border: 1px solid #e7e9ee;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  letter-spacing: 0.5px;
 }
+
 .home-top-bar__search-results {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 0;
   right: 0;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border: 1px solid #eef0f4;
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
   overflow: hidden;
   z-index: 90;
+  padding: 6px;
 }
 .home-top-bar__search-result {
   width: 100%;
   border: none;
-  border-bottom: 1px solid #f1f5f9;
-  background: #ffffff;
-  color: #0f172a;
+  border-radius: 8px;
+  background: transparent;
+  color: #1f2937;
   text-align: left;
-  padding: 10px 14px;
+  padding: 10px 12px;
   cursor: pointer;
-  transition: background-color 200ms ease;
-}
-.home-top-bar__search-result:last-child {
-  border-bottom: none;
+  font-size: 13px;
+  transition: background-color 160ms ease;
 }
 .home-top-bar__search-result:hover {
-  background: #f8fafc;
+  background: #f5f6fa;
 }
+
 .home-top-bar__actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
+
 .home-top-bar__member {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   border: none;
-  border-radius: 10px;
-  padding: 8px 12px;
+  border-radius: 999px;
+  padding: 8px 18px 8px 14px;
   font-size: 13px;
   font-weight: 600;
-  color: #78350f;
+  color: #ffffff;
   cursor: pointer;
-  background: linear-gradient(180deg, #fde68a 0%, #fbbf24 100%);
-  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.2);
+  background: linear-gradient(135deg, #fbb054 0%, #f78c2c 100%);
+  box-shadow: 0 4px 12px rgba(243, 132, 30, 0.25);
   white-space: nowrap;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  height: 36px;
+}
+.home-top-bar__member:hover {
+  filter: brightness(1.04);
+  box-shadow: 0 6px 16px rgba(243, 132, 30, 0.32);
+}
+.home-top-bar__member:active {
+  transform: translateY(1px);
 }
 .home-top-bar__member:focus-visible {
-  outline: 3px solid #2563eb;
+  outline: 2px solid #f97316;
   outline-offset: 2px;
 }
 .home-top-bar__crown {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
 }
-.home-top-bar__setting-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.home-top-bar__setting-btn:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
-}
-.home-top-bar__setting-icon {
-  width: 18px;
-  height: 18px;
-}
-.home-top-bar__window-ctrl {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 4px;
-  padding-left: 8px;
-  border-left: 1px solid #e5e7eb;
-}
-.home-top-bar__win-btn {
-  width: 36px;
-  height: 36px;
+
+.home-top-bar__icon-btn {
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: none;
   background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  color: #6b7280;
   padding: 0;
+  transition: background-color 160ms ease, color 160ms ease;
 }
-.home-top-bar__win-btn:hover {
-  background: #f1f5f9;
+.home-top-bar__icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.home-top-bar__icon-btn:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+.home-top-bar__icon-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+.home-top-bar__window-ctrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+  padding-left: 6px;
+  border-left: 1px solid #eef0f4;
+}
+.home-top-bar__win-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+}
+.home-top-bar__win-btn svg {
+  width: 14px;
+  height: 14px;
 }
 .home-top-bar__win-btn--close:hover {
   background: #fee2e2;
+  color: #dc2626;
 }
-.home-top-bar__win-icon {
-  width: 14px;
-  height: 14px;
-  object-fit: contain;
+
+@media (max-width: 960px) {
+  .home-top-bar__tagline {
+    display: none;
+  }
+  .home-top-bar__brand {
+    min-width: auto;
+  }
+}
+@media (max-width: 720px) {
+  .home-top-bar__member span {
+    display: none;
+  }
+  .home-top-bar__member {
+    padding: 8px 12px;
+  }
 }
 </style>
