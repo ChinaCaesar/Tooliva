@@ -669,43 +669,54 @@ onBeforeUnmount(() => {
     </div>
 
     <footer class="wm-bottom">
-      <div class="wm-bottom__overall">
+      <div class="wm-bottom__summary">
         <div class="wm-ring" :style="{ '--p': progressPercent }"><span>{{ progressPercent }}%</span></div>
-        <div>
-          <strong>整体进度</strong>
-          <span>{{ progressTitle }}</span>
-          <span v-if="runtimeDevice">AI：{{ runtimeDevice.toUpperCase() }}{{ torchVersion ? ` / Torch ${torchVersion}` : "" }}</span>
-          <span>共 {{ items.length }} 张图片</span>
+        <div class="wm-bottom__metrics">
+          <h3>整体进度</h3>
+          <dl class="wm-metrics-grid">
+            <div>
+              <dt>状态</dt>
+              <dd>{{ isRunning ? progressTitle : "暂无任务" }}</dd>
+            </div>
+            <div>
+              <dt>AI 引擎</dt>
+              <dd>{{ runtimeDevice ? `${runtimeDevice.toUpperCase()}${torchVersion ? ` / Torch ${torchVersion}` : ""}` : "--" }}</dd>
+            </div>
+            <div>
+              <dt>任务数量</dt>
+              <dd>共 {{ items.length }} 张图片</dd>
+            </div>
+            <div>
+              <dt>已用时间</dt>
+              <dd>{{ isRunning ? formatDuration(elapsedSeconds) : "--:--:--" }}</dd>
+            </div>
+            <div class="wm-metrics-grid__progress">
+              <dt>总体进度</dt>
+              <dd>
+                <span>{{ isRunning || modelLoading ? `${modelLoading ? modelPercent : progressPercent}%` : "--" }}</span>
+                <div class="wm-progress-line"><i :style="{ width: `${modelLoading ? modelPercent : progressPercent}%` }" /></div>
+              </dd>
+            </div>
+          </dl>
         </div>
       </div>
 
-      <div class="wm-bottom__current">
-        <template v-if="modelLoading">
-          <div>
-            <strong>LaMA 模型准备中</strong>
-            <span>{{ modelStage || "正在准备模型文件" }}</span>
+      <div class="wm-bottom__footer">
+        <div class="wm-bottom__output">
+          <label for="wm-bottom-output-dir">输出目录：</label>
+          <div class="wm-bottom__output-row">
+            <input id="wm-bottom-output-dir" v-model="outputDir" type="text" :disabled="isRunning" title="输出目录" />
+            <button type="button" title="选择输出目录" aria-label="选择输出目录" :disabled="isRunning" @click="pickOutputDir">
+              <Folder :size="18" />
+            </button>
           </div>
-        </template>
-        <template v-else-if="currentProgressItem && isRunning">
-          <img :src="currentProgressItem.previewUrl" alt="" />
-          <div>
-            <strong>{{ currentProgressItem.name }}</strong>
-            <span>处理进度</span>
-          </div>
-        </template>
-        <template v-else>
-          <span>当前图片：--</span>
-          <span>状态：--</span>
-        </template>
-        <div class="wm-progress-line"><i :style="{ width: `${modelLoading ? modelPercent : progressPercent}%` }" /></div>
-        <em>{{ modelLoading ? `${modelPercent}%` : isRunning ? `${progressPercent}%` : "--" }}</em>
-        <small v-if="isRunning">已用时间：{{ formatDuration(elapsedSeconds) }} / 预计时间：{{ remainingTime }}</small>
-      </div>
+        </div>
 
-      <div class="wm-bottom__actions">
-        <button type="button" class="wm-action wm-action--primary" :disabled="!canStart" @click="startRemoval"><PlayCircle :size="18" />{{ modelLoading ? "模型准备中" : "开始去除" }}</button>
-        <button type="button" class="wm-action" :disabled="!isRunning" @click="stopTask"><PauseCircle :size="18" />停止任务</button>
-        <button type="button" class="wm-action" @click="openOutputDirectory"><Folder :size="18" />打开输出目录</button>
+        <div class="wm-bottom__actions">
+          <button type="button" class="wm-action wm-action--primary" :disabled="!canStart" @click="startRemoval"><PlayCircle :size="18" />{{ modelLoading ? "模型准备中" : "开始去除" }}</button>
+          <button type="button" class="wm-action" :disabled="!isRunning" @click="stopTask"><PauseCircle :size="18" />停止任务</button>
+          <button type="button" class="wm-action" @click="openOutputDirectory"><Folder :size="18" />打开输出目录</button>
+        </div>
       </div>
     </footer>
     <div v-if="modelLoading" class="wm-model-loading" role="status" aria-live="polite">
@@ -783,6 +794,10 @@ onBeforeUnmount(() => {
   padding: clamp(12px, 1.5vh, 18px);
 }
 
+.wm-card--list {
+  overflow: hidden;
+}
+
 .wm-card-head,
 .wm-preview-head,
 .wm-card-head__actions,
@@ -797,6 +812,7 @@ onBeforeUnmount(() => {
 
 .wm-card-head,
 .wm-preview-head {
+  flex: 0 0 auto;
   justify-content: space-between;
   gap: 14px;
   margin-bottom: clamp(8px, 1.2vh, 14px);
@@ -811,6 +827,8 @@ onBeforeUnmount(() => {
 
 .wm-card-head__actions {
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .wm-btn,
@@ -856,12 +874,40 @@ button:disabled {
   border-radius: 8px;
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   text-align: center;
+  overflow: hidden;
 }
 
 .wm-drop--compact {
-  flex: 0 0 auto;
-  min-height: 96px;
+  flex: 0 1 auto;
+  min-height: 62px;
+  flex-direction: row;
+  gap: 12px;
+  justify-content: flex-start;
   margin-bottom: 10px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.wm-drop--compact .wm-drop__art {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.wm-drop--compact .wm-drop__plus {
+  right: -8px;
+  bottom: -5px;
+  width: 20px;
+  height: 20px;
+  font-size: 16px;
+}
+
+.wm-drop--compact .wm-drop__title {
+  margin: 0;
+  font-size: 13px;
+}
+
+.wm-drop--compact .wm-drop__sub {
+  display: none;
 }
 
 .wm-drop--active {
@@ -915,13 +961,13 @@ button:disabled {
 }
 
 .wm-drop__batch {
-  margin-top: 28px;
+  margin-top: clamp(12px, 5vh, 28px);
   font-size: 16px;
 }
 
 .wm-file-list {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 96px;
+  min-height: 72px;
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -936,6 +982,7 @@ button:disabled {
   grid-template-columns: 72px minmax(0, 1fr) auto 28px;
   align-items: center;
   gap: 10px;
+  min-height: 68px;
   padding: 8px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -1011,9 +1058,11 @@ button:disabled {
 .wm-list-foot {
   display: flex;
   justify-content: space-between;
+  gap: 10px;
   padding-top: 14px;
   margin-top: auto;
   flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .wm-warning {
@@ -1231,6 +1280,7 @@ button:disabled {
 }
 
 .image-watermark-removal-page,
+.wm-card--list,
 .wm-file-list,
 .wm-card--settings {
   scrollbar-width: thin;
@@ -1238,6 +1288,7 @@ button:disabled {
 }
 
 .image-watermark-removal-page::-webkit-scrollbar,
+.wm-card--list::-webkit-scrollbar,
 .wm-file-list::-webkit-scrollbar,
 .wm-card--settings::-webkit-scrollbar {
   width: 8px;
@@ -1245,12 +1296,14 @@ button:disabled {
 }
 
 .image-watermark-removal-page::-webkit-scrollbar-track,
+.wm-card--list::-webkit-scrollbar-track,
 .wm-file-list::-webkit-scrollbar-track,
 .wm-card--settings::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .image-watermark-removal-page::-webkit-scrollbar-thumb,
+.wm-card--list::-webkit-scrollbar-thumb,
 .wm-file-list::-webkit-scrollbar-thumb,
 .wm-card--settings::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
@@ -1391,32 +1444,27 @@ button:disabled {
 
 .wm-bottom {
   flex: 0 0 auto;
-  min-height: 96px;
-  display: grid;
-  grid-template-columns: minmax(190px, 0.72fr) minmax(260px, 1fr) minmax(0, max-content);
-  gap: 14px;
-  padding: 14px 18px;
+  min-height: 176px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 24px 20px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #fff;
 }
 
-.wm-bottom__overall {
+.wm-bottom__summary {
   min-width: 0;
-  gap: 12px;
-}
-
-.wm-bottom__overall > div:last-child,
-.wm-bottom__current > div {
   display: flex;
-  flex-direction: column;
-  gap: 7px;
+  align-items: center;
+  gap: 18px;
 }
 
 .wm-ring {
   --p: 0;
-  width: 60px;
-  height: 60px;
+  width: 82px;
+  height: 82px;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
@@ -1430,36 +1478,75 @@ button:disabled {
 }
 
 .wm-ring span {
-  width: 46px;
-  height: 46px;
+  width: 62px;
+  height: 62px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   color: #111936;
   background: #fff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.wm-bottom__metrics {
+  flex: 1;
+  min-width: 0;
+}
+
+.wm-bottom__metrics h3 {
+  margin: 0 0 12px;
+  color: var(--text);
   font-size: 16px;
   font-weight: 800;
 }
 
-.wm-bottom__current {
-  position: relative;
-  min-width: 0;
-  gap: 12px;
-  padding-right: 16px;
-  border-right: 1px solid var(--border);
+.wm-metrics-grid {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.8fr) minmax(180px, 1.25fr) minmax(120px, 0.9fr) minmax(110px, 0.9fr) minmax(280px, 1.9fr);
+  gap: 18px;
+  margin: 0;
 }
 
-.wm-bottom__current img {
-  width: 72px;
-  height: 52px;
-  object-fit: cover;
-  border-radius: 6px;
+.wm-metrics-grid > div {
+  min-width: 0;
+}
+
+.wm-metrics-grid dt {
+  margin: 0 0 8px;
+  color: #111936;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.wm-metrics-grid dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #5c698a;
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wm-metrics-grid__progress dd {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 10px;
+}
+
+.wm-metrics-grid__progress dd > span {
+  order: 2;
+  color: #5c698a;
+  font-weight: 700;
+  text-align: right;
 }
 
 .wm-progress-line {
-  flex: 1;
   height: 8px;
-  min-width: 90px;
+  min-width: 0;
   overflow: hidden;
   border-radius: 999px;
   background: #edf1f7;
@@ -1472,31 +1559,85 @@ button:disabled {
   background: var(--primary);
 }
 
-.wm-bottom__current em {
-  color: #5f6c8d;
-  font-style: normal;
+.wm-bottom__footer {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #eef2f7;
+}
+
+.wm-bottom__output {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wm-bottom__output label {
+  flex: 0 0 auto;
+  color: #111936;
+  font-size: 15px;
   font-weight: 700;
 }
 
-.wm-bottom__current small {
-  position: static;
-  grid-column: 1 / -1;
+.wm-bottom__output-row {
+  width: min(420px, 100%);
+  flex: 0 1 420px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 0;
+}
+
+.wm-bottom__output-row input,
+.wm-bottom__output-row button {
+  height: 42px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+}
+
+.wm-bottom__output-row input {
+  min-width: 0;
+  padding: 0 12px;
+  border-right: 0;
+  border-radius: 6px 0 0 6px;
+  color: #1f2a55;
+  font: inherit;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wm-bottom__output-row button {
+  display: grid;
+  place-items: center;
+  border-radius: 0 6px 6px 0;
+  color: #1f2a55;
+  cursor: pointer;
+}
+
+.wm-bottom__output-row button:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: #b9ccf4;
+  background: #f8fbff;
 }
 
 .wm-bottom__actions {
   justify-content: flex-end;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .wm-action {
-  min-width: 132px;
-  height: 42px;
+  min-width: 142px;
+  height: 46px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .wm-action--primary {
@@ -1611,17 +1752,107 @@ button:disabled {
     grid-column: 1 / -1;
   }
 
-  .wm-bottom {
-    grid-template-columns: 1fr;
+  .wm-metrics-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .wm-bottom__current {
-    border-right: 0;
-    padding-right: 0;
+  .wm-metrics-grid__progress {
+    grid-column: 1 / -1;
+  }
+
+  .wm-bottom__footer {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .wm-bottom__actions {
     justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .wm-bottom__output {
+    align-items: stretch;
+  }
+
+  .wm-bottom__output-row {
+    width: 100%;
+    flex-basis: auto;
+  }
+}
+
+@media (max-height: 760px) {
+  .wm-card-head {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .wm-card-head__title {
+    font-size: 15px;
+  }
+
+  .wm-btn--small {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .wm-drop--compact {
+    min-height: 54px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+  }
+
+  .wm-drop:not(.wm-drop--compact) {
+    padding: 14px 12px;
+  }
+
+  .wm-drop:not(.wm-drop--compact) .wm-drop__art {
+    margin-bottom: 8px;
+  }
+
+  .wm-drop:not(.wm-drop--compact) .wm-drop__title {
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+
+  .wm-drop:not(.wm-drop--compact) .wm-drop__batch,
+  .wm-drop:not(.wm-drop--compact) .wm-drop__sub:last-child {
+    display: none;
+  }
+
+  .wm-file-list {
+    gap: 8px;
+    min-height: 64px;
+  }
+
+  .wm-file {
+    grid-template-columns: 58px minmax(0, 1fr) auto 26px;
+    min-height: 56px;
+    gap: 8px;
+    padding: 6px;
+  }
+
+  .wm-file__thumb {
+    width: 58px;
+    height: 42px;
+  }
+
+  .wm-file__meta {
+    gap: 3px;
+  }
+
+  .wm-file__meta strong {
+    font-size: 13px;
+  }
+
+  .wm-file__status {
+    padding: 4px 7px;
+    font-size: 11px;
+  }
+
+  .wm-list-foot {
+    padding-top: 8px;
+    font-size: 12px;
   }
 }
 
@@ -1642,9 +1873,34 @@ button:disabled {
     padding: 16px;
   }
 
+  .wm-bottom__summary {
+    align-items: flex-start;
+  }
+
+  .wm-ring {
+    width: 70px;
+    height: 70px;
+  }
+
+  .wm-ring span {
+    width: 54px;
+    height: 54px;
+    font-size: 16px;
+  }
+
+  .wm-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
   .wm-bottom__actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .wm-bottom__output {
+    flex-direction: column;
+    gap: 8px;
   }
 
   .wm-action {

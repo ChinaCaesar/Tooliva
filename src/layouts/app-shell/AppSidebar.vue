@@ -258,9 +258,25 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
 }
 .app-sidebar__nav--primary {
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
   flex: 1 1 auto;
   padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: #b8c4d6 transparent;
+}
+.app-sidebar__nav--primary::-webkit-scrollbar {
+  width: 1px;
+}
+.app-sidebar__nav--primary::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-sidebar__nav--primary::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #d4dce8 0%, #b8c4d6 100%);
+  border-radius: 999px;
+}
+.app-sidebar__nav--primary::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #b8c4d6 0%, #94a3b8 100%);
 }
 .app-sidebar__nav--secondary {
   flex-shrink: 0;
