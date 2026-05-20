@@ -1,7 +1,9 @@
 use crate::image_core::error::ImagePipelineError;
 use crate::image_core::pipeline::ProcessRuntime;
 use crate::image_core::processor::ImageProcessor;
-use crate::image_core::types::{LoadedImage, ProcessContext, ProcessOutput, ProcessPlan, ProgressEvent};
+use crate::image_core::types::{
+    LoadedImage, ProcessContext, ProcessOutput, ProcessPlan, ProgressEvent,
+};
 use ab_glyph::{FontArc, PxScale};
 use image::imageops::{overlay, resize, FilterType};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba, RgbaImage};
@@ -63,7 +65,11 @@ impl ImageProcessor for WatermarkProcessor {
         "watermark"
     }
 
-    fn plan(&self, ctx: &ProcessContext, input: &LoadedImage) -> Result<ProcessPlan, ImagePipelineError> {
+    fn plan(
+        &self,
+        ctx: &ProcessContext,
+        input: &LoadedImage,
+    ) -> Result<ProcessPlan, ImagePipelineError> {
         let _ = parse_params(&ctx.params)?;
         Ok(ProcessPlan {
             input_width: input.image.width(),
@@ -155,7 +161,9 @@ pub fn load_watermark_font() -> Result<FontArc, ImagePipelineError> {
 }
 
 /// 解码外部水印图片（图片模式时使用）；批量任务可在 `prepare` 阶段读取一次后复用。
-pub fn decode_watermark_image(path: &std::path::Path) -> Result<image::DynamicImage, ImagePipelineError> {
+pub fn decode_watermark_image(
+    path: &std::path::Path,
+) -> Result<image::DynamicImage, ImagePipelineError> {
     let bytes = fs::read(path)
         .map_err(|err| ImagePipelineError::IoFailed(format!("读取水印图片失败：{err}")))?;
     image::load_from_memory(&bytes)
@@ -193,13 +201,18 @@ pub fn build_text_overlay_with_cache(
         .max()
         .unwrap_or(font_size)
         .max(1);
-    let text_height = (lines.len() as u32).saturating_mul(line_height).max(font_size);
+    let text_height = (lines.len() as u32)
+        .saturating_mul(line_height)
+        .max(font_size);
     let mut overlay_image = ImageBuffer::from_pixel(
         text_width.max(1),
         text_height.max(1),
         Rgba([255, 255, 255, 0]),
     );
-    let color = parse_hex_rgba(params.text_color.as_deref().unwrap_or("#FFFFFF"), params.opacity)?;
+    let color = parse_hex_rgba(
+        params.text_color.as_deref().unwrap_or("#FFFFFF"),
+        params.opacity,
+    )?;
     for (line_index, line) in lines.iter().enumerate() {
         let baseline_y = (line_index as u32).saturating_mul(line_height);
         draw_text_mut(
@@ -240,10 +253,9 @@ pub fn build_image_overlay_with_cache(
     let source: &image::DynamicImage = match cached_source {
         Some(s) => s,
         None => {
-            let watermark_path = params
-                .image_path
-                .as_deref()
-                .ok_or_else(|| ImagePipelineError::InvalidInput("图片水印模式必须提供水印图片".to_string()))?;
+            let watermark_path = params.image_path.as_deref().ok_or_else(|| {
+                ImagePipelineError::InvalidInput("图片水印模式必须提供水印图片".to_string())
+            })?;
             owned_source = decode_watermark_image(std::path::Path::new(watermark_path))?;
             &owned_source
         }
@@ -251,8 +263,14 @@ pub fn build_image_overlay_with_cache(
     let source_rgba = source.to_rgba8();
     let scale_percent = params.image_scale_percent.unwrap_or(15).clamp(5, 60);
     let target_width = (input.image.width().saturating_mul(scale_percent) / 100).max(1);
-    let target_height = source_rgba.height().saturating_mul(target_width) / source_rgba.width().max(1);
-    let mut resized = resize(&source_rgba, target_width, target_height.max(1), FilterType::Lanczos3);
+    let target_height =
+        source_rgba.height().saturating_mul(target_width) / source_rgba.width().max(1);
+    let mut resized = resize(
+        &source_rgba,
+        target_width,
+        target_height.max(1),
+        FilterType::Lanczos3,
+    );
     apply_opacity(&mut resized, params.opacity);
     if params.rotation.abs() > 0.1 {
         return Ok(rotate_rgba(&resized, params.rotation));
@@ -308,19 +326,31 @@ fn parse_params(params_value: &Value) -> Result<WatermarkParams, ImagePipelineEr
     let params: WatermarkParams = serde_json::from_value(params_value.clone())
         .map_err(|err| ImagePipelineError::InvalidInput(format!("水印参数不合法：{err}")))?;
     if !(1..=100).contains(&params.opacity) {
-        return Err(ImagePipelineError::InvalidInput("透明度仅支持 1..100".to_string()));
+        return Err(ImagePipelineError::InvalidInput(
+            "透明度仅支持 1..100".to_string(),
+        ));
     }
     if matches!(normalize_mode(&params.mode)?, WatermarkMode::Text)
-        && params.text.as_deref().map(|value| value.trim().is_empty()).unwrap_or(true)
+        && params
+            .text
+            .as_deref()
+            .map(|value| value.trim().is_empty())
+            .unwrap_or(true)
     {
-        return Err(ImagePipelineError::InvalidInput("文字水印内容不能为空".to_string()));
+        return Err(ImagePipelineError::InvalidInput(
+            "文字水印内容不能为空".to_string(),
+        ));
     }
     if params.font_size.unwrap_or(24) < 8 {
-        return Err(ImagePipelineError::InvalidInput("文字字号不能小于 8".to_string()));
+        return Err(ImagePipelineError::InvalidInput(
+            "文字字号不能小于 8".to_string(),
+        ));
     }
     if let Some(scale_percent) = params.image_scale_percent {
         if !(5..=60).contains(&scale_percent) {
-            return Err(ImagePipelineError::InvalidInput("图片缩放比例仅支持 5..60".to_string()));
+            return Err(ImagePipelineError::InvalidInput(
+                "图片缩放比例仅支持 5..60".to_string(),
+            ));
         }
     }
     Ok(params)
@@ -364,7 +394,9 @@ fn normalize_mode(value: &str) -> Result<WatermarkMode, ImagePipelineError> {
     match value {
         "text" => Ok(WatermarkMode::Text),
         "image" => Ok(WatermarkMode::Image),
-        _ => Err(ImagePipelineError::InvalidInput("水印模式仅支持 text 或 image".to_string())),
+        _ => Err(ImagePipelineError::InvalidInput(
+            "水印模式仅支持 text 或 image".to_string(),
+        )),
     }
 }
 
@@ -383,7 +415,10 @@ fn normalize_position(value: &str) -> WatermarkPosition {
     }
 }
 
-fn build_text_overlay(input: &LoadedImage, params: &WatermarkParams) -> Result<RgbaImage, ImagePipelineError> {
+fn build_text_overlay(
+    input: &LoadedImage,
+    params: &WatermarkParams,
+) -> Result<RgbaImage, ImagePipelineError> {
     let content = params
         .text
         .as_deref()
@@ -401,13 +436,18 @@ fn build_text_overlay(input: &LoadedImage, params: &WatermarkParams) -> Result<R
         .max()
         .unwrap_or(font_size)
         .max(1);
-    let text_height = (lines.len() as u32).saturating_mul(line_height).max(font_size);
+    let text_height = (lines.len() as u32)
+        .saturating_mul(line_height)
+        .max(font_size);
     let mut overlay_image = ImageBuffer::from_pixel(
         text_width.max(1),
         text_height.max(1),
         Rgba([255, 255, 255, 0]),
     );
-    let color = parse_hex_rgba(params.text_color.as_deref().unwrap_or("#FFFFFF"), params.opacity)?;
+    let color = parse_hex_rgba(
+        params.text_color.as_deref().unwrap_or("#FFFFFF"),
+        params.opacity,
+    )?;
     for (line_index, line) in lines.iter().enumerate() {
         let baseline_y = (line_index as u32).saturating_mul(line_height);
         draw_text_mut(
@@ -425,7 +465,8 @@ fn build_text_overlay(input: &LoadedImage, params: &WatermarkParams) -> Result<R
     }
     let max_overlay_width = input.image.width().saturating_mul(80) / 100;
     if overlay_image.width() > max_overlay_width && max_overlay_width > 0 {
-        let resized_height = overlay_image.height().saturating_mul(max_overlay_width) / overlay_image.width().max(1);
+        let resized_height =
+            overlay_image.height().saturating_mul(max_overlay_width) / overlay_image.width().max(1);
         return Ok(resize(
             &overlay_image,
             max_overlay_width,
@@ -462,11 +503,13 @@ fn load_system_font() -> Result<FontArc, ImagePipelineError> {
     ))
 }
 
-fn build_image_overlay(input: &LoadedImage, params: &WatermarkParams) -> Result<RgbaImage, ImagePipelineError> {
-    let watermark_path = params
-        .image_path
-        .as_deref()
-        .ok_or_else(|| ImagePipelineError::InvalidInput("图片水印模式必须提供水印图片".to_string()))?;
+fn build_image_overlay(
+    input: &LoadedImage,
+    params: &WatermarkParams,
+) -> Result<RgbaImage, ImagePipelineError> {
+    let watermark_path = params.image_path.as_deref().ok_or_else(|| {
+        ImagePipelineError::InvalidInput("图片水印模式必须提供水印图片".to_string())
+    })?;
     let bytes = fs::read(watermark_path)
         .map_err(|err| ImagePipelineError::IoFailed(format!("读取水印图片失败：{err}")))?;
     let source = image::load_from_memory(&bytes)
@@ -474,8 +517,14 @@ fn build_image_overlay(input: &LoadedImage, params: &WatermarkParams) -> Result<
     let source_rgba = source.to_rgba8();
     let scale_percent = params.image_scale_percent.unwrap_or(15).clamp(5, 60);
     let target_width = (input.image.width().saturating_mul(scale_percent) / 100).max(1);
-    let target_height = source_rgba.height().saturating_mul(target_width) / source_rgba.width().max(1);
-    let mut resized = resize(&source_rgba, target_width, target_height.max(1), FilterType::Lanczos3);
+    let target_height =
+        source_rgba.height().saturating_mul(target_width) / source_rgba.width().max(1);
+    let mut resized = resize(
+        &source_rgba,
+        target_width,
+        target_height.max(1),
+        FilterType::Lanczos3,
+    );
     apply_opacity(&mut resized, params.opacity);
     if params.rotation.abs() > 0.1 {
         return Ok(rotate_rgba(&resized, params.rotation));
@@ -512,7 +561,9 @@ fn resolve_position(
         WatermarkPosition::MiddleLeft => (margin.min(max_x), max_y / 2),
         WatermarkPosition::Center => (max_x / 2, max_y / 2),
         WatermarkPosition::MiddleRight => (max_x.saturating_sub(margin.min(max_x)), max_y / 2),
-        WatermarkPosition::BottomLeft => (margin.min(max_x), max_y.saturating_sub(margin.min(max_y))),
+        WatermarkPosition::BottomLeft => {
+            (margin.min(max_x), max_y.saturating_sub(margin.min(max_y)))
+        }
         WatermarkPosition::BottomCenter => (max_x / 2, max_y.saturating_sub(margin.min(max_y))),
         WatermarkPosition::BottomRight => (
             max_x.saturating_sub(margin.min(max_x)),
@@ -521,9 +572,17 @@ fn resolve_position(
     }
 }
 
-fn save_output_image(image: &RgbaImage, output_path: &std::path::Path, input_format: ImageFormat) -> Result<(), ImagePipelineError> {
+fn save_output_image(
+    image: &RgbaImage,
+    output_path: &std::path::Path,
+    input_format: ImageFormat,
+) -> Result<(), ImagePipelineError> {
     let dynamic = DynamicImage::ImageRgba8(image.clone());
-    let format = match output_path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.to_ascii_lowercase()) {
+    let format = match output_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+    {
         Some(ext) if ext == "jpg" || ext == "jpeg" => ImageFormat::Jpeg,
         Some(ext) if ext == "png" => ImageFormat::Png,
         Some(ext) if ext == "webp" => ImageFormat::WebP,
@@ -546,9 +605,15 @@ fn parse_hex_rgba(value: &str, opacity_percent: u8) -> Result<Rgba<u8>, ImagePip
                 .collect::<String>();
             hex_to_rgb(&expanded)?
         }
-        _ => return Err(ImagePipelineError::InvalidInput("文字颜色仅支持 #RGB 或 #RRGGBB".to_string())),
+        _ => {
+            return Err(ImagePipelineError::InvalidInput(
+                "文字颜色仅支持 #RGB 或 #RRGGBB".to_string(),
+            ))
+        }
     };
-    let alpha = ((opacity_percent as f32 / 100.0) * 255.0).round().clamp(0.0, 255.0) as u8;
+    let alpha = ((opacity_percent as f32 / 100.0) * 255.0)
+        .round()
+        .clamp(0.0, 255.0) as u8;
     Ok(Rgba([bytes[0], bytes[1], bytes[2], alpha]))
 }
 
@@ -598,4 +663,3 @@ fn rotate_rgba(source: &RgbaImage, degrees: f32) -> RgbaImage {
     }
     target
 }
-

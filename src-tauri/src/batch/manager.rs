@@ -67,13 +67,19 @@ impl BatchTaskManager {
     }
 
     pub fn get(&self, task_id: &str) -> Option<Arc<BatchTaskHandle>> {
-        self.tasks.lock().ok().and_then(|map| map.get(task_id).cloned())
+        self.tasks
+            .lock()
+            .ok()
+            .and_then(|map| map.get(task_id).cloned())
     }
 
     /// 用于 GC：终态任务可以从 `tasks` 中移除，但结果通过 `get_batch_task_result`
     /// 在终态前会被前端拉走，所以这里保留一段时间也无妨。
     pub fn remove(&self, task_id: &str) -> Option<Arc<BatchTaskHandle>> {
-        self.tasks.lock().ok().and_then(|mut map| map.remove(task_id))
+        self.tasks
+            .lock()
+            .ok()
+            .and_then(|mut map| map.remove(task_id))
     }
 
     /// 检查任务是否处于可派发新工作的状态。

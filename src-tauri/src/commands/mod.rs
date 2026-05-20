@@ -1,3 +1,4 @@
+pub mod ai_models;
 pub mod batch;
 pub mod db;
 pub mod image;

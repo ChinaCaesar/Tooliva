@@ -9,7 +9,8 @@ pub struct ProcessorRegistry {
 
 impl ProcessorRegistry {
     pub fn register(&mut self, processor: Arc<dyn ImageProcessor>) {
-        self.processors.insert(processor.key().to_string(), processor);
+        self.processors
+            .insert(processor.key().to_string(), processor);
     }
 
     pub fn get(&self, key: &str) -> Option<Arc<dyn ImageProcessor>> {

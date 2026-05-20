@@ -71,9 +71,10 @@ impl ImagePipeline {
 
     fn emit(&self, ctx: &ProcessContext, stage: &str, progress: u8, message: Option<&str>) {
         if let Some(msg) = message {
-            self.runtime
-                .logger
-                .info(&format!("task={} processor={} stage={} msg={}", ctx.task_id, ctx.processor_key, stage, msg));
+            self.runtime.logger.info(&format!(
+                "task={} processor={} stage={} msg={}",
+                ctx.task_id, ctx.processor_key, stage, msg
+            ));
         }
         self.runtime.progress.emit(ProgressEvent::stage(
             &ctx.task_id,

@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+﻿<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -16,10 +16,11 @@ import {
   X
 } from "@lucide/vue";
 import { tauriClient } from "@/bridge/tauriClient";
+import { useBatchTask } from "@/modules/batch";
 
 type RemovalStatus = "pending" | "processing" | "done" | "failed";
-type RemovalMode = "fast" | "standard" | "quality";
-type OutputFormat = "png" | "jpg";
+type RemovalMode = "standard" | "quality";
+type OutputFormat = "auto" | "png" | "jpg";
 
 interface WatermarkRegion {
   id: string;
@@ -37,6 +38,8 @@ interface RemovalItem {
   width: number;
   height: number;
   previewUrl: string;
+  outputPath?: string;
+  processedPreviewUrl?: string;
   status: RemovalStatus;
   regions: WatermarkRegion[];
 }
@@ -47,26 +50,48 @@ const selectedId = ref<string | null>(null);
 const isDropActive = ref(false);
 const removalMode = ref<RemovalMode>("standard");
 const batchApply = ref(true);
-const outputFormat = ref<OutputFormat>("png");
+const outputFormat = ref<OutputFormat>("auto");
 const outputDir = ref("D:\\工具箱\\去水印结果");
-const isRunning = ref(false);
-const progressPercent = ref(0);
-const currentIndex = ref(0);
 const elapsedSeconds = ref(0);
 const hintMessage = ref("");
 const showProcessed = ref(false);
 const draftRegion = ref<WatermarkRegion | null>(null);
+const modelLoading = ref(false);
+const modelPercent = ref(0);
+const modelStage = ref("");
+const modelError = ref("");
+const modelStorePath = ref("");
+const runtimeDevice = ref("");
+const torchVersion = ref("");
+
+const { submit, cancel, openOutputDirectory: openBatchOutputDirectory, progress, isRunning, result, failures } = useBatchTask();
 
 let disposeDrop: UnlistenFn | null = null;
-let progressTimer: number | null = null;
+let disposeModelProgress: UnlistenFn | null = null;
 let elapsedTimer: number | null = null;
 let dragStart: { x: number; y: number } | null = null;
 
 const selectedItem = computed(() => items.value.find((item) => item.id === selectedId.value) ?? null);
+const canShowProcessed = computed(() => Boolean(selectedItem.value?.processedPreviewUrl && selectedItem.value.status === "done"));
+const selectedPreviewUrl = computed(() =>
+  showProcessed.value && canShowProcessed.value && selectedItem.value?.processedPreviewUrl
+    ? selectedItem.value.processedPreviewUrl
+    : selectedItem.value?.previewUrl ?? ""
+);
 const totalBytes = computed(() => items.value.reduce((sum, item) => sum + item.bytes, 0));
 const hasRegions = computed(() => items.value.some((item) => item.regions.length > 0));
+const progressPercent = computed(() => progress.value?.percent ?? 0);
+const currentIndex = computed(() => {
+  const currentFile = progress.value?.currentFile;
+  if (currentFile) {
+    const normalized = currentFile.replace(/\\/g, "/").toLowerCase();
+    const index = items.value.findIndex((item) => item.path.replace(/\\/g, "/").toLowerCase() === normalized);
+    if (index >= 0) return index;
+  }
+  return Math.min(Math.max(0, (progress.value?.finished ?? 0) - 1), Math.max(0, items.value.length - 1));
+});
 const currentDisplayIndex = computed(() => (items.value.length === 0 ? 0 : Math.min(currentIndex.value + 1, items.value.length)));
-const canStart = computed(() => items.value.length > 0 && hasRegions.value && !isRunning.value);
+const canStart = computed(() => items.value.length > 0 && hasRegions.value && !isRunning.value && !modelLoading.value);
 const currentProgressItem = computed(() => items.value[Math.min(currentIndex.value, Math.max(0, items.value.length - 1))] ?? selectedItem.value);
 const selectedPreviewFit = computed<"landscape" | "portrait">(() => {
   const item = selectedItem.value;
@@ -199,8 +224,6 @@ function clearList() {
   if (isRunning.value) return;
   items.value = [];
   selectedId.value = null;
-  progressPercent.value = 0;
-  currentIndex.value = 0;
   hintMessage.value = "";
 }
 
@@ -268,7 +291,7 @@ function pointerToPercent(event: PointerEvent, target: HTMLElement): { x: number
 }
 
 function onPreviewPointerDown(event: PointerEvent) {
-  if (!selectedItem.value || isRunning.value || event.button !== 0) return;
+  if (!selectedItem.value || showProcessed.value || isRunning.value || event.button !== 0) return;
   const target = event.currentTarget as HTMLElement;
   dragStart = pointerToPercent(event, target);
   draftRegion.value = { id: "draft", x: dragStart.x, y: dragStart.y, width: 0, height: 0 };
@@ -276,7 +299,7 @@ function onPreviewPointerDown(event: PointerEvent) {
 }
 
 function onPreviewPointerMove(event: PointerEvent) {
-  if (!selectedItem.value || !dragStart) return;
+  if (!selectedItem.value || showProcessed.value || !dragStart) return;
   const target = event.currentTarget as HTMLElement;
   const end = pointerToPercent(event, target);
   draftRegion.value = {
@@ -289,7 +312,7 @@ function onPreviewPointerMove(event: PointerEvent) {
 }
 
 function onPreviewPointerUp(event: PointerEvent) {
-  if (!selectedItem.value || !dragStart) return;
+  if (!selectedItem.value || showProcessed.value || !dragStart) return;
   const region = draftRegion.value;
   if (region && region.width > 2 && region.height > 2) {
     selectedItem.value.regions.push({ ...region, id: `region-${Date.now()}` });
@@ -310,39 +333,50 @@ async function startRemoval() {
     return;
   }
   stopTimers();
-  isRunning.value = true;
   showProcessed.value = false;
-  progressPercent.value = 0;
-  currentIndex.value = 0;
   elapsedSeconds.value = 0;
+  modelError.value = "";
   items.value.forEach((item) => {
     item.status = "pending";
+    item.outputPath = undefined;
+    item.processedPreviewUrl = undefined;
   });
-  const startedAt = Date.now();
-  elapsedTimer = window.setInterval(() => {
-    elapsedSeconds.value = Math.floor((Date.now() - startedAt) / 1000);
-  }, 1000);
-  progressTimer = window.setInterval(() => {
-    progressPercent.value = Math.min(100, progressPercent.value + 5);
-    currentIndex.value = Math.min(items.value.length - 1, Math.floor((progressPercent.value / 100) * items.value.length));
-    items.value.forEach((item, index) => {
-      if (index < currentIndex.value) item.status = "done";
-      else if (index === currentIndex.value) item.status = "processing";
-      else item.status = "pending";
-    });
-    if (progressPercent.value >= 100) {
-      items.value.forEach((item) => {
-        item.status = "done";
-      });
-      showProcessed.value = true;
-      isRunning.value = false;
-      stopTimers();
+  try {
+    if (removalMode.value === "quality") {
+      await ensureLamaModelReady();
+      modelLoading.value = true;
+      modelPercent.value = 100;
+      modelStage.value = `正在启动 LaMA worker（${runtimeDevice.value ? runtimeDevice.value.toUpperCase() : "CPU"}）`;
+    } else {
+      await refreshAiRuntimeStatus();
     }
-  }, 420);
+    const startedAt = Date.now();
+    elapsedTimer = window.setInterval(() => {
+      elapsedSeconds.value = Math.floor((Date.now() - startedAt) / 1000);
+    }, 1000);
+    await submit({
+      taskType: "AI_INPAINT",
+      inputFiles: items.value.map((item) => item.path),
+      outputDir: outputDir.value,
+      options: {
+        outputFormat: outputFormat.value,
+        mode: removalMode.value,
+        regionsByFile: buildRegionsByFile()
+      },
+      concurrencyPreset: "lowUsage"
+    });
+    modelLoading.value = false;
+  } catch (error) {
+    stopTimers();
+    modelLoading.value = false;
+    const message = error instanceof Error ? error.message : String(error);
+    hintMessage.value = message || "启动 AI 去水印任务失败";
+    modelError.value = hintMessage.value;
+  }
 }
 
 function stopTask() {
-  isRunning.value = false;
+  void cancel();
   stopTimers();
   items.value.forEach((item) => {
     if (item.status === "processing") item.status = "pending";
@@ -350,23 +384,129 @@ function stopTask() {
 }
 
 function stopTimers() {
-  if (progressTimer != null) window.clearInterval(progressTimer);
   if (elapsedTimer != null) window.clearInterval(elapsedTimer);
-  progressTimer = null;
   elapsedTimer = null;
 }
 
 async function openOutputDirectory() {
-  if (!outputDir.value) return;
-  await tauriClient.openDirectoryInFileManager({ directoryPath: outputDir.value });
+  await openBatchOutputDirectory(outputDir.value);
 }
 
-onMounted(() => {
+function buildRegionsByFile(): Record<string, Array<{ x: number; y: number; width: number; height: number }>> {
+  const result: Record<string, Array<{ x: number; y: number; width: number; height: number }>> = {};
+  const sharedRegions = batchApply.value && selectedItem.value?.regions.length ? selectedItem.value.regions : null;
+  for (const item of items.value) {
+    const regions = sharedRegions ?? item.regions;
+    result[item.path] = regions.map((region) => ({
+      x: region.x,
+      y: region.y,
+      width: region.width,
+      height: region.height
+    }));
+  }
+  return result;
+}
+
+async function ensureLamaModelReady(): Promise<void> {
+  modelLoading.value = true;
+  modelPercent.value = 0;
+  modelStage.value = "正在检测 CUDA / CPU";
+  try {
+    const status = await tauriClient.getAiModelStatus();
+    modelStorePath.value = status.modelsRoot;
+    runtimeDevice.value = status.runtimeDevice || "";
+    torchVersion.value = status.torchVersion || "";
+    if (!status.downloaded) {
+      modelStage.value = "首次使用正在下载 LaMA 模型";
+      const downloadedStatus = await tauriClient.downloadAiModel("lama");
+      modelStorePath.value = downloadedStatus.modelsRoot;
+      runtimeDevice.value = downloadedStatus.runtimeDevice || runtimeDevice.value;
+      torchVersion.value = downloadedStatus.torchVersion || torchVersion.value;
+    }
+  } finally {
+    modelLoading.value = false;
+  }
+}
+
+async function refreshAiRuntimeStatus(): Promise<void> {
+  try {
+    const status = await tauriClient.getAiModelStatus();
+    modelStorePath.value = status.modelsRoot;
+    runtimeDevice.value = status.runtimeDevice || "";
+    torchVersion.value = status.torchVersion || "";
+  } catch {
+    runtimeDevice.value = "";
+    torchVersion.value = "";
+  }
+}
+
+watch(
+  canShowProcessed,
+  (canShow) => {
+    if (!canShow) showProcessed.value = false;
+  }
+);
+
+watch(
+  () => progress.value,
+  (payload) => {
+    if (!payload) return;
+    const currentFile = payload.currentFile?.replace(/\\/g, "/").toLowerCase();
+    items.value.forEach((item) => {
+      const itemPath = item.path.replace(/\\/g, "/").toLowerCase();
+      if (currentFile && itemPath === currentFile && payload.status === "RUNNING") item.status = "processing";
+      else if (item.status === "processing") item.status = "pending";
+    });
+  },
+  { deep: true }
+);
+
+watch([result, failures], () => {
+  const snapshot = result.value;
+  if (!snapshot || snapshot.status === "RUNNING" || snapshot.status === "PENDING" || snapshot.status === "PAUSED") return;
+  const failed = new Set(failures.value.map((failure) => failure.inputPath.replace(/\\/g, "/").toLowerCase()));
+  const outputPaths = [...(snapshot.successOutputPaths ?? [])];
+  items.value.forEach((item) => {
+    const itemKey = item.path.replace(/\\/g, "/").toLowerCase();
+    if (snapshot.status === "CANCELED") {
+      item.status = "pending";
+      item.outputPath = undefined;
+      item.processedPreviewUrl = undefined;
+      return;
+    }
+    if (failed.has(itemKey)) {
+      item.status = "failed";
+      item.outputPath = undefined;
+      item.processedPreviewUrl = undefined;
+      return;
+    }
+    const outputPath = outputPaths.shift();
+    item.status = "done";
+    item.outputPath = outputPath;
+    item.processedPreviewUrl = outputPath ? (isTauri() ? convertFileSrc(outputPath) : outputPath) : undefined;
+  });
+  if (snapshot.status === "FINISHED") showProcessed.value = true;
+  if (snapshot.status === "FAILED") {
+    modelError.value = failures.value[0]?.errorMessage || snapshot.message || "AI 去水印任务失败";
+    hintMessage.value = modelError.value;
+  }
+  stopTimers();
+});
+
+onMounted(async () => {
   void setupNativeDrop();
+  void refreshAiRuntimeStatus();
+  void tauriClient.warmAiInpaintWorker();
+  disposeModelProgress = await tauriClient.onAiModelProgress((payload) => {
+    if (payload.modelId !== "lama") return;
+    modelPercent.value = payload.percent;
+    modelStage.value = payload.message || (payload.stage === "ready" ? "LaMA 模型已准备完成" : "正在下载 LaMA 模型");
+  });
 });
 
 onBeforeUnmount(() => {
   disposeDrop?.();
+  disposeModelProgress?.();
   stopTimers();
 });
 </script>
@@ -433,7 +573,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="wm-tabs">
             <button type="button" :class="{ on: !showProcessed }" @click="showProcessed = false">原图</button>
-            <button type="button" :class="{ on: showProcessed }" @click="showProcessed = true">处理后</button>
+            <button type="button" :class="{ on: showProcessed }" :disabled="!canShowProcessed" @click="showProcessed = true">处理后</button>
           </div>
         </header>
 
@@ -448,10 +588,9 @@ onBeforeUnmount(() => {
               @pointerup="onPreviewPointerUp"
               @pointercancel="onPreviewPointerCancel"
             >
-              <img class="wm-stage__image" :src="selectedItem.previewUrl" alt="" draggable="false" />
-              <div v-if="showProcessed" class="wm-stage__processed" />
+              <img class="wm-stage__image" :src="selectedPreviewUrl" alt="" draggable="false" />
               <span
-                v-for="region in selectedItem.regions"
+                v-for="region in showProcessed ? [] : selectedItem.regions"
                 :key="region.id"
                 class="wm-region"
                 :style="{ left: `${region.x}%`, top: `${region.y}%`, width: `${region.width}%`, height: `${region.height}%` }"
@@ -492,12 +631,11 @@ onBeforeUnmount(() => {
         <div class="wm-settings-section">
           <h4>基础设置</h4>
           <label class="wm-field-label">去除模式</label>
-          <div class="wm-segment">
-            <button type="button" :class="{ on: removalMode === 'fast' }" @click="applyMode('fast')">快速</button>
+          <div class="wm-segment wm-segment--two">
             <button type="button" :class="{ on: removalMode === 'standard' }" @click="applyMode('standard')">标准</button>
             <button type="button" :class="{ on: removalMode === 'quality' }" @click="applyMode('quality')">高清</button>
           </div>
-          <p class="wm-muted">标准模式在效果和速度之间取得平衡</p>
+          <p class="wm-muted">标准模式按原图局部修复并融合回原图；高清模式使用 LaMA，速度更慢</p>
         </div>
 
         <label class="wm-switch-row">
@@ -511,11 +649,12 @@ onBeforeUnmount(() => {
         <div class="wm-settings-section">
           <h4>输出设置</h4>
           <label class="wm-field-label">输出格式</label>
-          <div class="wm-segment wm-segment--two">
+          <div class="wm-segment">
+            <button type="button" :class="{ on: outputFormat === 'auto' }" @click="outputFormat = 'auto'">原格式</button>
             <button type="button" :class="{ on: outputFormat === 'png' }" @click="outputFormat = 'png'">PNG</button>
             <button type="button" :class="{ on: outputFormat === 'jpg' }" @click="outputFormat = 'jpg'">JPG</button>
           </div>
-          <p class="wm-muted">PNG 无损，支持透明；JPG 体积更小</p>
+          <p class="wm-muted">默认按原图格式输出；PNG 无损，JPG 体积更小</p>
         </div>
 
         <div class="wm-settings-section">
@@ -535,12 +674,19 @@ onBeforeUnmount(() => {
         <div>
           <strong>整体进度</strong>
           <span>{{ progressTitle }}</span>
+          <span v-if="runtimeDevice">AI：{{ runtimeDevice.toUpperCase() }}{{ torchVersion ? ` / Torch ${torchVersion}` : "" }}</span>
           <span>共 {{ items.length }} 张图片</span>
         </div>
       </div>
 
       <div class="wm-bottom__current">
-        <template v-if="currentProgressItem && isRunning">
+        <template v-if="modelLoading">
+          <div>
+            <strong>LaMA 模型准备中</strong>
+            <span>{{ modelStage || "正在准备模型文件" }}</span>
+          </div>
+        </template>
+        <template v-else-if="currentProgressItem && isRunning">
           <img :src="currentProgressItem.previewUrl" alt="" />
           <div>
             <strong>{{ currentProgressItem.name }}</strong>
@@ -551,17 +697,36 @@ onBeforeUnmount(() => {
           <span>当前图片：--</span>
           <span>状态：--</span>
         </template>
-        <div class="wm-progress-line"><i :style="{ width: `${progressPercent}%` }" /></div>
-        <em>{{ isRunning ? `${progressPercent}%` : "--" }}</em>
+        <div class="wm-progress-line"><i :style="{ width: `${modelLoading ? modelPercent : progressPercent}%` }" /></div>
+        <em>{{ modelLoading ? `${modelPercent}%` : isRunning ? `${progressPercent}%` : "--" }}</em>
         <small v-if="isRunning">已用时间：{{ formatDuration(elapsedSeconds) }} / 预计时间：{{ remainingTime }}</small>
       </div>
 
       <div class="wm-bottom__actions">
-        <button type="button" class="wm-action wm-action--primary" :disabled="!canStart" @click="startRemoval"><PlayCircle :size="18" />开始去除</button>
+        <button type="button" class="wm-action wm-action--primary" :disabled="!canStart" @click="startRemoval"><PlayCircle :size="18" />{{ modelLoading ? "模型准备中" : "开始去除" }}</button>
         <button type="button" class="wm-action" :disabled="!isRunning" @click="stopTask"><PauseCircle :size="18" />停止任务</button>
         <button type="button" class="wm-action" @click="openOutputDirectory"><Folder :size="18" />打开输出目录</button>
       </div>
     </footer>
+    <div v-if="modelLoading" class="wm-model-loading" role="status" aria-live="polite">
+      <div class="wm-model-loading__panel">
+        <strong>正在准备 LaMA 修复模型</strong>
+        <span>{{ modelStage || "正在准备模型文件" }}</span>
+        <div class="wm-model-loading__bar"><i :style="{ width: `${modelPercent}%` }" /></div>
+        <div class="wm-model-loading__meta">
+          <span>{{ runtimeDevice ? `当前设备：${runtimeDevice.toUpperCase()}` : "正在检测 CUDA / CPU" }}</span>
+          <span v-if="torchVersion">Torch {{ torchVersion }}</span>
+        </div>
+        <p v-if="modelStorePath">模型保存位置：{{ modelStorePath }}</p>
+      </div>
+    </div>
+    <div v-if="modelError && !modelLoading" class="wm-model-error" role="alert">
+      <div>
+        <strong>AI 模型准备失败</strong>
+        <span>{{ modelError }}</span>
+      </div>
+      <button type="button" @click="modelError = ''">关闭</button>
+    </div>
     <p class="wm-toast-tip">温馨提示：请先在图片上框选需要去除的水印区域，才能开始处理。</p>
   </div>
 </template>
@@ -581,10 +746,10 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  height: calc(100vh - 96px);
-  min-height: 650px;
+  height: 100%;
+  min-height: 0;
   padding: 8px 18px 10px;
-  overflow: auto;
+  overflow: hidden;
   color: var(--text);
   background: var(--surface-muted);
   box-sizing: border-box;
@@ -593,15 +758,17 @@ onBeforeUnmount(() => {
 
 .wm-workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(440px, 1.52fr) minmax(260px, 0.8fr);
+  grid-template-columns: minmax(230px, 0.82fr) minmax(340px, 1.5fr) minmax(220px, 0.72fr);
   gap: 12px;
   min-height: 0;
   flex: 1;
+  overflow: hidden;
 }
 
 .wm-card {
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -613,7 +780,7 @@ onBeforeUnmount(() => {
 .wm-card--list,
 .wm-card--preview,
 .wm-card--settings {
-  padding: 18px;
+  padding: clamp(12px, 1.5vh, 18px);
 }
 
 .wm-card-head,
@@ -632,7 +799,7 @@ onBeforeUnmount(() => {
 .wm-preview-head {
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 14px;
+  margin-bottom: clamp(8px, 1.2vh, 14px);
 }
 
 .wm-card-head__title {
@@ -693,8 +860,8 @@ button:disabled {
 
 .wm-drop--compact {
   flex: 0 0 auto;
-  min-height: 126px;
-  margin-bottom: 14px;
+  min-height: 96px;
+  margin-bottom: 10px;
 }
 
 .wm-drop--active {
@@ -706,7 +873,7 @@ button:disabled {
   position: relative;
   color: #2d72f6;
   opacity: 0.8;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .wm-drop__plus {
@@ -726,7 +893,7 @@ button:disabled {
 
 .wm-drop__title {
   margin: 0 0 10px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -748,7 +915,7 @@ button:disabled {
 }
 
 .wm-drop__batch {
-  margin-top: 52px;
+  margin-top: 28px;
   font-size: 16px;
 }
 
@@ -758,7 +925,7 @@ button:disabled {
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -766,10 +933,10 @@ button:disabled {
 
 .wm-file {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) auto 28px;
+  grid-template-columns: 72px minmax(0, 1fr) auto 28px;
   align-items: center;
-  gap: 14px;
-  padding: 10px;
+  gap: 10px;
+  padding: 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
@@ -781,8 +948,8 @@ button:disabled {
 }
 
 .wm-file__thumb {
-  width: 96px;
-  height: 64px;
+  width: 72px;
+  height: 52px;
   object-fit: cover;
   border-radius: 6px;
   background: #eef2f8;
@@ -792,7 +959,7 @@ button:disabled {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
 
 .wm-file__meta strong {
@@ -804,7 +971,7 @@ button:disabled {
 
 .wm-file__meta span {
   color: #5f6c8d;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .wm-file__status {
@@ -846,6 +1013,7 @@ button:disabled {
   justify-content: space-between;
   padding-top: 14px;
   margin-top: auto;
+  flex: 0 0 auto;
 }
 
 .wm-warning {
@@ -854,6 +1022,7 @@ button:disabled {
   gap: 6px;
   margin: 8px 0 0;
   color: var(--warning);
+  line-height: 1.45;
 }
 
 .wm-tabs {
@@ -885,7 +1054,7 @@ button:disabled {
 .wm-canvas-shell {
   position: relative;
   flex: 1;
-  min-height: 420px;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -901,7 +1070,7 @@ button:disabled {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 388px;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -959,10 +1128,33 @@ button:disabled {
 
 .wm-region {
   position: absolute;
-  border: 2px solid #2563eb;
-  border-radius: 3px;
-  background: rgba(37, 99, 235, 0.14);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+  border: 1px dashed #111827;
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.86) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.72);
+  pointer-events: none;
+}
+
+.wm-region::before,
+.wm-region::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #111827;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
+}
+
+.wm-region::before {
+  left: -4px;
+  top: -4px;
+}
+
+.wm-region::after {
+  right: -4px;
+  bottom: -4px;
 }
 
 .wm-region--draft {
@@ -973,18 +1165,26 @@ button:disabled {
 
 .wm-region button {
   position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 20px;
-  height: 20px;
+  top: -10px;
+  right: -10px;
+  width: 18px;
+  height: 18px;
   display: grid;
   place-items: center;
-  border: 1px solid #ffffff;
-  border-radius: 50%;
-  color: #fff;
-  background: #ef4444;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+  padding: 0;
+  border: 1px solid #111827;
+  border-radius: 2px;
+  color: #111827;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.24);
   cursor: pointer;
+  pointer-events: auto;
+}
+
+.wm-region button:hover {
+  color: #ffffff;
+  border-color: #dc2626;
+  background: #dc2626;
 }
 
 .wm-empty-preview {
@@ -1015,6 +1215,7 @@ button:disabled {
   justify-content: space-between;
   gap: 12px;
   margin-top: 12px;
+  flex: 0 0 auto;
 }
 
 .wm-preview-foot p {
@@ -1189,18 +1390,20 @@ button:disabled {
 }
 
 .wm-bottom {
-  min-height: 112px;
+  flex: 0 0 auto;
+  min-height: 96px;
   display: grid;
-  grid-template-columns: minmax(250px, 0.8fr) minmax(360px, 1.2fr) minmax(420px, 1fr);
-  gap: 20px;
-  padding: 18px 28px;
+  grid-template-columns: minmax(190px, 0.72fr) minmax(260px, 1fr) minmax(0, max-content);
+  gap: 14px;
+  padding: 14px 18px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #fff;
 }
 
 .wm-bottom__overall {
-  gap: 16px;
+  min-width: 0;
+  gap: 12px;
 }
 
 .wm-bottom__overall > div:last-child,
@@ -1212,8 +1415,8 @@ button:disabled {
 
 .wm-ring {
   --p: 0;
-  width: 70px;
-  height: 70px;
+  width: 60px;
+  height: 60px;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
@@ -1227,21 +1430,22 @@ button:disabled {
 }
 
 .wm-ring span {
-  width: 54px;
-  height: 54px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   color: #111936;
   background: #fff;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
 }
 
 .wm-bottom__current {
   position: relative;
+  min-width: 0;
   gap: 12px;
-  padding-right: 26px;
+  padding-right: 16px;
   border-right: 1px solid var(--border);
 }
 
@@ -1255,7 +1459,7 @@ button:disabled {
 .wm-progress-line {
   flex: 1;
   height: 8px;
-  min-width: 140px;
+  min-width: 90px;
   overflow: hidden;
   border-radius: 999px;
   background: #edf1f7;
@@ -1275,30 +1479,120 @@ button:disabled {
 }
 
 .wm-bottom__current small {
-  position: absolute;
-  left: 84px;
-  bottom: 0;
+  position: static;
+  grid-column: 1 / -1;
 }
 
 .wm-bottom__actions {
   justify-content: flex-end;
-  gap: 20px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .wm-action {
-  min-width: 176px;
-  height: 48px;
+  min-width: 132px;
+  height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .wm-action--primary {
   color: #fff;
   border-color: var(--primary);
   background: var(--primary);
+}
+
+.wm-model-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(3px);
+}
+
+.wm-model-loading__panel,
+.wm-model-error {
+  width: min(560px, calc(100vw - 48px));
+  padding: 18px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(16, 25, 54, 0.18);
+}
+
+.wm-model-loading__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+}
+
+.wm-model-loading__bar {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1f7;
+}
+
+.wm-model-loading__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+.wm-model-loading__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.wm-model-loading__panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.wm-model-error {
+  position: fixed;
+  right: 24px;
+  bottom: 92px;
+  z-index: 31;
+  display: flex;
+  gap: 14px;
+  border: 1px solid #fecaca;
+  color: #7f1d1d;
+  background: #fff7f7;
+}
+
+.wm-model-error div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wm-model-error span {
+  word-break: break-all;
+}
+
+.wm-model-error button {
+  height: 32px;
+  padding: 0 12px;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fff;
 }
 
 .wm-toast-tip {
@@ -1325,17 +1619,23 @@ button:disabled {
     border-right: 0;
     padding-right: 0;
   }
+
+  .wm-bottom__actions {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 900px) {
   .image-watermark-removal-page {
-    height: auto;
-    min-height: 100%;
+    height: 100%;
+    min-height: 0;
     padding: 10px;
+    overflow: hidden;
   }
 
   .wm-workspace {
     grid-template-columns: 1fr;
+    overflow: auto;
   }
 
   .wm-bottom {

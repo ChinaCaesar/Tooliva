@@ -21,7 +21,10 @@ impl WorkQueue {
 
     /// 弹出下一个子任务；若队列已空返回 `None`。
     pub fn pop(&self) -> Option<WorkItem> {
-        self.items.lock().ok().and_then(|mut guard| guard.pop_front())
+        self.items
+            .lock()
+            .ok()
+            .and_then(|mut guard| guard.pop_front())
     }
 
     /// 当前剩余子任务数量。

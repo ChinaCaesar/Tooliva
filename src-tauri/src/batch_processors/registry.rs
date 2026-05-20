@@ -5,6 +5,7 @@
 use std::sync::Arc;
 
 use crate::batch::registry::BatchProcessorRegistry;
+use crate::batch_processors::ai_inpaint::AiInpaintBatchProcessor;
 use crate::batch_processors::gif_compress::GifCompressBatchProcessor;
 use crate::batch_processors::image_compress::ImageCompressBatchProcessor;
 use crate::batch_processors::image_convert::ImageConvertBatchProcessor;
@@ -18,5 +19,6 @@ pub fn build_default_batch_registry() -> BatchProcessorRegistry {
     registry.register(Arc::new(ImageConvertBatchProcessor));
     registry.register(Arc::new(VideoToGifBatchProcessor));
     registry.register(Arc::new(GifCompressBatchProcessor));
+    registry.register(Arc::new(AiInpaintBatchProcessor));
     registry
 }

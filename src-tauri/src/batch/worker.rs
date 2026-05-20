@@ -13,6 +13,7 @@ use crate::batch::progress::ProgressEmitter;
 use crate::batch::queue::WorkQueue;
 use crate::batch::result::BatchItemFailure;
 use crate::batch::types::{BatchError, BatchTaskType};
+use crate::ai_worker::append_perf_log;
 
 /// Worker 收集到的结果，回传给协调线程做汇总。
 pub enum WorkerOutcome {
@@ -60,7 +61,14 @@ pub fn worker_loop(
         // 标记当前正在处理的文件
         progress.mark_current(Some(item.input_path.display().to_string()));
 
-        let outcome = run_with_retry(&env, &item.input_path, item.index, &processor, &prepared, &cancel);
+        let outcome = run_with_retry(
+            &env,
+            &item.input_path,
+            item.index,
+            &processor,
+            &prepared,
+            &cancel,
+        );
         match &outcome {
             WorkerOutcome::Success { output_path, .. } => {
                 progress.record_success(&output_path.display().to_string());
@@ -95,6 +103,13 @@ fn run_with_retry(
             return WorkerOutcome::Skipped;
         }
         attempts = attempts.saturating_add(1);
+        log_batch_worker_perf(&format!(
+            "[batch-worker-perf] task_id={} item_index={} stage=attempt-start attempt={} input=\"{}\"",
+            env.task_id,
+            index,
+            attempts,
+            input_path.display()
+        ));
         let work_item = crate::batch::types::WorkItem {
             index,
             input_path: input_path.to_path_buf(),
@@ -110,6 +125,13 @@ fn run_with_retry(
         let result = processor.process_one(&ctx, prepared);
         match result {
             Ok(output) => {
+                log_batch_worker_perf(&format!(
+                    "[batch-worker-perf] task_id={} item_index={} stage=attempt-success attempt={} output=\"{}\"",
+                    env.task_id,
+                    index,
+                    attempts,
+                    output.output_path.display()
+                ));
                 return WorkerOutcome::Success {
                     index,
                     input_path: input_path.to_path_buf(),
@@ -119,14 +141,36 @@ fn run_with_retry(
             Err(err) => {
                 let exhausted = attempts >= max_attempts;
                 let retryable = err.retryable && !exhausted && !cancel.is_cancelled();
+                log_batch_worker_perf(&format!(
+                    "[batch-worker-perf] task_id={} item_index={} stage=attempt-failure attempt={} retryable={} exhausted={} error=\"{}\"",
+                    env.task_id,
+                    index,
+                    attempts,
+                    retryable,
+                    exhausted,
+                    sanitize_log_value(&err.message)
+                ));
                 if !retryable {
-                    return WorkerOutcome::Failure(build_failure(input_path, err, attempts.saturating_sub(1)));
+                    return WorkerOutcome::Failure(build_failure(
+                        input_path,
+                        err,
+                        attempts.saturating_sub(1),
+                    ));
                 }
                 // 重试前短暂退避，缓解瞬时 IO 抖动
                 std::thread::sleep(Duration::from_millis(80));
             }
         }
     }
+}
+
+fn log_batch_worker_perf(message: &str) {
+    eprintln!("{message}");
+    append_perf_log(message);
+}
+
+fn sanitize_log_value(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 fn build_failure(input_path: &std::path::Path, err: BatchError, retried: u32) -> BatchItemFailure {

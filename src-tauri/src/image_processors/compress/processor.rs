@@ -1,9 +1,13 @@
 use crate::image_core::error::ImagePipelineError;
 use crate::image_core::pipeline::ProcessRuntime;
 use crate::image_core::processor::ImageProcessor;
-use crate::image_core::types::{LoadedImage, ProcessContext, ProcessOutput, ProcessPlan, ProgressEvent};
+use crate::image_core::types::{
+    LoadedImage, ProcessContext, ProcessOutput, ProcessPlan, ProgressEvent,
+};
 use image::codecs::jpeg::JpegEncoder;
-use image::codecs::png::{CompressionType as PngCompressionType, FilterType as PngFilterType, PngEncoder};
+use image::codecs::png::{
+    CompressionType as PngCompressionType, FilterType as PngFilterType, PngEncoder,
+};
 use image::codecs::webp::WebPEncoder;
 use image::{ExtendedColorType, ImageEncoder};
 use serde::Deserialize;
@@ -23,10 +27,16 @@ impl ImageProcessor for CompressProcessor {
         "compress"
     }
 
-    fn plan(&self, ctx: &ProcessContext, input: &LoadedImage) -> Result<ProcessPlan, ImagePipelineError> {
+    fn plan(
+        &self,
+        ctx: &ProcessContext,
+        input: &LoadedImage,
+    ) -> Result<ProcessPlan, ImagePipelineError> {
         let params = parse_params(ctx)?;
         if !(1..=100).contains(&params.quality) {
-            return Err(ImagePipelineError::InvalidInput("压缩质量仅支持 1..100".to_string()));
+            return Err(ImagePipelineError::InvalidInput(
+                "压缩质量仅支持 1..100".to_string(),
+            ));
         }
         Ok(ProcessPlan {
             input_width: input.image.width(),
@@ -57,11 +67,19 @@ impl ImageProcessor for CompressProcessor {
         runtime.io.ensure_parent_dir(&ctx.output_path)?;
         let target_format = normalize_format(params.target_format.as_deref(), &ctx.output_format)?;
         let encoded = encode_image(input, target_format, params.quality)?;
-        let input_bytes = fs::read(&ctx.input_path).map_err(|err| {
-            ImagePipelineError::IoFailed(format!("读取源文件失败：{err}"))
-        })?;
-        let fallback_to_source = should_fallback_to_source(&ctx.output_format, target_format, input_bytes.len(), encoded.len());
-        let output_bytes = if fallback_to_source { input_bytes } else { encoded };
+        let input_bytes = fs::read(&ctx.input_path)
+            .map_err(|err| ImagePipelineError::IoFailed(format!("读取源文件失败：{err}")))?;
+        let fallback_to_source = should_fallback_to_source(
+            &ctx.output_format,
+            target_format,
+            input_bytes.len(),
+            encoded.len(),
+        );
+        let output_bytes = if fallback_to_source {
+            input_bytes
+        } else {
+            encoded
+        };
         fs::write(&ctx.output_path, output_bytes)
             .map_err(|err| ImagePipelineError::IoFailed(format!("写入输出文件失败：{err}")))?;
 
@@ -107,7 +125,10 @@ fn parse_params(ctx: &ProcessContext) -> Result<CompressParams, ImagePipelineErr
         .map_err(|err| ImagePipelineError::InvalidInput(format!("压缩参数不合法：{err}")))
 }
 
-fn normalize_format(requested: Option<&str>, fallback: &Option<String>) -> Result<CompressTargetFormat, ImagePipelineError> {
+fn normalize_format(
+    requested: Option<&str>,
+    fallback: &Option<String>,
+) -> Result<CompressTargetFormat, ImagePipelineError> {
     let target = requested
         .map(|x| x.to_ascii_lowercase())
         .or_else(|| fallback.as_ref().map(|x| x.to_ascii_lowercase()))
@@ -133,7 +154,12 @@ fn encode_image(
             let rgb = input.image.to_rgb8();
             let mut encoder = JpegEncoder::new_with_quality(&mut output, quality.max(92));
             encoder
-                .encode(rgb.as_raw(), rgb.width(), rgb.height(), ExtendedColorType::Rgb8)
+                .encode(
+                    rgb.as_raw(),
+                    rgb.width(),
+                    rgb.height(),
+                    ExtendedColorType::Rgb8,
+                )
                 .map_err(|err| ImagePipelineError::EncodeFailed(err.to_string()))?;
         }
         CompressTargetFormat::Webp => {
@@ -150,7 +176,11 @@ fn encode_image(
         }
         CompressTargetFormat::Png => {
             let rgba = input.image.to_rgba8();
-            let encoder = PngEncoder::new_with_quality(&mut output, PngCompressionType::Best, PngFilterType::Adaptive);
+            let encoder = PngEncoder::new_with_quality(
+                &mut output,
+                PngCompressionType::Best,
+                PngFilterType::Adaptive,
+            );
             encoder
                 .write_image(
                     rgba.as_raw(),

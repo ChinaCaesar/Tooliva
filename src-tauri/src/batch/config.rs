@@ -113,7 +113,10 @@ fn category_bounds(category: BatchTaskCategory, cpu_cores: u32) -> (u32, u32) {
     match category {
         BatchTaskCategory::Image => {
             // 默认：min(CPU - 1, 配置默认值)；最大：min(CPU, 配置最大值)
-            let default_value = cpu_cores.saturating_sub(1).min(BATCH_IMAGE_DEFAULT_CONCURRENCY).max(1);
+            let default_value = cpu_cores
+                .saturating_sub(1)
+                .min(BATCH_IMAGE_DEFAULT_CONCURRENCY)
+                .max(1);
             let max_value = cpu_cores.min(BATCH_IMAGE_MAX_CONCURRENCY).max(1);
             (default_value, max_value)
         }

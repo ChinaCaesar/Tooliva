@@ -30,4 +30,6 @@ pub use progress::{BatchProgressPayload, ProgressEmitter, BATCH_PROGRESS_EVENT};
 pub use registry::BatchProcessorRegistry;
 pub use result::{BatchItemFailure, BatchTaskResult};
 pub use scheduler::start_batch_task;
-pub use types::{BatchError, BatchTaskCategory, BatchTaskStatus, BatchTaskType, SubmitBatchTaskPayload};
+pub use types::{
+    BatchError, BatchTaskCategory, BatchTaskStatus, BatchTaskType, SubmitBatchTaskPayload,
+};

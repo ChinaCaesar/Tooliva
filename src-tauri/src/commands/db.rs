@@ -102,7 +102,8 @@ pub fn get_app_settings(app: AppHandle) -> Result<AppSettingsPayload, String> {
 #[tauri::command]
 pub fn save_app_settings(payload: AppSettingsPayload, app: AppHandle) -> Result<(), String> {
     let conn = open_database(&app)?;
-    let serialized = serde_json::to_string(&payload).map_err(|err| format!("序列化设置失败：{err}"))?;
+    let serialized =
+        serde_json::to_string(&payload).map_err(|err| format!("序列化设置失败：{err}"))?;
     let now_ts = current_unix_timestamp();
     conn.execute(
         "INSERT INTO settings (key, value, updated_at)
@@ -241,12 +242,17 @@ pub fn load_saved_settings(app: &AppHandle) -> Result<AppSettingsPayload, String
     let mut rows = statement
         .query(params![SETTINGS_KEY])
         .map_err(|err| format!("查询设置失败：{err}"))?;
-    let Some(row) = rows.next().map_err(|err| format!("读取设置行失败：{err}"))? else {
+    let Some(row) = rows
+        .next()
+        .map_err(|err| format!("读取设置行失败：{err}"))?
+    else {
         return Ok(default_settings());
     };
-    let raw_value: String = row.get(0).map_err(|err| format!("读取设置字段失败：{err}"))?;
-    let mut parsed =
-        serde_json::from_str::<AppSettingsPayload>(&raw_value).map_err(|err| format!("解析设置失败：{err}"))?;
+    let raw_value: String = row
+        .get(0)
+        .map_err(|err| format!("读取设置字段失败：{err}"))?;
+    let mut parsed = serde_json::from_str::<AppSettingsPayload>(&raw_value)
+        .map_err(|err| format!("解析设置失败：{err}"))?;
     if parsed.window_size.is_empty() {
         parsed.window_size = "medium".to_string();
     }
@@ -263,7 +269,8 @@ pub fn apply_saved_window_size(app: &AppHandle) -> Result<(), String> {
 
 fn open_database(app: &AppHandle) -> Result<Connection, String> {
     let database_path = resolve_database_path(app)?;
-    let connection = Connection::open(database_path).map_err(|err| format!("打开数据库失败：{err}"))?;
+    let connection =
+        Connection::open(database_path).map_err(|err| format!("打开数据库失败：{err}"))?;
     connection
         .execute_batch(
             "PRAGMA journal_mode = WAL;
@@ -359,4 +366,3 @@ fn current_unix_timestamp() -> i64 {
         .map(|duration| duration.as_secs() as i64)
         .unwrap_or(0)
 }
-

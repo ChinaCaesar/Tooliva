@@ -17,7 +17,9 @@ use crate::batch::tempfile::{
     allocate_unique_final_path, cleanup_temp, ensure_parent_dir, finalize_temp, temp_path_for,
 };
 use crate::batch::types::{BatchError, BatchTaskType};
-use crate::ffmpeg_gif::{compute_segment_duration, probe_duration_secs, resolve_ffmpeg_ffprobe, VideoToGifOptions};
+use crate::ffmpeg_gif::{
+    compute_segment_duration, probe_duration_secs, resolve_ffmpeg_ffprobe, VideoToGifOptions,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -132,7 +134,11 @@ impl BatchProcessor for VideoToGifBatchProcessor {
             args.push(max.to_string());
         }
         args.push("-loop".into());
-        args.push(if video_opts.loop_playback { "0".into() } else { "-1".into() });
+        args.push(if video_opts.loop_playback {
+            "0".into()
+        } else {
+            "-1".into()
+        });
         args.push("-y".into());
         args.push(
             tmp_path

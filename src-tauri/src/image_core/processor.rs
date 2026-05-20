@@ -3,7 +3,11 @@ use crate::image_core::types::{LoadedImage, ProcessContext, ProcessOutput, Proce
 
 pub trait ImageProcessor: Send + Sync {
     fn key(&self) -> &'static str;
-    fn plan(&self, ctx: &ProcessContext, input: &LoadedImage) -> Result<ProcessPlan, ImagePipelineError>;
+    fn plan(
+        &self,
+        ctx: &ProcessContext,
+        input: &LoadedImage,
+    ) -> Result<ProcessPlan, ImagePipelineError>;
     fn process(
         &self,
         ctx: &ProcessContext,

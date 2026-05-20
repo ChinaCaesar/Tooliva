@@ -10,7 +10,11 @@ impl ImageProcessor for ConvertProcessor {
         "convert"
     }
 
-    fn plan(&self, _ctx: &ProcessContext, input: &LoadedImage) -> Result<ProcessPlan, ImagePipelineError> {
+    fn plan(
+        &self,
+        _ctx: &ProcessContext,
+        input: &LoadedImage,
+    ) -> Result<ProcessPlan, ImagePipelineError> {
         Ok(ProcessPlan {
             input_width: input.image.width(),
             input_height: input.image.height(),

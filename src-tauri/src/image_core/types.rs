@@ -84,7 +84,13 @@ pub struct ProgressEvent {
 }
 
 impl ProgressEvent {
-    pub fn stage(task_id: &str, processor_key: &str, stage: &str, progress: u8, message: Option<String>) -> Self {
+    pub fn stage(
+        task_id: &str,
+        processor_key: &str,
+        stage: &str,
+        progress: u8,
+        message: Option<String>,
+    ) -> Self {
         Self {
             task_id: task_id.to_string(),
             processor_key: processor_key.to_string(),

@@ -1,3 +1,5 @@
+mod ai_runtime;
+mod ai_worker;
 mod batch;
 mod batch_processors;
 mod commands;
@@ -25,6 +27,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::system::ping_host,
             commands::system::get_path_metadata,
+            commands::ai_models::get_ai_model_status,
+            commands::ai_models::download_ai_model,
+            commands::ai_models::warm_ai_inpaint_worker,
             commands::image::list_images_from_directory,
             commands::image::get_image_preview_data_url,
             commands::image::get_image_watermark_preview_geometry,

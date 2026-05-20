@@ -33,7 +33,11 @@ pub struct StartVideoToGifResult {
 fn is_supported_video(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
-        .map(|e| SUPPORTED_VIDEO_EXT.iter().any(|s| s.eq_ignore_ascii_case(e)))
+        .map(|e| {
+            SUPPORTED_VIDEO_EXT
+                .iter()
+                .any(|s| s.eq_ignore_ascii_case(e))
+        })
         .unwrap_or(false)
 }
 
@@ -64,7 +68,10 @@ fn ensure_unique_output_path(path: &Path) -> PathBuf {
     path.to_path_buf()
 }
 
-fn resolve_gif_output_path(input_path: &Path, output_directory: Option<&str>) -> Result<PathBuf, String> {
+fn resolve_gif_output_path(
+    input_path: &Path,
+    output_directory: Option<&str>,
+) -> Result<PathBuf, String> {
     let stem = input_path
         .file_stem()
         .and_then(|name| name.to_str())

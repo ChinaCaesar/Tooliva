@@ -131,7 +131,9 @@ fn resolve_target_ext(
             "jpg" | "jpeg" => Ok("jpg"),
             "png" => Ok("png"),
             "webp" => Ok("webp"),
-            _ => Err(BatchError::invalid_input("输出格式仅支持 jpg/jpeg/png/webp")),
+            _ => Err(BatchError::invalid_input(
+                "输出格式仅支持 jpg/jpeg/png/webp",
+            )),
         };
     }
     let ext = input_ext.unwrap_or("jpg").to_ascii_lowercase();

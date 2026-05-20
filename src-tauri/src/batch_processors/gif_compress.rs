@@ -7,13 +7,16 @@ use std::process::Stdio;
 use std::sync::Arc;
 
 use crate::batch::processor::{
-    BatchItemContext, BatchItemOutput, BatchPrepareContext, BatchPrepared, BatchProcessor, NoopPrepared,
+    BatchItemContext, BatchItemOutput, BatchPrepareContext, BatchPrepared, BatchProcessor,
+    NoopPrepared,
 };
 use crate::batch::tempfile::{
     allocate_unique_final_path, cleanup_temp, ensure_parent_dir, finalize_temp, temp_path_for,
 };
 use crate::batch::types::{BatchError, BatchTaskType};
-use crate::batch_processors::gif_compress_config::{GifCompressBatchOptions, LoopPolicy, OutputDirPolicy};
+use crate::batch_processors::gif_compress_config::{
+    GifCompressBatchOptions, LoopPolicy, OutputDirPolicy,
+};
 use crate::batch_processors::gif_compress_filter::build_gif_recompress_filter_complex;
 use crate::ffmpeg_gif::resolve_ffmpeg_ffprobe;
 
@@ -39,8 +42,10 @@ impl BatchProcessor for GifCompressBatchProcessor {
                 "暂不支持按目标体积压缩，请清空目标大小后重试",
             ));
         }
-        if matches!(opts.inner.resize, crate::batch_processors::gif_compress_config::ResizePolicy::CustomWidth)
-            && opts.inner.custom_width.filter(|&w| w >= 2).is_none()
+        if matches!(
+            opts.inner.resize,
+            crate::batch_processors::gif_compress_config::ResizePolicy::CustomWidth
+        ) && opts.inner.custom_width.filter(|&w| w >= 2).is_none()
         {
             return Err(BatchError::invalid_input(
                 "选择自定义宽度时，请提供有效的 customWidth（≥2）",
@@ -60,8 +65,7 @@ impl BatchProcessor for GifCompressBatchProcessor {
                 )));
             }
         }
-        build_gif_recompress_filter_complex(&opts.inner)
-            .map_err(BatchError::invalid_input)?;
+        build_gif_recompress_filter_complex(&opts.inner).map_err(BatchError::invalid_input)?;
         Ok(())
     }
 
@@ -81,7 +85,8 @@ impl BatchProcessor for GifCompressBatchProcessor {
             .map_err(|e| BatchError::invalid_input(format!("GIF 压缩参数不合法：{e}")))?;
         let cfg = opts.inner;
 
-        let filter = build_gif_recompress_filter_complex(&cfg).map_err(BatchError::invalid_input)?;
+        let filter =
+            build_gif_recompress_filter_complex(&cfg).map_err(BatchError::invalid_input)?;
 
         let stem = ctx
             .item
@@ -90,7 +95,8 @@ impl BatchProcessor for GifCompressBatchProcessor {
             .and_then(|s| s.to_str())
             .unwrap_or("output");
         let suffix = cfg.filename_suffix();
-        let out_dir = resolve_item_output_dir(&ctx.item.input_path, ctx.output_dir, &cfg.output_dir_policy)?;
+        let out_dir =
+            resolve_item_output_dir(&ctx.item.input_path, ctx.output_dir, &cfg.output_dir_policy)?;
         ensure_parent_dir(&out_dir)?;
         let final_path = allocate_unique_final_path(&out_dir, stem, Some(suffix), "gif");
         ensure_parent_dir(&final_path)?;
@@ -196,7 +202,10 @@ fn resolve_item_output_dir(
     policy: &OutputDirPolicy,
 ) -> Result<PathBuf, BatchError> {
     let parent = input_path.parent().ok_or_else(|| {
-        BatchError::invalid_input(format!("无法解析输入文件所在目录：{}", input_path.display()))
+        BatchError::invalid_input(format!(
+            "无法解析输入文件所在目录：{}",
+            input_path.display()
+        ))
     })?;
     match policy {
         OutputDirPolicy::SameAsSource => Ok(parent.to_path_buf()),

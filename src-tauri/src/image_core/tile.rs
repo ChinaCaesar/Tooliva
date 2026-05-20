@@ -17,7 +17,12 @@ pub struct TileResult {
 }
 
 pub trait TileAlgorithm: Send + Sync {
-    fn process_tile(&self, source: &RgbaImage, rect: TileRect, plan: &ProcessPlan) -> Result<TileResult, ImagePipelineError>;
+    fn process_tile(
+        &self,
+        source: &RgbaImage,
+        rect: TileRect,
+        plan: &ProcessPlan,
+    ) -> Result<TileResult, ImagePipelineError>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -46,7 +51,12 @@ impl TileEngine {
             while x < source.width() {
                 let width = (x + self.tile_size).min(source.width()).saturating_sub(x);
                 let height = (y + self.tile_size).min(source.height()).saturating_sub(y);
-                tiles.push(TileRect { x, y, width, height });
+                tiles.push(TileRect {
+                    x,
+                    y,
+                    width,
+                    height,
+                });
                 x = x.saturating_add(step);
             }
             y = y.saturating_add(step);

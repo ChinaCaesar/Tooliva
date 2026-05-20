@@ -1,22 +1,32 @@
-use crate::ffmpeg_gif::types::{VideoGifQualityPreset, VideoGifSizePreset, VideoToGifCropRect, VideoToGifOptions};
+use crate::ffmpeg_gif::types::{
+    VideoGifQualityPreset, VideoGifSizePreset, VideoToGifCropRect, VideoToGifOptions,
+};
 
 fn escape_filter_label(label: &str) -> String {
-    label.replace('\\', "\\\\").replace(':', "\\:").replace('[', "\\[").replace(']', "\\]")
+    label
+        .replace('\\', "\\\\")
+        .replace(':', "\\:")
+        .replace('[', "\\[")
+        .replace(']', "\\]")
 }
 
 fn scale_fragment(opts: &VideoToGifOptions) -> Result<String, String> {
     match &opts.size_preset {
         VideoGifSizePreset::Original => Ok(
-            "scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos:force_original_aspect_ratio=disable".to_string(),
+            "scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos:force_original_aspect_ratio=disable"
+                .to_string(),
         ),
         VideoGifSizePreset::P720 => Ok(
-            "scale=w=-2:h='min(ih\\,720)':flags=lanczos:force_original_aspect_ratio=decrease".to_string(),
+            "scale=w=-2:h='min(ih\\,720)':flags=lanczos:force_original_aspect_ratio=decrease"
+                .to_string(),
         ),
         VideoGifSizePreset::P480 => Ok(
-            "scale=w=-2:h='min(ih\\,480)':flags=lanczos:force_original_aspect_ratio=decrease".to_string(),
+            "scale=w=-2:h='min(ih\\,480)':flags=lanczos:force_original_aspect_ratio=decrease"
+                .to_string(),
         ),
         VideoGifSizePreset::P360 => Ok(
-            "scale=w=-2:h='min(ih\\,360)':flags=lanczos:force_original_aspect_ratio=decrease".to_string(),
+            "scale=w=-2:h='min(ih\\,360)':flags=lanczos:force_original_aspect_ratio=decrease"
+                .to_string(),
         ),
         VideoGifSizePreset::Custom => {
             let w = opts.custom_width;
@@ -45,17 +55,19 @@ fn palette_tuple(opts: &VideoToGifOptions) -> (String, u32, String, u32) {
     let defaults = match opts.quality {
         VideoGifQualityPreset::Low => ("single".to_string(), 192_u32, "none".to_string(), 2_u32),
         VideoGifQualityPreset::Medium => ("full".to_string(), 256_u32, "bayer".to_string(), 3_u32),
-        VideoGifQualityPreset::High => ("diff".to_string(), 256_u32, "floyd_steinberg".to_string(), 3_u32),
+        VideoGifQualityPreset::High => (
+            "diff".to_string(),
+            256_u32,
+            "floyd_steinberg".to_string(),
+            3_u32,
+        ),
     };
     let stats_mode = opts
         .palette_stats_mode
         .clone()
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| defaults.0.clone());
-    let max_colors = opts
-        .palette_max_colors
-        .unwrap_or(defaults.1)
-        .clamp(32, 256);
+    let max_colors = opts.palette_max_colors.unwrap_or(defaults.1).clamp(32, 256);
     let dither = opts
         .dither
         .clone()
@@ -66,10 +78,7 @@ fn palette_tuple(opts: &VideoToGifOptions) -> (String, u32, String, u32) {
 }
 
 fn crop_prefix(crop: &VideoToGifCropRect) -> String {
-    format!(
-        "crop={}:{}:{}:{}",
-        crop.width, crop.height, crop.x, crop.y
-    )
+    format!("crop={}:{}:{}:{}", crop.width, crop.height, crop.x, crop.y)
 }
 
 /// Builds `[0:v]` → GIF-ready filtered stream labels `[palette]` chain ending at paletteuse output label `gifv`.
@@ -122,9 +131,7 @@ pub fn build_filter_complex(opts: &VideoToGifOptions) -> Result<String, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ffmpeg_gif::types::{
-        VideoGifQualityPreset, VideoGifSizePreset, VideoToGifOptions,
-    };
+    use crate::ffmpeg_gif::types::{VideoGifQualityPreset, VideoGifSizePreset, VideoToGifOptions};
 
     fn base_opts() -> VideoToGifOptions {
         VideoToGifOptions {

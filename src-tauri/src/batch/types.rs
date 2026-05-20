@@ -29,9 +29,10 @@ impl BatchTaskType {
     /// 任务所属大类，用于并发预设与上限决策。
     pub fn category(&self) -> BatchTaskCategory {
         match self {
-            Self::ImageWatermark | Self::ImageCompress | Self::ImageConvert | Self::ImageUpscale => {
-                BatchTaskCategory::Image
-            }
+            Self::ImageWatermark
+            | Self::ImageCompress
+            | Self::ImageConvert
+            | Self::ImageUpscale => BatchTaskCategory::Image,
             Self::VideoToGif | Self::GifCompress => BatchTaskCategory::Video,
             Self::AiInpaint | Self::AiUpscale => BatchTaskCategory::Ai,
         }

@@ -6,6 +6,7 @@ export const IMAGE_COMPRESS_PROGRESS_EVENT = "image-compress-progress";
 export const IMAGE_WATERMARK_PROGRESS_EVENT = "image-watermark-progress";
 export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
 export const VIDEO_TO_GIF_PROGRESS_EVENT = "video-to-gif-progress";
+export const AI_MODEL_PROGRESS_EVENT = "ai-model-progress";
 
 export interface RecordToolUsagePayload {
   toolKey: string;
@@ -69,6 +70,28 @@ export interface GetImagePreviewResult {
 
 export interface OpenDirectoryPayload {
   directoryPath: string;
+}
+
+export interface AiModelStatusPayload {
+  modelId: string;
+  displayName: string;
+  downloaded: boolean;
+  sizeBytes: number;
+  expectedSizeBytes: number;
+  modelPath: string;
+  modelsRoot: string;
+  runtimeReady: boolean;
+  runtimeDevice: string | null;
+  torchVersion: string | null;
+}
+
+export interface AiModelProgressPayload {
+  modelId: string;
+  stage: string;
+  downloadedBytes: number;
+  totalBytes: number;
+  percent: number;
+  message?: string;
 }
 
 export type ImageUpscaleQualityMode = "fast" | "standard" | "balanced" | "quality" | "high";
@@ -382,6 +405,24 @@ export class TauriClient {
    */
   public async openDirectoryInFileManager(payload: OpenDirectoryPayload): Promise<void> {
     await this.call<void>("open_directory_in_file_manager", { payload });
+  }
+
+  public async getAiModelStatus(): Promise<AiModelStatusPayload> {
+    return this.call<AiModelStatusPayload>("get_ai_model_status");
+  }
+
+  public async downloadAiModel(modelId = "lama"): Promise<AiModelStatusPayload> {
+    return this.call<AiModelStatusPayload>("download_ai_model", { payload: { modelId } });
+  }
+
+  public async warmAiInpaintWorker(): Promise<void> {
+    await this.call("warm_ai_inpaint_worker");
+  }
+
+  public async onAiModelProgress(handler: (payload: AiModelProgressPayload) => void): Promise<UnlistenFn> {
+    return listen<AiModelProgressPayload>(AI_MODEL_PROGRESS_EVENT, (event) => {
+      handler(event.payload);
+    });
   }
 
   /**

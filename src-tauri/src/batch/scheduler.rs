@@ -15,7 +15,9 @@ use std::sync::{Arc, Mutex};
 use tauri::AppHandle;
 
 use crate::batch::cancel::CancelToken;
-use crate::batch::config::{detect_cpu_cores, resolve_effective_concurrency, BATCH_LARGE_FILE_BYTES};
+use crate::batch::config::{
+    detect_cpu_cores, resolve_effective_concurrency, BATCH_LARGE_FILE_BYTES,
+};
 use crate::batch::manager::{BatchTaskHandle, BatchTaskManager};
 use crate::batch::processor::{BatchPrepareContext, BatchPrepared, BatchProcessor};
 use crate::batch::progress::ProgressEmitter;
@@ -26,6 +28,7 @@ use crate::batch::types::{
     BatchError, BatchTaskStatus, BatchTaskType, SubmitBatchTaskPayload, WorkItem,
 };
 use crate::batch::worker::{now_ms, worker_loop, WorkerEnv, WorkerOutcome};
+use crate::ai_worker::append_perf_log;
 
 /// 命令层入口：创建任务并立即返回 task_id；真正的并发执行在后台线程。
 pub fn start_batch_task(
@@ -33,6 +36,7 @@ pub fn start_batch_task(
     payload: SubmitBatchTaskPayload,
     manager: Arc<BatchTaskManager>,
 ) -> Result<String, BatchError> {
+    let submit_started = std::time::Instant::now();
     let task_id = payload
         .task_id
         .clone()
@@ -43,10 +47,18 @@ pub fn start_batch_task(
     let input_files = validate_inputs(&payload.input_files)?;
     let output_dir = validate_output_dir(&payload.output_dir)?;
 
-    let processor = manager.registry().get(task_type).ok_or_else(|| {
-        BatchError::invalid_input(format!("未注册的批量任务类型：{}", task_type))
-    })?;
+    let processor = manager
+        .registry()
+        .get(task_type)
+        .ok_or_else(|| BatchError::invalid_input(format!("未注册的批量任务类型：{}", task_type)))?;
     processor.validate(&payload.options, &input_files)?;
+    log_batch_perf(&format!(
+        "[batch-scheduler-perf] task_id={} stage=validated task_type={} files={} duration_ms={}",
+        task_id,
+        task_type,
+        input_files.len(),
+        submit_started.elapsed().as_millis()
+    ));
 
     // 大文件占比 → 影响并发决策
     let large_file_count = count_large_files(&input_files, BATCH_LARGE_FILE_BYTES);
@@ -68,6 +80,12 @@ pub fn start_batch_task(
         options: payload.options.clone(),
     };
     let prepared = processor.prepare(&prepare_ctx)?;
+    log_batch_perf(&format!(
+        "[batch-scheduler-perf] task_id={} stage=prepared concurrency={} duration_ms={}",
+        task_id,
+        effective_concurrency,
+        submit_started.elapsed().as_millis()
+    ));
 
     let total = input_files.len() as u32;
     let created_at_ms = now_ms();
@@ -89,7 +107,11 @@ pub fn start_batch_task(
         effective_concurrency,
     )));
 
-    let handle = Arc::new(BatchTaskHandle::new(cancel.clone(), progress.clone(), result.clone()));
+    let handle = Arc::new(BatchTaskHandle::new(
+        cancel.clone(),
+        progress.clone(),
+        result.clone(),
+    ));
     manager.insert(task_id.clone(), handle.clone());
 
     // 任务为空的快捷路径
@@ -99,7 +121,10 @@ pub fn start_batch_task(
             r.started_at_ms = Some(created_at_ms);
             r.finished_at_ms = Some(created_at_ms);
         }
-        progress.finalize(BatchTaskStatus::Finished, Some("没有可处理的文件".to_string()));
+        progress.finalize(
+            BatchTaskStatus::Finished,
+            Some("没有可处理的文件".to_string()),
+        );
         return Ok(task_id);
     }
 
@@ -154,6 +179,7 @@ struct CoordinatorEnv {
 }
 
 fn run_coordinator(env: CoordinatorEnv) {
+    let coordinator_started = std::time::Instant::now();
     let CoordinatorEnv {
         task_id,
         task_type,
@@ -175,6 +201,12 @@ fn run_coordinator(env: CoordinatorEnv) {
         r.started_at_ms = Some(now_ms());
     }
     progress.set_status(BatchTaskStatus::Running, Some("任务开始".to_string()));
+    log_batch_perf(&format!(
+        "[batch-scheduler-perf] task_id={} stage=coordinator-running concurrency={} duration_ms={}",
+        task_id,
+        effective_concurrency,
+        coordinator_started.elapsed().as_millis()
+    ));
 
     let worker_env = WorkerEnv {
         task_id: task_id.clone(),
@@ -208,6 +240,12 @@ fn run_coordinator(env: CoordinatorEnv) {
     }
 
     // 等待全部 worker 退出
+    log_batch_perf(&format!(
+        "[batch-scheduler-perf] task_id={} stage=workers-spawned count={} duration_ms={}",
+        task_id,
+        effective_concurrency.max(1),
+        coordinator_started.elapsed().as_millis()
+    ));
     for h in handles {
         let _ = h.join();
     }
@@ -250,16 +288,26 @@ fn run_coordinator(env: CoordinatorEnv) {
         _ => None,
     };
 
+    let success_count = success_paths.len();
+    let failure_count = failures.len();
     if let Ok(mut r) = result.lock() {
         r.status = final_status;
-        r.success = success_paths.len() as u32;
-        r.failed = failures.len() as u32;
+        r.success = success_count as u32;
+        r.failed = failure_count as u32;
         r.success_output_paths = success_paths;
         r.failures = failures;
         r.finished_at_ms = Some(now_ms());
         r.message = summary_message.clone();
     }
     progress.finalize(final_status, summary_message);
+    log_batch_perf(&format!(
+        "[batch-scheduler-perf] task_id={} stage=finalize status={:?} success={} failed={} duration_ms={}",
+        task_id,
+        final_status,
+        success_count,
+        failure_count,
+        coordinator_started.elapsed().as_millis()
+    ));
     // 任务进入终态后保留 handle 在 manager 中，供前端读取结果。
     // 后续可由 GC 策略移除（首版不主动移除）。
     let _ = manager;
@@ -287,6 +335,11 @@ fn validate_inputs(input_files: &[String]) -> Result<Vec<PathBuf>, BatchError> {
         result.push(path);
     }
     Ok(result)
+}
+
+fn log_batch_perf(message: &str) {
+    eprintln!("{message}");
+    append_perf_log(message);
 }
 
 fn validate_output_dir(raw: &str) -> Result<PathBuf, BatchError> {

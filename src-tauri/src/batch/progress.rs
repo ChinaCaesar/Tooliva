@@ -37,7 +37,9 @@ impl BatchProgressPayload {
         if total == 0 {
             return 100;
         }
-        ((finished as f32 / total as f32) * 100.0).round().clamp(0.0, 100.0) as u8
+        ((finished as f32 / total as f32) * 100.0)
+            .round()
+            .clamp(0.0, 100.0) as u8
     }
 }
 
@@ -53,12 +55,7 @@ struct EmitterState {
 }
 
 impl ProgressEmitter {
-    pub fn new(
-        app: AppHandle,
-        task_id: String,
-        task_type: BatchTaskType,
-        total: u32,
-    ) -> Self {
+    pub fn new(app: AppHandle, task_id: String, task_type: BatchTaskType, total: u32) -> Self {
         Self {
             app,
             state: Mutex::new(EmitterState {

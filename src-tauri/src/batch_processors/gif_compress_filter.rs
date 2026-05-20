@@ -17,7 +17,9 @@ pub struct GifRecompressFilterParams {
     pub reserve_transparent: u8,
 }
 
-pub fn build_filter_params(opts: &GifCompressBatchOptions) -> Result<GifRecompressFilterParams, String> {
+pub fn build_filter_params(
+    opts: &GifCompressBatchOptions,
+) -> Result<GifRecompressFilterParams, String> {
     if opts.target_size_mb.is_some() {
         return Err("目标体积压缩尚未实现，请清空目标大小".to_string());
     }
@@ -42,9 +44,8 @@ pub fn build_filter_params(opts: &GifCompressBatchOptions) -> Result<GifRecompre
     }
 
     // 保持原帧率时不在此处做 mpdecimate：否则部分 GIF 解码帧极少会被删光，muxer 报 Invalid argument。
-    let use_mpdecimate = opts.remove_duplicate_frames
-        && !opts.fast_mode
-        && !matches!(opts.fps, FpsPreset::Source);
+    let use_mpdecimate =
+        opts.remove_duplicate_frames && !opts.fast_mode && !matches!(opts.fps, FpsPreset::Source);
     if use_mpdecimate {
         parts.push("mpdecimate".to_string());
     }
@@ -98,7 +99,9 @@ fn scale_fragment(opts: &GifCompressBatchOptions) -> Result<String, String> {
 }
 
 /// 完整 `-filter_complex` 字符串，输出流标签 `[gifout]`。
-pub fn build_gif_recompress_filter_complex(opts: &GifCompressBatchOptions) -> Result<String, String> {
+pub fn build_gif_recompress_filter_complex(
+    opts: &GifCompressBatchOptions,
+) -> Result<String, String> {
     let p = build_filter_params(opts)?;
     // [0:v] → 预处理链 → split → palettegen / paletteuse
     let mut fc = String::from("[0:v]");

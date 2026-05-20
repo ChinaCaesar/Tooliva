@@ -51,8 +51,9 @@ pub fn temp_path_for(final_path: &Path) -> PathBuf {
 /// 确保父目录存在；失败时返回带中文消息的 [`BatchError`]。
 pub fn ensure_parent_dir(path: &Path) -> Result<(), BatchError> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| BatchError::io(format!("无法创建输出目录 {}：{err}", parent.display())))?;
+        fs::create_dir_all(parent).map_err(|err| {
+            BatchError::io(format!("无法创建输出目录 {}：{err}", parent.display()))
+        })?;
     }
     Ok(())
 }

@@ -15,6 +15,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import {
   cancelBatchTask,
+  getBatchTaskStatus,
   getBatchTaskResult,
   listenBatchProgress,
   pauseBatchTask,
@@ -62,6 +63,7 @@ export function useBatchTask(options: UseBatchTaskOptions = {}) {
   const isCanceled = ref(false);
 
   let unlistenFn: UnlistenFn | null = null;
+  let statusPollTimer: ReturnType<typeof setInterval> | null = null;
 
   const detachListener = () => {
     if (unlistenFn) {
@@ -75,6 +77,23 @@ export function useBatchTask(options: UseBatchTaskOptions = {}) {
     }
   };
 
+  const stopStatusPolling = () => {
+    if (!statusPollTimer) return;
+    clearInterval(statusPollTimer);
+    statusPollTimer = null;
+  };
+
+  const startStatusPolling = (id: string) => {
+    stopStatusPolling();
+    statusPollTimer = setInterval(() => {
+      void getBatchTaskStatus(id)
+        .then(handleProgress)
+        .catch(() => {
+          // Event delivery remains the primary path; polling is only a fallback.
+        });
+    }, Math.max(1000, throttleMs * 2));
+  };
+
   const handleProgress = (payload: BatchProgressPayload) => {
     if (taskId.value && payload.taskId !== taskId.value) return;
     progress.value = payload;
@@ -82,6 +101,7 @@ export function useBatchTask(options: UseBatchTaskOptions = {}) {
       isRunning.value = false;
       isPaused.value = false;
       isCanceled.value = payload.status === "CANCELED";
+      stopStatusPolling();
       if (autoFetchResultOnTerminal && taskId.value) {
         void fetchResult(taskId.value);
       }
@@ -111,10 +131,32 @@ export function useBatchTask(options: UseBatchTaskOptions = {}) {
     isRunning.value = true;
 
     detachListener();
-    const { taskId: newTaskId } = await submitBatchTask(payload);
-    taskId.value = newTaskId;
-    await ensureListener({ taskId: newTaskId });
-    return newTaskId;
+    stopStatusPolling();
+    const requestedTaskId = payload.taskId ?? `batch-${crypto.randomUUID()}`;
+    taskId.value = requestedTaskId;
+    await ensureListener({ taskId: requestedTaskId });
+    startStatusPolling(requestedTaskId);
+    try {
+      const { taskId: newTaskId } = await submitBatchTask({
+        ...payload,
+        taskId: requestedTaskId
+      });
+      if (newTaskId !== requestedTaskId) {
+        taskId.value = newTaskId;
+        detachListener();
+        stopStatusPolling();
+        await ensureListener({ taskId: newTaskId });
+        startStatusPolling(newTaskId);
+      }
+      void getBatchTaskStatus(newTaskId).then(handleProgress).catch(() => undefined);
+      return newTaskId;
+    } catch (error) {
+      isRunning.value = false;
+      isPaused.value = false;
+      stopStatusPolling();
+      detachListener();
+      throw error;
+    }
   };
 
   const pause = async () => {
@@ -157,6 +199,7 @@ export function useBatchTask(options: UseBatchTaskOptions = {}) {
   };
 
   onBeforeUnmount(() => {
+    stopStatusPolling();
     detachListener();
   });
 

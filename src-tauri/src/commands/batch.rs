@@ -10,8 +10,9 @@ use crate::batch::manager::BatchTaskManagerState;
 use crate::batch::progress::BatchProgressPayload;
 use crate::batch::result::BatchTaskResult;
 use crate::batch::scheduler::{
-    cancel_batch_task as do_cancel, get_batch_task_progress, get_batch_task_result as do_get_result,
-    pause_batch_task as do_pause, resume_batch_task as do_resume, start_batch_task,
+    cancel_batch_task as do_cancel, get_batch_task_progress,
+    get_batch_task_result as do_get_result, pause_batch_task as do_pause,
+    resume_batch_task as do_resume, start_batch_task,
 };
 use crate::batch::types::SubmitBatchTaskPayload;
 

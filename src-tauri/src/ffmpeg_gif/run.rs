@@ -82,7 +82,10 @@ where
         "pipe:1".into(),
     ];
 
-    if let Some(ss) = opts.start_time_sec.filter(|v| v.is_finite() && *v > f64::EPSILON) {
+    if let Some(ss) = opts
+        .start_time_sec
+        .filter(|v| v.is_finite() && *v > f64::EPSILON)
+    {
         args.push("-ss".into());
         args.push(format!("{ss:.6}"));
     }

@@ -5,7 +5,9 @@ use crate::image_core::progress::CallbackProgressReporter;
 use crate::image_core::registry::ProcessorRegistry;
 use crate::image_core::scheduler::{throttle_after_task, SchedulerConfig};
 use crate::image_core::tile::TileEngine;
-use crate::image_core::types::{PipelineSummary, ProcessContext, ProcessOutput, ProcessingLimits, TileConfig};
+use crate::image_core::types::{
+    PipelineSummary, ProcessContext, ProcessOutput, ProcessingLimits, TileConfig,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
