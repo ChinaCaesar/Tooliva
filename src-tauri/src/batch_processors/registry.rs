@@ -11,6 +11,7 @@ use crate::batch_processors::image_compress::ImageCompressBatchProcessor;
 use crate::batch_processors::image_convert::ImageConvertBatchProcessor;
 use crate::batch_processors::image_watermark::ImageWatermarkBatchProcessor;
 use crate::batch_processors::video_to_gif::VideoToGifBatchProcessor;
+use crate::batch_processors::video_watermark_removal::VideoWatermarkRemovalBatchProcessor;
 
 pub fn build_default_batch_registry() -> BatchProcessorRegistry {
     let mut registry = BatchProcessorRegistry::default();
@@ -18,6 +19,7 @@ pub fn build_default_batch_registry() -> BatchProcessorRegistry {
     registry.register(Arc::new(ImageCompressBatchProcessor));
     registry.register(Arc::new(ImageConvertBatchProcessor));
     registry.register(Arc::new(VideoToGifBatchProcessor));
+    registry.register(Arc::new(VideoWatermarkRemovalBatchProcessor));
     registry.register(Arc::new(GifCompressBatchProcessor));
     registry.register(Arc::new(AiInpaintBatchProcessor));
     registry

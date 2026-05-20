@@ -12,5 +12,6 @@ pub mod image_convert;
 pub mod image_watermark;
 pub mod registry;
 pub mod video_to_gif;
+pub mod video_watermark_removal;
 
 pub use registry::build_default_batch_registry;

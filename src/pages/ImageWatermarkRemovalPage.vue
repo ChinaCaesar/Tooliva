@@ -656,15 +656,6 @@ onBeforeUnmount(() => {
           </div>
           <p class="wm-muted">默认按原图格式输出；PNG 无损，JPG 体积更小</p>
         </div>
-
-        <div class="wm-settings-section">
-          <label class="wm-field-label">输出目录</label>
-          <div class="wm-output-row">
-            <input v-model="outputDir" type="text" />
-            <button type="button" @click="pickOutputDir"><Folder :size="18" /></button>
-          </div>
-          <p class="wm-muted">默认保存到“去水印结果”文件夹</p>
-        </div>
       </section>
     </div>
 
