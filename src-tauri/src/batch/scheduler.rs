@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::AppHandle;
 
+use crate::ai_worker::append_perf_log;
 use crate::batch::cancel::CancelToken;
 use crate::batch::config::{
     detect_cpu_cores, resolve_effective_concurrency, BATCH_LARGE_FILE_BYTES,
@@ -28,7 +29,6 @@ use crate::batch::types::{
     BatchError, BatchTaskStatus, BatchTaskType, SubmitBatchTaskPayload, WorkItem,
 };
 use crate::batch::worker::{now_ms, worker_loop, WorkerEnv, WorkerOutcome};
-use crate::ai_worker::append_perf_log;
 
 /// 命令层入口：创建任务并立即返回 task_id；真正的并发执行在后台线程。
 pub fn start_batch_task(

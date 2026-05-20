@@ -70,3 +70,5 @@ src-tauri/resources/ai-runtime/**/*.pt
 src-tauri/resources/ai-runtime/**/*.pth
 src-tauri/resources/ai-runtime/**/*.ckpt
 src-tauri/resources/ai-runtime/**/*.safetensors
+
+/tmp

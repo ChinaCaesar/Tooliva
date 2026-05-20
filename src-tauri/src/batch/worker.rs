@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::ai_worker::append_perf_log;
 use crate::batch::cancel::CancelToken;
 use crate::batch::config::BATCH_MAX_RETRY_COUNT;
 use crate::batch::processor::{BatchItemContext, BatchPrepared, BatchProcessor};
@@ -13,7 +14,6 @@ use crate::batch::progress::ProgressEmitter;
 use crate::batch::queue::WorkQueue;
 use crate::batch::result::BatchItemFailure;
 use crate::batch::types::{BatchError, BatchTaskType};
-use crate::ai_worker::append_perf_log;
 
 /// Worker 收集到的结果，回传给协调线程做汇总。
 pub enum WorkerOutcome {
@@ -68,6 +68,7 @@ pub fn worker_loop(
             &processor,
             &prepared,
             &cancel,
+            &progress,
         );
         match &outcome {
             WorkerOutcome::Success { output_path, .. } => {
@@ -94,6 +95,7 @@ fn run_with_retry(
     processor: &Arc<dyn BatchProcessor>,
     prepared: &Arc<dyn BatchPrepared>,
     cancel: &Arc<CancelToken>,
+    progress: &Arc<ProgressEmitter>,
 ) -> WorkerOutcome {
     let mut attempts: u32 = 0;
     let max_attempts = BATCH_MAX_RETRY_COUNT.saturating_add(1).max(1);
@@ -121,6 +123,7 @@ fn run_with_retry(
             output_dir: &env.output_dir,
             options: &env.options,
             cancel,
+            progress,
         };
         let result = processor.process_one(&ctx, prepared);
         match result {

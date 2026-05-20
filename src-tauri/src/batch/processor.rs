@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::batch::cancel::CancelToken;
+use crate::batch::progress::ProgressEmitter;
 use crate::batch::types::{BatchError, BatchTaskCategory, BatchTaskType, WorkItem};
 
 /// 批量准备阶段的上下文：处理器可读取所有输入文件元信息与任务参数。
@@ -32,6 +33,7 @@ pub struct BatchItemContext<'a> {
     pub output_dir: &'a Path,
     pub options: &'a Value,
     pub cancel: &'a CancelToken,
+    pub progress: &'a ProgressEmitter,
 }
 
 /// 单文件执行成功后的输出快照。

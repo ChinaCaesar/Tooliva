@@ -4,7 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { Folder, Info, PauseCircle, PlayCircle, Plus, Trash2, Video, X } from "@lucide/vue";
+import { Folder, Info, Maximize2, MoreVertical, PauseCircle, PlayCircle, Plus, Trash2, Video, Volume2, VolumeX, X } from "@lucide/vue";
 import { useBatchTask } from "@/modules/batch";
 
 type RemovalStatus = "pending" | "processing" | "done" | "failed";
@@ -39,6 +39,11 @@ const outputDir = ref("D:\\工具箱\\视频去水印结果");
 const hintMessage = ref("");
 const elapsedSeconds = ref(0);
 const draftRegion = ref<WatermarkRegion | null>(null);
+const previewVideoRef = ref<HTMLVideoElement | null>(null);
+const isPreviewPlaying = ref(false);
+const isPreviewMuted = ref(true);
+const previewCurrentTime = ref(0);
+const previewDuration = ref(0);
 
 const { submit, cancel, openOutputDirectory: openBatchOutputDirectory, progress, isRunning, result, failures } = useBatchTask();
 
@@ -63,9 +68,11 @@ const currentDisplayIndex = computed(() => (items.value.length === 0 ? 0 : Math.
 const canStart = computed(() => items.value.length > 0 && hasRegions.value && !isRunning.value);
 const currentProgressItem = computed(() => items.value[Math.min(currentIndex.value, Math.max(0, items.value.length - 1))] ?? selectedItem.value);
 const progressTitle = computed(() => {
+  if (progress.value?.message && isRunning.value) return progress.value.message;
   if (!isRunning.value) return "暂无任务";
   return `正在处理 ${currentDisplayIndex.value} / ${items.value.length} 个视频`;
 });
+const processingEngineLabel = computed(() => "FFmpeg 流式处理 / 自动硬件编码");
 const remainingTime = computed(() => {
   if (!isRunning.value) return "--";
   const remaining = Math.max(0, Math.round(((100 - progressPercent.value) / Math.max(1, progressPercent.value)) * elapsedSeconds.value));
@@ -75,6 +82,15 @@ const selectedAspectRatio = computed(() => {
   const item = selectedItem.value;
   if (!item || item.width <= 0 || item.height <= 0) return "16 / 9";
   return `${item.width} / ${item.height}`;
+});
+const previewProgress = computed(() => {
+  if (previewDuration.value <= 0) return 0;
+  return Math.min(100, Math.max(0, (previewCurrentTime.value / previewDuration.value) * 100));
+});
+const selectedPreviewFit = computed<"landscape" | "portrait">(() => {
+  const item = selectedItem.value;
+  if (!item || item.width <= 0 || item.height <= 0) return "landscape";
+  return item.height > item.width ? "portrait" : "landscape";
 });
 
 function formatBytes(bytes: number): string {
@@ -310,6 +326,49 @@ function onPreviewPointerCancel() {
   draftRegion.value = null;
 }
 
+function syncPreviewState() {
+  const video = previewVideoRef.value;
+  if (!video) return;
+  previewCurrentTime.value = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+  previewDuration.value = Number.isFinite(video.duration) ? video.duration : selectedItem.value?.duration || 0;
+  isPreviewPlaying.value = !video.paused;
+  isPreviewMuted.value = video.muted;
+}
+
+async function togglePreviewPlayback() {
+  const video = previewVideoRef.value;
+  if (!video) return;
+  if (video.paused) {
+    await video.play().catch(() => undefined);
+  } else {
+    video.pause();
+  }
+  syncPreviewState();
+}
+
+function togglePreviewMuted() {
+  const video = previewVideoRef.value;
+  if (!video) return;
+  video.muted = !video.muted;
+  syncPreviewState();
+}
+
+function seekPreview(event: Event) {
+  const video = previewVideoRef.value;
+  if (!video) return;
+  const value = Number((event.target as HTMLInputElement).value);
+  const duration = previewDuration.value || video.duration || 0;
+  if (!Number.isFinite(value) || duration <= 0) return;
+  video.currentTime = (value / 100) * duration;
+  syncPreviewState();
+}
+
+async function requestPreviewFullscreen() {
+  const target = previewVideoRef.value?.parentElement;
+  if (!target?.requestFullscreen) return;
+  await target.requestFullscreen().catch(() => undefined);
+}
+
 async function startRemoval() {
   if (!canStart.value) {
     hintMessage.value = items.value.length === 0 ? "请先添加视频" : "请先在视频画面上框选需要去除的水印区域";
@@ -374,6 +433,12 @@ function buildRegionsByFile(): Record<string, Array<{ x: number; y: number; widt
   return result;
 }
 
+watch(selectedId, () => {
+  previewCurrentTime.value = 0;
+  previewDuration.value = selectedItem.value?.duration || 0;
+  isPreviewPlaying.value = false;
+});
+
 watch(
   () => progress.value,
   (payload) => {
@@ -416,6 +481,7 @@ watch([result, failures], () => {
 
 onMounted(() => {
   void setupNativeDrop();
+  
 });
 
 onBeforeUnmount(() => {
@@ -491,20 +557,33 @@ onBeforeUnmount(() => {
           <div v-if="selectedItem" class="vw-stage">
             <div
               class="vw-video-layer"
+              :class="`vw-video-layer--${selectedPreviewFit}`"
               :style="{ aspectRatio: selectedAspectRatio }"
               @pointerdown="onPreviewPointerDown"
               @pointermove="onPreviewPointerMove"
               @pointerup="onPreviewPointerUp"
               @pointercancel="onPreviewPointerCancel"
             >
-              <video class="vw-stage__video" :src="selectedItem.previewUrl" controls muted playsinline preload="metadata"></video>
+              <video
+                ref="previewVideoRef"
+                class="vw-stage__video"
+                :src="selectedItem.previewUrl"
+                :muted="isPreviewMuted"
+                playsinline
+                preload="metadata"
+                @loadedmetadata="syncPreviewState"
+                @timeupdate="syncPreviewState"
+                @play="syncPreviewState"
+                @pause="syncPreviewState"
+                @ended="syncPreviewState"
+              ></video>
               <div
                 v-for="region in selectedItem.regions"
                 :key="region.id"
                 class="vw-region"
                 :style="{ left: `${region.x}%`, top: `${region.y}%`, width: `${region.width}%`, height: `${region.height}%` }"
               >
-                <button type="button" :disabled="isRunning" @click.stop="removeRegion(region.id)"><X :size="11" /></button>
+                <button type="button" :disabled="isRunning" @pointerdown.stop @click.stop="removeRegion(region.id)"><X :size="11" /></button>
               </div>
               <div
                 v-if="draftRegion"
@@ -518,6 +597,31 @@ onBeforeUnmount(() => {
             <strong>暂无视频文件</strong>
             <span>添加视频后即可在这里框选水印区域</span>
           </div>
+        </div>
+
+        <div v-if="selectedItem" class="vw-player-controls" aria-label="视频预览控制">
+          <button type="button" class="vw-player-button" @click="togglePreviewPlayback">
+            <PauseCircle v-if="isPreviewPlaying" :size="19" />
+            <PlayCircle v-else :size="19" />
+          </button>
+          <span class="vw-player-time">{{ formatDuration(previewCurrentTime) }}</span>
+          <input
+            class="vw-player-seek"
+            type="range"
+            min="0"
+            max="100"
+            step="0.1"
+            :value="previewProgress"
+            :style="{ '--preview-progress': `${previewProgress}%` }"
+            @input="seekPreview"
+          />
+          <span class="vw-player-time">{{ formatDuration(previewDuration || selectedItem.duration) }}</span>
+          <button type="button" class="vw-player-button" @click="togglePreviewMuted">
+            <VolumeX v-if="isPreviewMuted" :size="19" />
+            <Volume2 v-else :size="19" />
+          </button>
+          <button type="button" class="vw-player-button" @click="requestPreviewFullscreen"><Maximize2 :size="18" /></button>
+          <button type="button" class="vw-player-button"><MoreVertical :size="18" /></button>
         </div>
 
         <footer class="vw-preview-foot">
@@ -547,8 +651,8 @@ onBeforeUnmount(() => {
               <dd>{{ remainingTime }}</dd>
             </div>
             <div>
-              <dt>输出格式</dt>
-              <dd>原格式</dd>
+              <dt>处理引擎</dt>
+              <dd :title="processingEngineLabel">{{ processingEngineLabel }}</dd>
             </div>
             <div class="vw-metrics-grid__progress">
               <dt>总体进度</dt>
@@ -568,7 +672,9 @@ onBeforeUnmount(() => {
         <div class="vw-bottom__actions">
           <button type="button" class="vw-action" :disabled="!result?.successOutputPaths?.length" @click="openOutputDirectory"><Folder :size="18" />打开目录</button>
           <button v-if="isRunning" type="button" class="vw-action" @click="stopTask"><PauseCircle :size="19" />停止处理</button>
-          <button v-else type="button" class="vw-action vw-action--primary" :disabled="!canStart" @click="startRemoval"><PlayCircle :size="19" />开始去水印</button>
+          <button v-else type="button" class="vw-action vw-action--primary" :disabled="!canStart" @click="startRemoval">
+            <PlayCircle :size="19" />开始去水印
+          </button>
         </div>
       </div>
     </section>
@@ -946,7 +1052,8 @@ button:disabled {
 
 .vw-video-layer {
   position: relative;
-  width: 100%;
+  width: auto;
+  height: auto;
   max-width: 100%;
   max-height: 100%;
   display: flex;
@@ -957,12 +1064,89 @@ button:disabled {
   user-select: none;
 }
 
+.vw-video-layer--landscape {
+  width: 100%;
+  height: auto;
+}
+
+.vw-video-layer--portrait {
+  width: auto;
+  height: 100%;
+}
+
 .vw-stage__video {
   display: block;
   width: 100%;
   height: 100%;
   border-radius: 4px;
   background: #111827;
+}
+
+.vw-stage__video::-webkit-media-controls {
+  display: none !important;
+}
+
+.vw-player-controls {
+  --preview-progress: 0%;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 34px auto minmax(120px, 1fr) auto 34px 34px 34px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #111827;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.vw-player-button {
+  width: 34px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: #ffffff;
+  background: transparent;
+  cursor: pointer;
+}
+
+.vw-player-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.vw-player-time {
+  min-width: 54px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.82);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.vw-player-seek {
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  accent-color: #ffffff;
+  cursor: pointer;
+}
+
+.vw-player-seek::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffffff var(--preview-progress), rgba(255, 255, 255, 0.28) 0);
+}
+
+.vw-player-seek::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #ffffff;
 }
 
 .vw-region {
@@ -972,6 +1156,10 @@ button:disabled {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.86) inset,
     0 0 0 1px rgba(255, 255, 255, 0.72);
+  pointer-events: auto;
+}
+
+.vw-region--draft {
   pointer-events: none;
 }
 

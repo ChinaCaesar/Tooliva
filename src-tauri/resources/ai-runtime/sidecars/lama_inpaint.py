@@ -128,7 +128,9 @@ class LamaInpaintService:
         started = time.perf_counter()
         import cv2
         import numpy as np
-        from PIL import Image, ImageDraw, ImageFilter
+        from PIL import Image, ImageDraw, ImageFile, ImageFilter
+
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
 
         if detect_torch:
             import torch

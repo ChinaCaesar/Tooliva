@@ -93,6 +93,27 @@ impl ProgressEmitter {
         }
     }
 
+    /// 记录单个长任务内部进度。`item_percent` 是当前文件内 0..100 的进度；
+    /// 总体百分比按 `finished + item_percent / 100` 映射到批量任务总数。
+    pub fn record_current_progress(
+        &self,
+        current_file: Option<String>,
+        item_percent: f32,
+        message: Option<String>,
+    ) {
+        if let Ok(mut state) = self.state.lock() {
+            let item_fraction = (item_percent / 100.0).clamp(0.0, 0.999);
+            let total = state.payload.total.max(1) as f32;
+            let overall = (((state.payload.finished as f32 + item_fraction) / total) * 100.0)
+                .round()
+                .clamp(state.payload.percent as f32, 99.0) as u8;
+            state.payload.current_file = current_file;
+            state.payload.percent = overall;
+            state.payload.message = message;
+            self.emit_locked(&mut state, false);
+        }
+    }
+
     /// 记录一条子任务成功完成。
     pub fn record_success(&self, output_path: &str) {
         if let Ok(mut state) = self.state.lock() {

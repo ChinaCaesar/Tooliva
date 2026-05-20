@@ -129,8 +129,7 @@ pub fn inpaint_image_with_lama(request: InpaintImageRequest) -> Result<(), Strin
                 sanitize_log_value(&first_err)
             ));
             let _ = worker.child.kill();
-            let (mut restarted, _) =
-                start_lama_worker(&paths, mode_requires_lama(&request.mode))?;
+            let (mut restarted, _) = start_lama_worker(&paths, mode_requires_lama(&request.mode))?;
             let retry_result = send_inpaint_request(&mut restarted, &request);
             *guard = Some(restarted);
             retry_result.map_err(|retry_err| {
@@ -228,7 +227,8 @@ fn start_lama_worker(
     if require_lama {
         command.arg("--require-lama");
     }
-    let mut child = command.spawn()
+    let mut child = command
+        .spawn()
         .map_err(|err| format!("Failed to start AI worker: {err}"))?;
 
     if let Some(mut stderr) = child.stderr.take() {
