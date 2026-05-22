@@ -8,13 +8,14 @@ use serde_json::Value;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::ai_runtime::{ensure_lama_torch_checkpoint, resolve_ai_runtime_paths, AiRuntimePaths};
 
-static LAMA_WORKER: OnceLock<Mutex<Option<LamaWorker>>> = OnceLock::new();
+static LAMA_POOL: OnceLock<Mutex<Option<Arc<LamaWorkerPool>>>> = OnceLock::new();
 static REQUEST_ID: AtomicU64 = AtomicU64::new(1);
+static NEXT_WORKER_SLOT: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,7 +38,13 @@ struct LamaWorker {
     child: Child,
     stdin: ChildStdin,
     stdout: BufReader<std::process::ChildStdout>,
+}
+
+struct LamaWorkerPool {
+    slots: Vec<Mutex<Option<LamaWorker>>>,
     health: AiRuntimeHealth,
+    paths: AiRuntimePaths,
+    require_lama: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -67,27 +74,96 @@ struct WorkerLine {
 }
 
 pub fn ensure_lama_worker_ready(require_lama: bool) -> Result<AiRuntimeHealth, String> {
-    let paths = prepare_lama_runtime(require_lama)?;
-    let lock = LAMA_WORKER.get_or_init(|| Mutex::new(None));
+    ensure_lama_worker_pool_ready(require_lama, 1)
+}
+
+pub fn recommended_lama_worker_count(health: &AiRuntimeHealth) -> usize {
+    if let Ok(raw) = std::env::var("DESKTOP_TOOLBOX_LAMA_WORKERS") {
+        if let Ok(value) = raw.trim().parse::<usize>() {
+            return value.clamp(1, 8);
+        }
+    }
+    let cpu_count = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .max(1);
+    if health
+        .device
+        .as_deref()
+        .map(|device| device.eq_ignore_ascii_case("cuda"))
+        .unwrap_or(false)
+    {
+        1
+    } else {
+        cpu_count.saturating_sub(1).clamp(2, 3)
+    }
+}
+
+pub fn ensure_lama_worker_pool_ready(
+    require_lama: bool,
+    desired_workers: usize,
+) -> Result<AiRuntimeHealth, String> {
+    let desired_workers = desired_workers.clamp(1, 8);
+    let lock = LAMA_POOL.get_or_init(|| Mutex::new(None));
     let mut guard = lock
         .lock()
         .map_err(|_| "AI worker lock poisoned".to_string())?;
-    if let Some(worker) = guard.as_mut() {
-        if worker_is_alive(worker) {
-            return Ok(worker.health.clone());
+    if let Some(pool) = guard.as_ref() {
+        let pool_can_reuse =
+            pool.slots.len() >= desired_workers && (pool.require_lama || !require_lama);
+        if pool_can_reuse {
+            let mut has_dead_worker = false;
+            for slot in &pool.slots {
+                let mut slot_guard = slot
+                    .lock()
+                    .map_err(|_| "AI worker slot lock poisoned".to_string())?;
+                if slot_guard.as_mut().map(worker_is_alive) != Some(true) {
+                    has_dead_worker = true;
+                    break;
+                }
+            }
+            if !has_dead_worker {
+                return Ok(pool.health.clone());
+            }
         }
-        let _ = worker.child.kill();
+        kill_worker_pool(pool);
         *guard = None;
     }
+    let paths = prepare_lama_runtime(require_lama)?;
     append_perf_log(&format!(
-        "[ai-worker-lifecycle] stage=start-request require_lama={} python=\"{}\" sidecar=\"{}\" torch_home=\"{}\"",
+        "[ai-worker-lifecycle] stage=start-request require_lama={} workers={} python=\"{}\" sidecar=\"{}\" torch_home=\"{}\"",
         require_lama,
+        desired_workers,
         paths.python_exe.display(),
         paths.sidecar_script.display(),
         paths.torch_home.display()
     ));
-    let (worker, health) = start_lama_worker(&paths, require_lama)?;
-    *guard = Some(worker);
+    let mut slots = Vec::with_capacity(desired_workers);
+    let mut health = None;
+    for index in 0..desired_workers {
+        let (worker, worker_health) = start_lama_worker(&paths, require_lama)?;
+        append_perf_log(&format!(
+            "[ai-worker-lifecycle] stage=pool-worker-ready index={} workers={} device={}",
+            index,
+            desired_workers,
+            worker_health.device.as_deref().unwrap_or("")
+        ));
+        if health.is_none() {
+            health = Some(worker_health);
+        }
+        slots.push(Mutex::new(Some(worker)));
+    }
+    let health = health.unwrap_or(AiRuntimeHealth {
+        ready: true,
+        device: None,
+        torch_version: None,
+    });
+    *guard = Some(Arc::new(LamaWorkerPool {
+        slots,
+        health: health.clone(),
+        paths,
+        require_lama,
+    }));
     Ok(health)
 }
 
@@ -97,44 +173,68 @@ pub fn check_lama_runtime_health() -> Result<AiRuntimeHealth, String> {
 }
 
 pub fn inpaint_image_with_lama(request: InpaintImageRequest) -> Result<(), String> {
-    let paths = prepare_lama_runtime(mode_requires_lama(&request.mode))?;
-    let lock = LAMA_WORKER.get_or_init(|| Mutex::new(None));
-    let mut guard = lock
+    let require_lama = mode_requires_lama(&request.mode);
+    ensure_lama_worker_pool_ready(require_lama, 1)?;
+    let pool = current_lama_pool()?;
+    let slot_index = NEXT_WORKER_SLOT.fetch_add(1, Ordering::Relaxed) % pool.slots.len().max(1);
+    let mut slot = pool.slots[slot_index]
         .lock()
-        .map_err(|_| "AI worker lock poisoned".to_string())?;
+        .map_err(|_| "AI worker slot lock poisoned".to_string())?;
 
-    if guard.as_mut().map(worker_is_alive) != Some(true) {
-        if let Some(worker) = guard.as_mut() {
+    if slot.as_mut().map(worker_is_alive) != Some(true) {
+        if let Some(worker) = slot.as_mut() {
             let _ = worker.child.kill();
         }
         append_perf_log(&format!(
-            "[ai-worker-lifecycle] stage=restart-before-request mode={} require_lama={}",
-            request.mode,
-            mode_requires_lama(&request.mode)
+            "[ai-worker-lifecycle] stage=restart-before-request slot={} mode={} require_lama={}",
+            slot_index, request.mode, require_lama
         ));
-        let (worker, _) = start_lama_worker(&paths, mode_requires_lama(&request.mode))?;
-        *guard = Some(worker);
+        let (worker, _) = start_lama_worker(&pool.paths, require_lama)?;
+        *slot = Some(worker);
     }
 
-    let Some(worker) = guard.as_mut() else {
-        return Err("AI worker was not started".to_string());
+    let Some(worker) = slot.as_mut() else {
+        return Err("AI worker slot was not started".to_string());
     };
 
     match send_inpaint_request(worker, &request) {
         Ok(()) => Ok(()),
         Err(first_err) => {
             append_perf_log(&format!(
-                "[ai-worker-lifecycle] stage=request-retry mode={} error=\"{}\"",
+                "[ai-worker-lifecycle] stage=request-retry slot={} mode={} error=\"{}\"",
+                slot_index,
                 request.mode,
                 sanitize_log_value(&first_err)
             ));
             let _ = worker.child.kill();
-            let (mut restarted, _) = start_lama_worker(&paths, mode_requires_lama(&request.mode))?;
+            let (mut restarted, _) = start_lama_worker(&pool.paths, require_lama)?;
             let retry_result = send_inpaint_request(&mut restarted, &request);
-            *guard = Some(restarted);
+            *slot = Some(restarted);
             retry_result.map_err(|retry_err| {
                 format!("AI worker failed after restart: {retry_err}; first error: {first_err}")
             })
+        }
+    }
+}
+
+fn current_lama_pool() -> Result<Arc<LamaWorkerPool>, String> {
+    let lock = LAMA_POOL.get_or_init(|| Mutex::new(None));
+    let guard = lock
+        .lock()
+        .map_err(|_| "AI worker lock poisoned".to_string())?;
+    guard
+        .as_ref()
+        .cloned()
+        .ok_or_else(|| "AI worker pool was not started".to_string())
+}
+
+fn kill_worker_pool(pool: &LamaWorkerPool) {
+    for slot in &pool.slots {
+        if let Ok(mut guard) = slot.lock() {
+            if let Some(worker) = guard.as_mut() {
+                let _ = worker.child.kill();
+            }
+            *guard = None;
         }
     }
 }
@@ -275,11 +375,6 @@ fn start_lama_worker(
                         child,
                         stdin,
                         stdout,
-                        health: AiRuntimeHealth {
-                            ready: true,
-                            device: parsed.device.clone(),
-                            torch_version: parsed.torch_version.clone(),
-                        },
                     },
                     AiRuntimeHealth {
                         ready: true,

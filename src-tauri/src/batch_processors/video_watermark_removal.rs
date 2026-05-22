@@ -7,17 +7,20 @@
 use image::{GrayImage, Luma};
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::{Arc, OnceLock};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::ai_worker::{ensure_lama_worker_ready, inpaint_image_with_lama, InpaintImageRequest};
+use crate::ai_worker::{
+    ensure_lama_worker_pool_ready, ensure_lama_worker_ready, inpaint_image_with_lama,
+    recommended_lama_worker_count, InpaintImageRequest,
+};
 use crate::batch::processor::{
     BatchItemContext, BatchItemOutput, BatchPrepareContext, BatchPrepared, BatchProcessor,
-    NoopPrepared,
 };
 use crate::batch::tempfile::{
     allocate_unique_final_path, cleanup_temp, ensure_parent_dir, finalize_temp, temp_path_for,
@@ -62,6 +65,17 @@ enum EncoderBackend {
 
 pub struct VideoWatermarkRemovalBatchProcessor;
 
+#[derive(Debug, Clone)]
+struct VideoWatermarkPrepared {
+    lama_worker_count: usize,
+}
+
+impl BatchPrepared for VideoWatermarkPrepared {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
 impl BatchProcessor for VideoWatermarkRemovalBatchProcessor {
     fn task_type(&self) -> BatchTaskType {
         BatchTaskType::VideoWatermarkRemoval
@@ -96,20 +110,28 @@ impl BatchProcessor for VideoWatermarkRemovalBatchProcessor {
     }
 
     fn prepare(&self, _ctx: &BatchPrepareContext) -> Result<Arc<dyn BatchPrepared>, BatchError> {
-        ensure_lama_worker_ready(true).map_err(BatchError::deterministic)?;
-        Ok(Arc::new(NoopPrepared))
+        let health = ensure_lama_worker_ready(true).map_err(BatchError::deterministic)?;
+        let worker_count = recommended_lama_worker_count(&health);
+        ensure_lama_worker_pool_ready(true, worker_count).map_err(BatchError::deterministic)?;
+        Ok(Arc::new(VideoWatermarkPrepared {
+            lama_worker_count: worker_count,
+        }))
     }
 
     fn process_one(
         &self,
         ctx: &BatchItemContext<'_>,
-        _prepared: &Arc<dyn BatchPrepared>,
+        prepared: &Arc<dyn BatchPrepared>,
     ) -> Result<BatchItemOutput, BatchError> {
         if ctx.cancel.is_cancelled() {
             return Err(BatchError::canceled());
         }
 
         let options = parse_options(&ctx.options)?;
+        let prepared = prepared
+            .as_any()
+            .downcast_ref::<VideoWatermarkPrepared>()
+            .ok_or_else(|| BatchError::processor("Video watermark prepared state is missing"))?;
         let regions = regions_for_path(&options, &ctx.item.input_path).ok_or_else(|| {
             BatchError::invalid_input(format!(
                 "Missing selected watermark region for video: {}",
@@ -146,7 +168,15 @@ impl BatchProcessor for VideoWatermarkRemovalBatchProcessor {
                 })?;
             write_roi_blend_mask(&blend_mask_path, crop, dimensions, regions)?;
             extract_roi_frames(&ffmpeg, &ctx.item.input_path, &raw_dir, crop, ctx)?;
-            inpaint_roi_frames(&raw_dir, &fixed_dir, crop, dimensions, regions, ctx)?;
+            inpaint_roi_frames(
+                &raw_dir,
+                &fixed_dir,
+                crop,
+                dimensions,
+                regions,
+                prepared.lama_worker_count,
+                ctx,
+            )?;
             compose_video(
                 &ffmpeg,
                 &ctx.item.input_path,
@@ -228,6 +258,7 @@ fn inpaint_roi_frames(
     crop: CropBox,
     dimensions: VideoDimensions,
     regions: &[RemovalRegion],
+    worker_count: usize,
     ctx: &BatchItemContext<'_>,
 ) -> Result<(), BatchError> {
     let mut frames = list_frames(raw_dir)?;
@@ -237,35 +268,90 @@ fn inpaint_roi_frames(
     frames.sort();
     let roi_regions = regions_to_roi_sidecar(regions, crop, dimensions)?;
     let total = frames.len().max(1);
-    for (index, frame) in frames.into_iter().enumerate() {
-        if ctx.cancel.is_cancelled() {
-            return Err(BatchError::canceled());
+    let worker_count = worker_count.clamp(1, total);
+    let queue = Arc::new(Mutex::new(
+        frames
+            .into_iter()
+            .enumerate()
+            .collect::<VecDeque<(usize, PathBuf)>>(),
+    ));
+    let finished = Arc::new(AtomicUsize::new(0));
+    let first_error = Arc::new(Mutex::new(None::<String>));
+
+    ctx.progress.record_current_progress(
+        Some(ctx.item.input_path.display().to_string()),
+        8.0,
+        Some(format!(
+            "LaMA high-quality inpaint frames with {} workers",
+            worker_count
+        )),
+    );
+
+    std::thread::scope(|scope| {
+        for _ in 0..worker_count {
+            let queue = queue.clone();
+            let finished = finished.clone();
+            let first_error = first_error.clone();
+            let roi_regions = roi_regions.clone();
+            scope.spawn(move || loop {
+                if ctx.cancel.is_cancelled()
+                    || first_error.lock().ok().and_then(|g| g.clone()).is_some()
+                {
+                    return;
+                }
+                let Some((_, frame)) = queue.lock().ok().and_then(|mut q| q.pop_front()) else {
+                    return;
+                };
+                let output = match frame.file_name() {
+                    Some(file_name) => fixed_dir.join(file_name),
+                    None => {
+                        set_first_error(&first_error, "ROI frame name is invalid".to_string());
+                        return;
+                    }
+                };
+                let result = inpaint_image_with_lama(InpaintImageRequest {
+                    input_path: frame,
+                    output_path: output,
+                    regions: roi_regions.clone(),
+                    output_format: "png".into(),
+                    mode: "quality".into(),
+                });
+                if let Err(err) = result {
+                    set_first_error(
+                        &first_error,
+                        format!("LaMA video ROI inpaint failed: {err}"),
+                    );
+                    return;
+                }
+                let done = finished.fetch_add(1, Ordering::Relaxed) + 1;
+                let progress = 8.0 + ((done as f32 / total as f32) * 84.0);
+                ctx.progress.record_current_progress(
+                    Some(ctx.item.input_path.display().to_string()),
+                    progress,
+                    Some(format!(
+                        "LaMA high-quality inpaint frame {} / {}",
+                        done, total
+                    )),
+                );
+            });
         }
-        let output = fixed_dir.join(
-            frame
-                .file_name()
-                .ok_or_else(|| BatchError::deterministic("ROI frame name is invalid"))?,
-        );
-        inpaint_image_with_lama(InpaintImageRequest {
-            input_path: frame,
-            output_path: output,
-            regions: roi_regions.clone(),
-            output_format: "png".into(),
-            mode: "quality".into(),
-        })
-        .map_err(|err| BatchError::processor(format!("LaMA video ROI inpaint failed: {err}")))?;
-        let progress = 8.0 + (((index + 1) as f32 / total as f32) * 84.0);
-        ctx.progress.record_current_progress(
-            Some(ctx.item.input_path.display().to_string()),
-            progress,
-            Some(format!(
-                "LaMA high-quality inpaint frame {} / {}",
-                index + 1,
-                total
-            )),
-        );
+    });
+
+    if ctx.cancel.is_cancelled() {
+        return Err(BatchError::canceled());
+    }
+    if let Some(message) = first_error.lock().ok().and_then(|g| g.clone()) {
+        return Err(BatchError::processor(message));
     }
     Ok(())
+}
+
+fn set_first_error(slot: &Arc<Mutex<Option<String>>>, message: String) {
+    if let Ok(mut guard) = slot.lock() {
+        if guard.is_none() {
+            *guard = Some(message);
+        }
+    }
 }
 
 fn compose_video(
@@ -565,9 +651,9 @@ fn probe_video_dimensions(ffprobe: &Path, input: &Path) -> Result<VideoDimension
             "-select_streams",
             "v:0",
             "-show_entries",
-            "stream=width,height",
+            "stream=width,height:stream_tags=rotate:stream_side_data=rotation",
             "-of",
-            "csv=s=x:p=0",
+            "json",
             &path_to_string(input)?,
         ])
         .output()
@@ -578,21 +664,62 @@ fn probe_video_dimensions(ffprobe: &Path, input: &Path) -> Result<VideoDimension
             String::from_utf8_lossy(&out.stderr).trim()
         )));
     }
-    let text = String::from_utf8_lossy(&out.stdout);
-    let line = text.lines().next().unwrap_or("").trim();
-    let mut parts = line.split('x');
-    let width = parts
-        .next()
-        .and_then(|value| value.parse::<u32>().ok())
+    let json: Value = serde_json::from_slice(&out.stdout)
+        .map_err(|err| BatchError::deterministic(format!("Could not parse ffprobe JSON: {err}")))?;
+    let stream = json
+        .get("streams")
+        .and_then(|streams| streams.as_array())
+        .and_then(|streams| streams.first())
+        .ok_or_else(|| BatchError::deterministic("ffprobe returned no video stream"))?;
+    let mut width = stream
+        .get("width")
+        .and_then(value_to_u32)
         .ok_or_else(|| BatchError::deterministic("Could not parse video width"))?;
-    let height = parts
-        .next()
-        .and_then(|value| value.parse::<u32>().ok())
+    let mut height = stream
+        .get("height")
+        .and_then(value_to_u32)
         .ok_or_else(|| BatchError::deterministic("Could not parse video height"))?;
     if width == 0 || height == 0 {
         return Err(BatchError::deterministic("Video dimensions are invalid"));
     }
+    let rotation = read_video_rotation_degrees(stream).rem_euclid(360);
+    if rotation == 90 || rotation == 270 {
+        std::mem::swap(&mut width, &mut height);
+    }
     Ok(VideoDimensions { width, height })
+}
+
+fn read_video_rotation_degrees(stream: &Value) -> i32 {
+    if let Some(value) = stream
+        .get("tags")
+        .and_then(|tags| tags.get("rotate"))
+        .and_then(value_to_i32)
+    {
+        return value;
+    }
+    stream
+        .get("side_data_list")
+        .and_then(|items| items.as_array())
+        .and_then(|items| {
+            items
+                .iter()
+                .find_map(|item| item.get("rotation").and_then(value_to_i32))
+        })
+        .unwrap_or(0)
+}
+
+fn value_to_u32(value: &Value) -> Option<u32> {
+    value
+        .as_u64()
+        .and_then(|value| u32::try_from(value).ok())
+        .or_else(|| value.as_str().and_then(|value| value.parse::<u32>().ok()))
+}
+
+fn value_to_i32(value: &Value) -> Option<i32> {
+    value
+        .as_i64()
+        .and_then(|value| i32::try_from(value).ok())
+        .or_else(|| value.as_str().and_then(|value| value.parse::<i32>().ok()))
 }
 
 fn probe_video_fps(ffprobe: &Path, input: &Path) -> Result<String, BatchError> {

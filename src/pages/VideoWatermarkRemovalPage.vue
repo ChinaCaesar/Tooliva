@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -40,6 +40,9 @@ const hintMessage = ref("");
 const elapsedSeconds = ref(0);
 const draftRegion = ref<WatermarkRegion | null>(null);
 const previewVideoRef = ref<HTMLVideoElement | null>(null);
+const previewShellRef = ref<HTMLElement | null>(null);
+const previewStageRef = ref<HTMLElement | null>(null);
+const videoLayerSize = ref({ width: 0, height: 0 });
 const isPreviewPlaying = ref(false);
 const isPreviewMuted = ref(true);
 const previewCurrentTime = ref(0);
@@ -50,6 +53,7 @@ const { submit, cancel, openOutputDirectory: openBatchOutputDirectory, progress,
 let disposeDrop: UnlistenFn | null = null;
 let elapsedTimer: number | null = null;
 let dragStart: { x: number; y: number } | null = null;
+let previewResizeObserver: ResizeObserver | null = null;
 
 const selectedItem = computed(() => items.value.find((item) => item.id === selectedId.value) ?? null);
 const totalBytes = computed(() => items.value.reduce((sum, item) => sum + item.bytes, 0));
@@ -83,6 +87,11 @@ const selectedAspectRatio = computed(() => {
   if (!item || item.width <= 0 || item.height <= 0) return "16 / 9";
   return `${item.width} / ${item.height}`;
 });
+const videoLayerStyle = computed(() => ({
+  width: `${videoLayerSize.value.width}px`,
+  height: `${videoLayerSize.value.height}px`,
+  aspectRatio: selectedAspectRatio.value
+}));
 const previewProgress = computed(() => {
   if (previewDuration.value <= 0) return 0;
   return Math.min(100, Math.max(0, (previewCurrentTime.value / previewDuration.value) * 100));
@@ -283,6 +292,7 @@ async function setupNativeDrop() {
 
 function pointerToPercent(event: PointerEvent, target: HTMLElement): { x: number; y: number } {
   const rect = target.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return { x: 0, y: 0 };
   return {
     x: Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)),
     y: Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100))
@@ -324,6 +334,35 @@ function onPreviewPointerUp(event: PointerEvent) {
 function onPreviewPointerCancel() {
   dragStart = null;
   draftRegion.value = null;
+}
+
+function updateVideoLayerSize() {
+  const stage = previewStageRef.value;
+  const item = selectedItem.value;
+  if (!stage || !item) {
+    videoLayerSize.value = { width: 0, height: 0 };
+    return;
+  }
+  const rect = stage.getBoundingClientRect();
+  const availableWidth = Math.max(0, rect.width);
+  const availableHeight = Math.max(0, rect.height);
+  const sourceWidth = item.width > 0 ? item.width : 16;
+  const sourceHeight = item.height > 0 ? item.height : 9;
+  const sourceRatio = sourceWidth / sourceHeight;
+  if (availableWidth <= 0 || availableHeight <= 0 || !Number.isFinite(sourceRatio) || sourceRatio <= 0) {
+    videoLayerSize.value = { width: 0, height: 0 };
+    return;
+  }
+  let width = availableWidth;
+  let height = width / sourceRatio;
+  if (height > availableHeight) {
+    height = availableHeight;
+    width = height * sourceRatio;
+  }
+  videoLayerSize.value = {
+    width: Math.max(1, Math.floor(width)),
+    height: Math.max(1, Math.floor(height))
+  };
 }
 
 function syncPreviewState() {
@@ -392,7 +431,7 @@ async function startRemoval() {
       options: {
         regionsByFile: buildRegionsByFile()
       },
-      concurrencyPreset: "lowUsage"
+      concurrencyPreset: "balanced"
     });
   } catch (error) {
     stopTimers();
@@ -437,6 +476,7 @@ watch(selectedId, () => {
   previewCurrentTime.value = 0;
   previewDuration.value = selectedItem.value?.duration || 0;
   isPreviewPlaying.value = false;
+  void nextTick(updateVideoLayerSize);
 });
 
 watch(
@@ -481,11 +521,16 @@ watch([result, failures], () => {
 
 onMounted(() => {
   void setupNativeDrop();
-  
+  previewResizeObserver = new ResizeObserver(() => updateVideoLayerSize());
+  if (previewShellRef.value) previewResizeObserver.observe(previewShellRef.value);
+  window.addEventListener("resize", updateVideoLayerSize);
+  void nextTick(updateVideoLayerSize);
 });
 
 onBeforeUnmount(() => {
   disposeDrop?.();
+  previewResizeObserver?.disconnect();
+  window.removeEventListener("resize", updateVideoLayerSize);
   stopTimers();
 });
 </script>
@@ -553,12 +598,11 @@ onBeforeUnmount(() => {
           <button type="button" class="vw-btn vw-btn--small" :disabled="!selectedItem || isRunning" @click="clearRegions">清除框选</button>
         </div>
 
-        <div class="vw-canvas-shell">
-          <div v-if="selectedItem" class="vw-stage">
+        <div ref="previewShellRef" class="vw-canvas-shell">
+          <div v-if="selectedItem" ref="previewStageRef" class="vw-stage">
             <div
               class="vw-video-layer"
-              :class="`vw-video-layer--${selectedPreviewFit}`"
-              :style="{ aspectRatio: selectedAspectRatio }"
+              :style="videoLayerStyle"
               @pointerdown="onPreviewPointerDown"
               @pointermove="onPreviewPointerMove"
               @pointerup="onPreviewPointerUp"
@@ -571,7 +615,7 @@ onBeforeUnmount(() => {
                 :muted="isPreviewMuted"
                 playsinline
                 preload="metadata"
-                @loadedmetadata="syncPreviewState"
+                @loadedmetadata="() => { syncPreviewState(); updateVideoLayerSize(); }"
                 @timeupdate="syncPreviewState"
                 @play="syncPreviewState"
                 @pause="syncPreviewState"
@@ -649,6 +693,10 @@ onBeforeUnmount(() => {
             <div>
               <dt>预计剩余</dt>
               <dd>{{ remainingTime }}</dd>
+            </div>
+            <div>
+              <dt>已用时间</dt>
+              <dd>{{ isRunning || elapsedSeconds > 0 ? formatDuration(elapsedSeconds) : "--:--:--" }}</dd>
             </div>
             <div>
               <dt>处理引擎</dt>
@@ -1285,7 +1333,7 @@ button:disabled {
 
 .vw-metrics-grid {
   display: grid;
-  grid-template-columns: minmax(92px, 0.8fr) minmax(180px, 1.25fr) minmax(120px, 0.9fr) minmax(110px, 0.9fr) minmax(280px, 1.9fr);
+  grid-template-columns: minmax(92px, 0.75fr) minmax(180px, 1.2fr) minmax(110px, 0.8fr) minmax(110px, 0.8fr) minmax(110px, 0.85fr) minmax(260px, 1.7fr);
   gap: 18px;
   margin: 0;
 }
