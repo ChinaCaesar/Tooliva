@@ -16,6 +16,7 @@ import { importDirectoryItems } from "@/pages/shared/directoryImport";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
 type WatermarkStatus = "idle" | "running" | "completed" | "failed";
+export type WatermarkOutputMode = "source" | "custom" | "overwrite";
 
 const SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
 const SUPPORTED_WATERMARK_EXTENSIONS = [".png", ".webp", ".jpg", ".jpeg"];
@@ -192,6 +193,7 @@ export function useImageWatermarkActions() {
   const isDropActive = ref(false);
   const hintMessage = ref("");
   const outputDirectory = ref("");
+  const outputMode = ref<WatermarkOutputMode>("source");
   const sourceDirectory = ref("");
   const mode = ref<WatermarkMode>("text");
   const text = ref(DEFAULT_WATERMARK_TEXT);
@@ -252,6 +254,8 @@ export function useImageWatermarkActions() {
     })
   );
   const effectiveOutputDirectory = computed(() => {
+    if (outputMode.value === "overwrite") return "";
+    if (outputMode.value === "custom") return outputDirectory.value.trim();
     if (outputDirectory.value) return outputDirectory.value;
     const previewInputPath = primaryPreviewItem.value?.inputPath;
     if (!previewInputPath) return "";
@@ -277,6 +281,7 @@ export function useImageWatermarkActions() {
   });
   const canStart = computed(() => {
     if (isProcessing.value) return false;
+    if (outputMode.value === "custom" && outputDirectory.value.trim().length === 0) return false;
     if (sourceDirectory.value.trim().length === 0 && !items.value.some((item) => item.status === "idle" || item.status === "failed")) return false;
     if (mode.value === "text") return true;
     return imagePath.value.trim().length > 0;
@@ -401,6 +406,7 @@ export function useImageWatermarkActions() {
     const selected = await open({ directory: true, multiple: false });
     if (!selected || Array.isArray(selected)) return;
     outputDirectory.value = selected;
+    outputMode.value = "custom";
   }
 
   /**
@@ -951,7 +957,8 @@ export function useImageWatermarkActions() {
     return {
       taskId: current.id,
       inputPath: current.inputPath,
-      outputDirectory: outputDirectory.value || undefined,
+      outputMode: outputMode.value === "overwrite" ? ("overwrite" as const) : ("directory" as const),
+      outputDirectory: outputMode.value === "custom" ? outputDirectory.value || undefined : undefined,
       mode: mode.value,
       position: position.value,
       opacity: opacity.value,
@@ -1064,6 +1071,7 @@ export function useImageWatermarkActions() {
 
   onMounted(async () => {
     outputDirectory.value = settingsStore.defaultOutputDirectory || "";
+    outputMode.value = outputDirectory.value ? "custom" : "source";
     await setupNativeDropListener();
   });
 
@@ -1103,6 +1111,7 @@ export function useImageWatermarkActions() {
     isDropActive,
     hintMessage,
     outputDirectory,
+    outputMode,
     effectiveOutputDirectory,
     sourceDirectory,
     mode,

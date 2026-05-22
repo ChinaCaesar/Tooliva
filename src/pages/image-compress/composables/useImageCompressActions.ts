@@ -11,6 +11,7 @@ import { importDirectoryItems } from "@/pages/shared/directoryImport";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
 type CompressStatus = "idle" | "running" | "completed" | "failed";
+export type CompressOutputMode = "source" | "custom" | "overwrite";
 /** auto：不传 targetFormat，由后端按输入扩展名决定输出格式（BMP 等会落到 JPG）。 */
 type CompressFormat = "auto" | "jpg" | "png" | "webp";
 /** 分辨率策略：保持原始像素上限，或由最大宽高推导输出像素上限 */
@@ -138,6 +139,7 @@ export function useImageCompressActions() {
   const isDropActive = ref(false);
   const hintMessage = ref("");
   const outputDirectory = ref("");
+  const outputMode = ref<CompressOutputMode>("source");
   const sourceDirectory = ref("");
   const quality = ref(DEFAULT_QUALITY);
   const targetFormat = ref<CompressFormat>(DEFAULT_FORMAT);
@@ -159,6 +161,7 @@ export function useImageCompressActions() {
   const canStart = computed(
     () =>
       !isProcessing.value &&
+      (outputMode.value !== "custom" || outputDirectory.value.trim().length > 0) &&
       (sourceDirectory.value.trim().length > 0 || items.value.some((item) => item.status === "idle" || item.status === "failed"))
   );
 
@@ -208,6 +211,7 @@ export function useImageCompressActions() {
   function resetCompressSettings(): void {
     quality.value = DEFAULT_QUALITY;
     targetFormat.value = DEFAULT_FORMAT;
+    outputMode.value = "source";
     resolutionPreset.value = "original";
     maxWidthBound.value = null;
     maxHeightBound.value = null;
@@ -251,6 +255,7 @@ export function useImageCompressActions() {
     const selected = await open({ directory: true, multiple: false });
     if (!selected || Array.isArray(selected)) return;
     outputDirectory.value = selected;
+    outputMode.value = "custom";
   }
 
   /**
@@ -399,7 +404,8 @@ export function useImageCompressActions() {
         taskId: current.id,
         inputPath: current.inputPath,
         quality: quality.value,
-        outputDirectory: outputDirectory.value || undefined,
+        outputMode: outputMode.value === "overwrite" ? "overwrite" : "directory",
+        outputDirectory: outputMode.value === "custom" ? outputDirectory.value || undefined : undefined,
         ...(targetFormat.value === "auto"
           ? {}
           : { targetFormat: targetFormat.value as "jpg" | "png" | "webp" }),
@@ -534,6 +540,7 @@ export function useImageCompressActions() {
 
   onMounted(async () => {
     outputDirectory.value = settingsStore.defaultOutputDirectory || "";
+    outputMode.value = outputDirectory.value ? "custom" : "source";
     await setupNativeDropListener();
   });
 
@@ -556,6 +563,7 @@ export function useImageCompressActions() {
     isDropActive,
     hintMessage,
     outputDirectory,
+    outputMode,
     sourceDirectory,
     quality,
     targetFormat,

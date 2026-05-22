@@ -43,6 +43,7 @@ const {
 const scaleOptions = [2, 3, 4] as const;
 const modeOptions = ["fast", "standard", "high"] as const;
 const formatOptions = ["original", "png", "jpg", "webp"] as const;
+const outputModeOptions = ["source", "custom", "overwrite"] as const;
 const adjustmentOptions = ["off", "low", "medium", "high"] as const;
 const concurrencyOptions = ["auto", 1, 2, 4] as const;
 
@@ -243,6 +244,21 @@ function itemPreviewSrc(path: string): string {
                 </div>
               </div>
 
+              <div class="field-group">
+                <span class="field-label">{{ t("common.outputMode") }}</span>
+                <div class="format-grid" role="radiogroup" :aria-label="t('common.outputMode')">
+                  <label
+                    v-for="option in outputModeOptions"
+                    :key="option"
+                    class="choice-pill"
+                    :class="{ 'choice-pill--active': outputDirectoryMode === option }"
+                  >
+                    <input v-model="outputDirectoryMode" type="radio" :value="option" :disabled="isProcessing" />
+                    <span>{{ t(`common.outputModes.${option}`) }}</span>
+                  </label>
+                </div>
+              </div>
+
               <p class="settings-tip">{{ t("pages.imageUpscale.settings.tip") }}</p>
             </section>
 
@@ -288,10 +304,17 @@ function itemPreviewSrc(path: string): string {
         <div class="bottom-bar__left">
           <span class="bottom-bar__label">{{ t("pages.imageUpscale.footer.saveTo") }}</span>
           <span class="bottom-bar__path" :title="outputFooterPath">{{ outputFooterPath }}</span>
-          <button type="button" class="btn btn--link" :disabled="isProcessing" @click="pickOutputDirectory">
+          <button
+            v-if="outputDirectoryMode !== 'overwrite'"
+            type="button"
+            class="btn btn--link"
+            :disabled="isProcessing"
+            @click="pickOutputDirectory"
+          >
             {{ t("pages.imageUpscale.footer.changeOutput") }}
           </button>
           <button
+            v-if="outputDirectoryMode !== 'overwrite'"
             type="button"
             class="btn btn--link"
             :disabled="!effectiveOutputDirectory"

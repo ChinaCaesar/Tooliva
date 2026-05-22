@@ -14,6 +14,7 @@ use crate::batch::progress::ProgressEmitter;
 use crate::batch::queue::WorkQueue;
 use crate::batch::result::BatchItemFailure;
 use crate::batch::types::{BatchError, BatchTaskType};
+use crate::debug_log::debug_log_to_stderr;
 
 /// Worker 收集到的结果，回传给协调线程做汇总。
 pub enum WorkerOutcome {
@@ -168,7 +169,7 @@ fn run_with_retry(
 }
 
 fn log_batch_worker_perf(message: &str) {
-    eprintln!("{message}");
+    debug_log_to_stderr(message);
     append_perf_log(message);
 }
 

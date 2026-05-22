@@ -28,7 +28,13 @@ export const enUS = {
     taskCompleteMessage: "{tool} finished processing {total} item(s): {success} succeeded, {failed} failed, elapsed {elapsed}.",
     sourceDirectoryReady: "Folder selected. Matching files will be scanned when you start the task.",
     sourceDirectoryNoMatch: "No files supported by the current task were found in the selected folder.",
-    sourceDirectoryNoNewFiles: "Folder scan finished, but no new supported files were found."
+    sourceDirectoryNoNewFiles: "Folder scan finished, but no new supported files were found.",
+    outputMode: "Output mode",
+    outputModes: {
+      source: "Source folder",
+      custom: "Custom folder",
+      overwrite: "Overwrite original"
+    }
   },
   layout: {
     appShell: {

@@ -3,6 +3,7 @@ mod ai_worker;
 mod batch;
 mod batch_processors;
 mod commands;
+mod debug_log;
 mod ffmpeg_gif;
 mod image_core;
 mod image_processors;

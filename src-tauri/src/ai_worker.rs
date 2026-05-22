@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::ai_runtime::{ensure_lama_torch_checkpoint, resolve_ai_runtime_paths, AiRuntimePaths};
+use crate::debug_log::{debug_log_to_stderr, debug_logs_enabled, DEBUG_LOG_ENV};
 
 static LAMA_POOL: OnceLock<Mutex<Option<Arc<LamaWorkerPool>>>> = OnceLock::new();
 static REQUEST_ID: AtomicU64 = AtomicU64::new(1);
@@ -270,7 +271,8 @@ fn ensure_runtime_imports(
         .arg(&paths.torch_home)
         .env("TORCH_HOME", &paths.torch_home)
         .env("PYTHONUTF8", "1")
-        .env("PYTHONIOENCODING", "utf-8");
+        .env("PYTHONIOENCODING", "utf-8")
+        .env(DEBUG_LOG_ENV, if debug_logs_enabled() { "1" } else { "0" });
     if require_lama {
         command.arg("--require-lama");
     }
@@ -321,6 +323,7 @@ fn start_lama_worker(
         .env("TORCH_HOME", &paths.torch_home)
         .env("PYTHONUTF8", "1")
         .env("PYTHONIOENCODING", "utf-8")
+        .env(DEBUG_LOG_ENV, if debug_logs_enabled() { "1" } else { "0" })
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -337,7 +340,7 @@ fn start_lama_worker(
             let _ = stderr.read_to_string(&mut buf);
             if !buf.trim().is_empty() {
                 let message = format!("[ai-worker] {}", buf.trim());
-                eprintln!("{message}");
+                debug_log_to_stderr(&message);
                 append_perf_log(&message);
             }
         });
@@ -492,11 +495,14 @@ fn log_perf_line(line: &WorkerLine) {
         duration,
         details.join(" ")
     );
-    eprintln!("{message}");
+    debug_log_to_stderr(&message);
     append_perf_log(&message);
 }
 
 pub fn append_perf_log(message: &str) {
+    if !debug_logs_enabled() {
+        return;
+    }
     let Ok(paths) = resolve_ai_runtime_paths() else {
         return;
     };

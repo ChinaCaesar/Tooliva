@@ -29,6 +29,7 @@ use crate::batch::types::{
     BatchError, BatchTaskStatus, BatchTaskType, SubmitBatchTaskPayload, WorkItem,
 };
 use crate::batch::worker::{now_ms, worker_loop, WorkerEnv, WorkerOutcome};
+use crate::debug_log::debug_log_to_stderr;
 
 /// 命令层入口：创建任务并立即返回 task_id；真正的并发执行在后台线程。
 pub fn start_batch_task(
@@ -338,7 +339,7 @@ fn validate_inputs(input_files: &[String]) -> Result<Vec<PathBuf>, BatchError> {
 }
 
 fn log_batch_perf(message: &str) {
-    eprintln!("{message}");
+    debug_log_to_stderr(message);
     append_perf_log(message);
 }
 

@@ -103,6 +103,7 @@ export interface StartImageUpscalePayload {
   inputPath: string;
   scaleFactor: 2 | 3 | 4;
   outputDirectory?: string;
+  outputMode?: "directory" | "overwrite";
   qualityMode?: ImageUpscaleQualityMode;
   backendPreference?: "auto" | "cpu" | "gpu" | "ai";
   outputFormat?: ImageUpscaleOutputFormat;
@@ -141,6 +142,7 @@ export interface StartImageCompressPayload {
   inputPath: string;
   quality: number;
   outputDirectory?: string;
+  outputMode?: "directory" | "overwrite";
   targetFormat?: "jpg" | "jpeg" | "png" | "webp";
   maxOutputPixels?: number;
   maxMemoryMb?: number;
@@ -242,6 +244,7 @@ export interface StartImageWatermarkPayload {
   taskId: string;
   inputPath: string;
   outputDirectory?: string;
+  outputMode?: "directory" | "overwrite";
   mode: WatermarkMode;
   position: WatermarkPosition;
   opacity: number;

@@ -47,6 +47,7 @@ pub struct StartImageUpscalePayload {
     pub input_path: String,
     pub scale_factor: u8,
     pub output_directory: Option<String>,
+    pub output_mode: Option<String>,
     pub quality_mode: Option<UpscaleQualityMode>,
     pub backend_preference: Option<UpscaleBackend>,
     pub output_format: Option<String>,
@@ -81,6 +82,7 @@ pub struct StartImageCompressPayload {
     pub input_path: String,
     pub quality: u8,
     pub output_directory: Option<String>,
+    pub output_mode: Option<String>,
     pub target_format: Option<String>,
     pub max_output_pixels: Option<u64>,
     pub max_memory_mb: Option<u64>,
@@ -112,6 +114,7 @@ pub struct StartImageWatermarkPayload {
     pub task_id: String,
     pub input_path: String,
     pub output_directory: Option<String>,
+    pub output_mode: Option<String>,
     pub mode: String,
     pub position: String,
     pub opacity: u8,
@@ -416,16 +419,28 @@ pub async fn start_image_upscale(
         _ => return Err("仅支持 2 / 3 / 4 倍放大".to_string()),
     };
 
-    let output_extension = resolve_upscale_extension(
-        payload.output_format.as_deref(),
-        input_path.extension().and_then(|x| x.to_str()),
-    )?;
-    let output_file_path = resolve_output_path(
-        &input_path,
-        payload.output_directory.as_deref(),
-        scale,
-        output_extension,
-    )?;
+    let overwrite = is_overwrite_mode(payload.output_mode.as_deref())?;
+    let input_extension = input_path.extension().and_then(|x| x.to_str());
+    let output_extension = if overwrite {
+        resolve_upscale_extension(Some("original"), input_extension)?
+    } else {
+        resolve_upscale_extension(payload.output_format.as_deref(), input_extension)?
+    };
+    let final_output_path = if overwrite {
+        input_path.clone()
+    } else {
+        resolve_output_path(
+            &input_path,
+            payload.output_directory.as_deref(),
+            scale,
+            output_extension,
+        )?
+    };
+    let output_file_path = if overwrite {
+        temporary_overwrite_path(&input_path, output_extension)?
+    } else {
+        final_output_path.clone()
+    };
     ensure_parent_dir_exists(&output_file_path)?;
 
     let task_id = payload.task_id.clone();
@@ -496,7 +511,9 @@ pub async fn start_image_upscale(
             Ok(StartImageUpscaleResult {
                 task_id,
                 input_path: input_path.display().to_string(),
-                output_path: outcome.output_path.display().to_string(),
+                output_path: finalize_output_path(outcome.output_path.clone(), final_output_path, overwrite)?
+                    .display()
+                    .to_string(),
                 success: true,
                 error: None,
                 original_width,
@@ -555,12 +572,23 @@ pub async fn start_image_compress(
         return Err("压缩质量仅支持 1..100".to_string());
     }
 
-    let extension = resolve_compress_extension(
-        payload.target_format.as_deref(),
-        input_path.extension().and_then(|x| x.to_str()),
-    )?;
-    let output_file_path =
-        resolve_compress_output_path(&input_path, payload.output_directory.as_deref(), extension)?;
+    let overwrite = is_overwrite_mode(payload.output_mode.as_deref())?;
+    let input_extension = input_path.extension().and_then(|x| x.to_str());
+    let extension = if overwrite {
+        resolve_compress_extension(None, input_extension)?
+    } else {
+        resolve_compress_extension(payload.target_format.as_deref(), input_extension)?
+    };
+    let final_output_path = if overwrite {
+        input_path.clone()
+    } else {
+        resolve_compress_output_path(&input_path, payload.output_directory.as_deref(), extension)?
+    };
+    let output_file_path = if overwrite {
+        temporary_overwrite_path(&input_path, extension)?
+    } else {
+        final_output_path.clone()
+    };
     ensure_parent_dir_exists(&output_file_path)?;
 
     let task_id = payload.task_id.clone();
@@ -628,7 +656,9 @@ pub async fn start_image_compress(
             Ok(StartImageCompressResult {
                 task_id,
                 input_path: input_path.display().to_string(),
-                output_path: outcome.output_path.display().to_string(),
+                output_path: finalize_output_path(outcome.output_path.clone(), final_output_path, overwrite)?
+                    .display()
+                    .to_string(),
                 success: true,
                 error: None,
                 original_width,
@@ -716,12 +746,21 @@ pub async fn start_image_watermark(
         return Err("水印模式仅支持 text 或 image".to_string());
     }
 
+    let overwrite = is_overwrite_mode(payload.output_mode.as_deref())?;
     let extension = input_path
         .extension()
         .and_then(|x| x.to_str())
         .unwrap_or("png");
-    let output_file_path =
-        resolve_watermark_output_path(&input_path, payload.output_directory.as_deref(), extension)?;
+    let final_output_path = if overwrite {
+        input_path.clone()
+    } else {
+        resolve_watermark_output_path(&input_path, payload.output_directory.as_deref(), extension)?
+    };
+    let output_file_path = if overwrite {
+        temporary_overwrite_path(&input_path, extension)?
+    } else {
+        final_output_path.clone()
+    };
     ensure_parent_dir_exists(&output_file_path)?;
 
     let task_id = payload.task_id.clone();
@@ -794,7 +833,9 @@ pub async fn start_image_watermark(
             Ok(StartImageWatermarkResult {
                 task_id,
                 input_path: input_path.display().to_string(),
-                output_path: outcome.output_path.display().to_string(),
+                output_path: finalize_output_path(outcome.output_path.clone(), final_output_path, overwrite)?
+                    .display()
+                    .to_string(),
                 success: true,
                 error: None,
                 original_width,
@@ -907,6 +948,46 @@ fn ensure_unique_output_path(path: &Path) -> PathBuf {
         }
     }
     path.to_path_buf()
+}
+
+fn is_overwrite_mode(mode: Option<&str>) -> Result<bool, String> {
+    match mode.unwrap_or("directory").to_ascii_lowercase().as_str() {
+        "directory" | "source" | "custom" => Ok(false),
+        "overwrite" => Ok(true),
+        _ => Err("输出模式仅支持 directory/source/custom/overwrite".to_string()),
+    }
+}
+
+fn temporary_overwrite_path(input_path: &Path, extension: &str) -> Result<PathBuf, String> {
+    let parent = input_path
+        .parent()
+        .ok_or_else(|| "无法识别输入目录".to_string())?;
+    let stem = input_path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "输入文件名非法".to_string())?;
+    Ok(ensure_unique_output_path(&parent.join(format!(
+        ".{stem}.overwrite.tmp.{extension}"
+    ))))
+}
+
+fn finalize_output_path(
+    actual_output_path: PathBuf,
+    final_output_path: PathBuf,
+    overwrite: bool,
+) -> Result<PathBuf, String> {
+    if !overwrite {
+        return Ok(actual_output_path);
+    }
+    fs::copy(&actual_output_path, &final_output_path).map_err(|err| {
+        format!(
+            "覆盖原文件失败 {} -> {}：{err}",
+            actual_output_path.display(),
+            final_output_path.display()
+        )
+    })?;
+    let _ = fs::remove_file(&actual_output_path);
+    Ok(final_output_path)
 }
 
 fn resolve_upscale_extension(

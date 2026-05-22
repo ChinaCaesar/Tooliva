@@ -15,6 +15,7 @@ use crate::batch::processor::{
 };
 use crate::batch::tempfile::{allocate_unique_final_path, ensure_parent_dir};
 use crate::batch::types::{BatchError, BatchTaskType};
+use crate::debug_log::debug_log_to_stderr;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -286,6 +287,6 @@ fn is_supported_image_ext(path: &Path) -> bool {
 }
 
 fn log_inpaint_perf(message: &str) {
-    eprintln!("{message}");
+    debug_log_to_stderr(message);
     append_perf_log(message);
 }

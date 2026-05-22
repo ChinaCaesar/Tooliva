@@ -12,6 +12,7 @@ const {
   isDropActive,
   hintMessage,
   outputDirectory,
+  outputMode,
   sourceDirectory,
   quality,
   targetFormat,
@@ -42,6 +43,7 @@ const {
 } = useImageCompressActions();
 
 const selectAllCheckboxRef = ref<HTMLInputElement | null>(null);
+const outputModeOptions = ["source", "custom", "overwrite"] as const;
 
 watchEffect(() => {
   const el = selectAllCheckboxRef.value;
@@ -64,9 +66,13 @@ function onMaxHeightInput(event: Event): void {
 }
 
 const outputFooterPath = computed(() =>
-  outputDirectory.value.trim().length > 0
-    ? outputDirectory.value.trim()
-    : t("pages.imageCompress.output.defaultDirectory")
+  outputMode.value === "overwrite"
+    ? t("common.outputModes.overwrite")
+    : outputMode.value === "source"
+      ? t("pages.imageCompress.footer.defaultOutput")
+      : outputDirectory.value.trim().length > 0
+        ? outputDirectory.value.trim()
+        : t("pages.imageCompress.output.defaultDirectory")
 );
 </script>
 
@@ -276,6 +282,23 @@ const outputFooterPath = computed(() =>
                   </label>
                 </div>
               </div>
+              <div class="format-block">
+                <span class="format-block__label">{{ t("common.outputMode") }}</span>
+                <div class="format-row" role="radiogroup" :aria-label="t('common.outputMode')">
+                  <label
+                    v-for="option in outputModeOptions"
+                    :key="option"
+                    class="format-option"
+                    :class="{ 'format-option--active': outputMode === option }"
+                  >
+                    <input v-model="outputMode" type="radio" :value="option" :disabled="isProcessing" />
+                    <span class="format-option__radio" aria-hidden="true">
+                      <span v-if="outputMode === option" class="format-option__radio-dot" />
+                    </span>
+                    <span class="format-option__text">{{ t(`common.outputModes.${option}`) }}</span>
+                  </label>
+                </div>
+              </div>
               <p class="scale-tip">{{ t("pages.imageCompress.settings.tip") }}</p>
             </div>
 
@@ -347,7 +370,13 @@ const outputFooterPath = computed(() =>
           <div class="bottom-bar__row">
             <span class="bottom-bar__label">{{ t("pages.imageCompress.footer.saveTo") }}</span>
             <span class="bottom-bar__path" :title="outputFooterPath">{{ outputFooterPath }}</span>
-            <button type="button" class="btn btn--link" :disabled="isProcessing" @click="pickOutputDirectory">
+            <button
+              v-if="outputMode !== 'overwrite'"
+              type="button"
+              class="btn btn--link"
+              :disabled="isProcessing"
+              @click="pickOutputDirectory"
+            >
               {{ t("pages.imageCompress.footer.changeOutput") }}
             </button>
           </div>

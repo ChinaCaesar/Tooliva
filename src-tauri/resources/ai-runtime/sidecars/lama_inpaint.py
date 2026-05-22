@@ -15,6 +15,16 @@ def emit(**payload):
     print(json.dumps(payload, ensure_ascii=True), flush=True)
 
 
+def debug_logs_enabled() -> bool:
+    return os.environ.get("DESKTOP_TOOLBOX_DEBUG_LOG", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+        "debug",
+    }
+
+
 def download_model(args: argparse.Namespace) -> int:
     model_path = Path(args.model_path)
     torch_home = Path(args.torch_home)
@@ -368,6 +378,8 @@ def elapsed_ms(started: float) -> int:
 
 
 def emit_perf(**payload):
+    if not debug_logs_enabled():
+        return
     payload["event"] = "perf"
     emit(**payload)
 

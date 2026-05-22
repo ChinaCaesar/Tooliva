@@ -17,7 +17,7 @@ import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotificatio
 
 type UpscaleStatus = "idle" | "running" | "completed" | "failed";
 export type UpscaleScaleFactor = 2 | 3 | 4;
-export type UpscaleOutputDirectoryMode = "source" | "custom";
+export type UpscaleOutputDirectoryMode = "source" | "custom" | "overwrite";
 export type UpscaleConcurrency = "auto" | 1 | 2 | 4;
 
 const SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
@@ -161,6 +161,9 @@ export function useImageUpscaleActions() {
     return sourceDirectory.value.trim().length > 0 || items.value.some((item) => item.status === "idle" || item.status === "failed");
   });
   const outputFooterPath = computed(() => {
+    if (outputDirectoryMode.value === "overwrite") {
+      return t("common.outputModes.overwrite");
+    }
     if (outputDirectoryMode.value === "custom") {
       return outputDirectory.value.trim() || t("pages.imageUpscale.output.customNotSelected");
     }
@@ -168,6 +171,9 @@ export function useImageUpscaleActions() {
     return firstPath ? joinOutputScaleDirectory(extractSourceDirectory(firstPath)) : t("pages.imageUpscale.footer.sourceOutput");
   });
   const effectiveOutputDirectory = computed(() => {
+    if (outputDirectoryMode.value === "overwrite") {
+      return "";
+    }
     if (outputDirectoryMode.value === "custom") {
       return outputDirectory.value.trim();
     }
@@ -387,6 +393,7 @@ export function useImageUpscaleActions() {
         denoiseLevel: denoiseLevel.value,
         sharpenLevel: sharpenLevel.value,
         preserveTransparentBackground: preserveTransparentBackground.value,
+        outputMode: outputDirectoryMode.value === "overwrite" ? "overwrite" : "directory",
         outputDirectory: outputDirectoryMode.value === "custom" ? outputDirectory.value || undefined : undefined,
         maxOutputPixels: DEFAULT_MAX_OUTPUT_PIXELS_CAP,
         maxMemoryMb: DEFAULT_MAX_MEMORY_MB,

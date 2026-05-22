@@ -152,7 +152,7 @@ fn encode_image(
     match target_format {
         CompressTargetFormat::Jpeg => {
             let rgb = input.image.to_rgb8();
-            let mut encoder = JpegEncoder::new_with_quality(&mut output, quality.max(92));
+            let mut encoder = JpegEncoder::new_with_quality(&mut output, quality);
             encoder
                 .encode(
                     rgb.as_raw(),
@@ -213,4 +213,39 @@ fn should_fallback_to_source(
             | (CompressTargetFormat::Png, "png")
             | (CompressTargetFormat::Webp, "webp")
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
+
+    fn sample_loaded_image() -> LoadedImage {
+        let image = ImageBuffer::from_fn(320, 240, |x, y| {
+            let r = ((x * 13 + y * 7) % 256) as u8;
+            let g = ((x * 5 + y * 17) % 256) as u8;
+            let b = ((x * 23 + y * 3) % 256) as u8;
+            Rgba([r, g, b, 255])
+        });
+
+        LoadedImage {
+            image: DynamicImage::ImageRgba8(image),
+            format: ImageFormat::Jpeg,
+        }
+    }
+
+    #[test]
+    fn jpeg_encoder_respects_lower_quality_values() {
+        let input = sample_loaded_image();
+
+        let default_quality = encode_image(&input, CompressTargetFormat::Jpeg, 80).unwrap();
+        let high_quality = encode_image(&input, CompressTargetFormat::Jpeg, 92).unwrap();
+
+        assert!(
+            default_quality.len() < high_quality.len(),
+            "expected JPEG quality 80 to be smaller than quality 92, got {} >= {} bytes",
+            default_quality.len(),
+            high_quality.len()
+        );
+    }
 }

@@ -28,7 +28,13 @@ export const zhCN = {
     taskCompleteMessage: "{tool}已处理完成，共 {total} 项，成功 {success} 项，失败 {failed} 项，用时 {elapsed}。",
     sourceDirectoryReady: "已选择目录，开始执行时将自动检索当前任务可处理的文件。",
     sourceDirectoryNoMatch: "所选目录中未找到当前任务可处理的文件。",
-    sourceDirectoryNoNewFiles: "目录扫描完成，没有发现新的可处理文件。"
+    sourceDirectoryNoNewFiles: "目录扫描完成，没有发现新的可处理文件。",
+    outputMode: "输出模式",
+    outputModes: {
+      source: "源目录",
+      custom: "自定义目录",
+      overwrite: "覆盖原图"
+    }
   },
   layout: {
     appShell: {

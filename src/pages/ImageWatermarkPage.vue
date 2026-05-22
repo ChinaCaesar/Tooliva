@@ -33,6 +33,7 @@ const {
   isProcessing,
   isDropActive,
   hintMessage,
+  outputMode,
   effectiveOutputDirectory,
   mode,
   text,
@@ -73,6 +74,13 @@ const {
 
 const watermarkTypeLabel = computed(() =>
   mode.value === "text" ? t("pages.imageWatermark.settings.textMode") : t("pages.imageWatermark.settings.imageMode")
+);
+const outputModeOptions = ["source", "custom", "overwrite"] as const;
+
+const outputFooterLabel = computed(() =>
+  outputMode.value === "overwrite"
+    ? t("common.outputModes.overwrite")
+    : effectiveOutputDirectory.value || t("pages.imageWatermark.output.defaultDirectory")
 );
 
 const outputNamingLabel = computed(() =>
@@ -364,6 +372,19 @@ function goOutputNamingSettings(): void {
                 </label>
               </div>
 
+              <p class="settings-section-label">{{ t("common.outputMode") }}</p>
+              <div class="mode-options" role="radiogroup" :aria-label="t('common.outputMode')">
+                <label
+                  v-for="option in outputModeOptions"
+                  :key="option"
+                  class="mode-option"
+                  :class="{ 'mode-option--active': outputMode === option }"
+                >
+                  <input v-model="outputMode" type="radio" :value="option" :disabled="isProcessing" />
+                  <span>{{ t(`common.outputModes.${option}`) }}</span>
+                </label>
+              </div>
+
               <template v-if="mode === 'text'">
                 <div class="setting-group setting-group--wide">
                   <label class="setting-label" for="watermark-text">{{ t("pages.imageWatermark.settings.text") }}</label>
@@ -472,15 +493,13 @@ function goOutputNamingSettings(): void {
         <div class="bottom-bar__left">
           <div class="bottom-bar__row">
             <span class="bottom-bar__label">{{ t("pages.imageWatermark.bottom.outputLabel") }}</span>
-            <span class="bottom-bar__path" :title="effectiveOutputDirectory || ''">{{
-              effectiveOutputDirectory || t("pages.imageWatermark.output.defaultDirectory")
-            }}</span>
-            <button type="button" class="btn btn--link" @click="pickOutputDirectory">{{ t("pages.imageWatermark.bottom.changeOutput") }}</button>
-            <button type="button" class="btn btn--link" :disabled="!effectiveOutputDirectory" @click="openEffectiveOutputDirectory">
+            <span class="bottom-bar__path" :title="outputFooterLabel">{{ outputFooterLabel }}</span>
+            <button v-if="outputMode !== 'overwrite'" type="button" class="btn btn--link" @click="pickOutputDirectory">{{ t("pages.imageWatermark.bottom.changeOutput") }}</button>
+            <button v-if="outputMode !== 'overwrite'" type="button" class="btn btn--link" :disabled="!effectiveOutputDirectory" @click="openEffectiveOutputDirectory">
               {{ t("pages.imageWatermark.output.openDirectory") }}
             </button>
           </div>
-          <div class="bottom-bar__row bottom-bar__row--naming">
+          <div v-if="outputMode !== 'overwrite'" class="bottom-bar__row bottom-bar__row--naming">
             <span class="bottom-bar__label">{{ t("pages.imageWatermark.bottom.namingLabel") }}</span>
             <span class="bottom-bar__naming">{{ outputNamingLabel }}</span>
             <button type="button" class="btn btn--link btn--link-muted" @click="goOutputNamingSettings">
