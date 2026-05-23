@@ -1,5 +1,6 @@
 ﻿<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -17,6 +18,8 @@ import {
 } from "@lucide/vue";
 import { tauriClient } from "@/bridge/tauriClient";
 import { useBatchTask } from "@/modules/batch";
+
+const { t } = useI18n();
 
 type RemovalStatus = "pending" | "processing" | "done" | "failed";
 type RemovalMode = "standard" | "quality";
@@ -51,7 +54,7 @@ const isDropActive = ref(false);
 const removalMode = ref<RemovalMode>("standard");
 const batchApply = ref(true);
 const outputFormat = ref<OutputFormat>("auto");
-const outputDir = ref("D:\\工具箱\\去水印结果");
+const outputDir = ref(t("pages.imageWatermarkRemoval.output.defaultDirectory"));
 const elapsedSeconds = ref(0);
 const hintMessage = ref("");
 const showProcessed = ref(false);
@@ -100,8 +103,11 @@ const selectedPreviewFit = computed<"landscape" | "portrait">(() => {
 });
 
 const progressTitle = computed(() => {
-  if (!isRunning.value) return "暂无任务";
-  return `正在处理 ${currentDisplayIndex.value} / ${items.value.length} 张图片`;
+  if (!isRunning.value) return t("pages.imageWatermarkRemoval.progress.noTask");
+  return t("pages.imageWatermarkRemoval.progress.processing", {
+    current: currentDisplayIndex.value,
+    total: items.value.length
+  });
 });
 
 const remainingTime = computed(() => {
@@ -140,13 +146,7 @@ function isSupportedImage(path: string): boolean {
 }
 
 function statusLabel(status: RemovalStatus): string {
-  const labels: Record<RemovalStatus, string> = {
-    pending: "待处理",
-    processing: "处理中",
-    done: "已完成",
-    failed: "失败"
-  };
-  return labels[status];
+  return t(`pages.imageWatermarkRemoval.itemStatus.${status}`);
 }
 
 async function readMetadata(path: string): Promise<{ bytes: number; width: number; height: number; previewUrl: string }> {
@@ -184,7 +184,7 @@ function loadImageDimensions(src: string): Promise<{ width: number; height: numb
 async function appendPaths(paths: string[]) {
   const unique = paths.filter(isSupportedImage).filter((path) => !items.value.some((item) => item.path === path));
   if (unique.length === 0) {
-    hintMessage.value = "仅支持 JPG / PNG / BMP / WEBP 格式图片";
+    hintMessage.value = t("pages.imageWatermarkRemoval.hints.unsupportedFormats");
     return;
   }
   hintMessage.value = "";
@@ -208,7 +208,7 @@ async function appendPaths(paths: string[]) {
 async function pickFiles() {
   const selected = await open({
     multiple: true,
-    filters: [{ name: "Images", extensions: supportedExtensions }]
+    filters: [{ name: t("pages.imageWatermarkRemoval.dialog.imagesFilterName"), extensions: supportedExtensions }]
   });
   if (!selected) return;
   await appendPaths(Array.isArray(selected) ? selected : [selected]);
@@ -329,7 +329,10 @@ function onPreviewPointerCancel() {
 
 async function startRemoval() {
   if (!canStart.value) {
-    hintMessage.value = items.value.length === 0 ? "请先添加图片" : "请先在图片上框选需要去除的水印区域";
+    hintMessage.value =
+      items.value.length === 0
+        ? t("pages.imageWatermarkRemoval.hints.addImagesFirst")
+        : t("pages.imageWatermarkRemoval.hints.selectRegionsFirst");
     return;
   }
   stopTimers();
@@ -346,7 +349,9 @@ async function startRemoval() {
       await ensureLamaModelReady();
       modelLoading.value = true;
       modelPercent.value = 100;
-      modelStage.value = `正在启动 LaMA worker（${runtimeDevice.value ? runtimeDevice.value.toUpperCase() : "CPU"}）`;
+      modelStage.value = t("pages.imageWatermarkRemoval.model.startingWorker", {
+        device: runtimeDevice.value ? runtimeDevice.value.toUpperCase() : "CPU"
+      });
     } else {
       await refreshAiRuntimeStatus();
     }
@@ -370,7 +375,7 @@ async function startRemoval() {
     stopTimers();
     modelLoading.value = false;
     const message = error instanceof Error ? error.message : String(error);
-    hintMessage.value = message || "启动 AI 去水印任务失败";
+    hintMessage.value = message || t("pages.imageWatermarkRemoval.hints.startTaskFailed");
     modelError.value = hintMessage.value;
   }
 }
@@ -410,14 +415,14 @@ function buildRegionsByFile(): Record<string, Array<{ x: number; y: number; widt
 async function ensureLamaModelReady(): Promise<void> {
   modelLoading.value = true;
   modelPercent.value = 0;
-  modelStage.value = "正在检测 CUDA / CPU";
+  modelStage.value = t("pages.imageWatermarkRemoval.model.detectingRuntime");
   try {
     const status = await tauriClient.getAiModelStatus();
     modelStorePath.value = status.modelsRoot;
     runtimeDevice.value = status.runtimeDevice || "";
     torchVersion.value = status.torchVersion || "";
     if (!status.downloaded) {
-      modelStage.value = "首次使用正在下载 LaMA 模型";
+      modelStage.value = t("pages.imageWatermarkRemoval.model.downloadingFirstUse");
       const downloadedStatus = await tauriClient.downloadAiModel("lama");
       modelStorePath.value = downloadedStatus.modelsRoot;
       runtimeDevice.value = downloadedStatus.runtimeDevice || runtimeDevice.value;
@@ -487,7 +492,8 @@ watch([result, failures], () => {
   });
   if (snapshot.status === "FINISHED") showProcessed.value = true;
   if (snapshot.status === "FAILED") {
-    modelError.value = failures.value[0]?.errorMessage || snapshot.message || "AI 去水印任务失败";
+    modelError.value =
+      failures.value[0]?.errorMessage || snapshot.message || t("pages.imageWatermarkRemoval.hints.batchFailed");
     hintMessage.value = modelError.value;
   }
   stopTimers();
@@ -500,7 +506,11 @@ onMounted(async () => {
   disposeModelProgress = await tauriClient.onAiModelProgress((payload) => {
     if (payload.modelId !== "lama") return;
     modelPercent.value = payload.percent;
-    modelStage.value = payload.message || (payload.stage === "ready" ? "LaMA 模型已准备完成" : "正在下载 LaMA 模型");
+    modelStage.value =
+      payload.message ||
+      (payload.stage === "ready"
+        ? t("pages.imageWatermarkRemoval.model.lamaReady")
+        : t("pages.imageWatermarkRemoval.model.downloading"));
   });
 });
 
@@ -516,11 +526,11 @@ onBeforeUnmount(() => {
     <div class="wm-workspace">
       <section class="wm-card wm-card--list" aria-labelledby="wm-list-title">
         <div class="wm-card-head">
-          <h3 id="wm-list-title" class="wm-card-head__title">文件列表（{{ items.length }}）</h3>
+          <h3 id="wm-list-title" class="wm-card-head__title">{{ t("pages.imageWatermarkRemoval.list.fileListTitle", { count: items.length }) }}</h3>
           <div class="wm-card-head__actions">
-            <button type="button" class="wm-btn wm-btn--small" @click="pickFiles"><Plus :size="15" />添加图片</button>
+            <button type="button" class="wm-btn wm-btn--small" @click="pickFiles"><Plus :size="15" />{{ t("pages.imageWatermarkRemoval.list.addImages") }}</button>
             <button type="button" class="wm-btn wm-btn--small" :disabled="items.length === 0 || isRunning" @click="clearList">
-              <Trash2 :size="15" />清空列表
+              <Trash2 :size="15" />{{ t("pages.imageWatermarkRemoval.list.clearList") }}
             </button>
           </div>
         </div>
@@ -537,11 +547,11 @@ onBeforeUnmount(() => {
             <ImagePlus :size="items.length ? 34 : 72" :stroke-width="1.6" />
             <span class="wm-drop__plus">+</span>
           </div>
-          <p class="wm-drop__title">拖拽图片到此处，或<span @click.stop="pickFiles">点击添加图片</span></p>
-          <p class="wm-drop__sub">支持 JPG / PNG / BMP / WEBP 等格式</p>
+          <p class="wm-drop__title">{{ t("pages.imageWatermarkRemoval.drop.titlePrefix") }}<span @click.stop="pickFiles">{{ t("pages.imageWatermarkRemoval.drop.titleAction") }}</span></p>
+          <p class="wm-drop__sub">{{ t("pages.imageWatermarkRemoval.drop.formatsHint") }}</p>
           <template v-if="items.length === 0">
-            <strong class="wm-drop__batch">支持批量导入</strong>
-            <p class="wm-drop__sub">可同时添加多张图片进行处理</p>
+            <strong class="wm-drop__batch">{{ t("pages.imageWatermarkRemoval.drop.batchLabel") }}</strong>
+            <p class="wm-drop__sub">{{ t("pages.imageWatermarkRemoval.drop.batchHint") }}</p>
           </template>
         </div>
 
@@ -560,20 +570,20 @@ onBeforeUnmount(() => {
 
         <p v-if="hintMessage" class="wm-hint">{{ hintMessage }}</p>
         <footer class="wm-list-foot">
-          <span>共 {{ items.length }} 张图片</span>
-          <span>总大小：{{ formatBytes(totalBytes) }}</span>
+          <span>{{ t("pages.imageWatermarkRemoval.list.summaryCount", { count: items.length }) }}</span>
+          <span>{{ t("pages.imageWatermarkRemoval.list.totalSize", { size: formatBytes(totalBytes) }) }}</span>
         </footer>
       </section>
 
       <section class="wm-card wm-card--preview" aria-labelledby="wm-preview-title">
         <header class="wm-preview-head">
           <div>
-            <h3 id="wm-preview-title" class="wm-card-head__title">图片标注与预览</h3>
-            <p class="wm-warning"><Info :size="14" />{{ selectedItem ? "在图片上拖拽矩形框选水印位置，可添加多个框，框右上角可删除" : "请先添加图片，并在图片上框选需要去除的水印区域" }}</p>
+            <h3 id="wm-preview-title" class="wm-card-head__title">{{ t("pages.imageWatermarkRemoval.preview.sectionTitle") }}</h3>
+            <p class="wm-warning"><Info :size="14" />{{ selectedItem ? t("pages.imageWatermarkRemoval.preview.hintWithImage") : t("pages.imageWatermarkRemoval.preview.hintNoImage") }}</p>
           </div>
           <div class="wm-tabs">
-            <button type="button" :class="{ on: !showProcessed }" @click="showProcessed = false">原图</button>
-            <button type="button" :class="{ on: showProcessed }" :disabled="!canShowProcessed" @click="showProcessed = true">处理后</button>
+            <button type="button" :class="{ on: !showProcessed }" @click="showProcessed = false">{{ t("pages.imageWatermarkRemoval.preview.tabOriginal") }}</button>
+            <button type="button" :class="{ on: showProcessed }" :disabled="!canShowProcessed" @click="showProcessed = true">{{ t("pages.imageWatermarkRemoval.preview.tabProcessed") }}</button>
           </div>
         </header>
 
@@ -595,7 +605,13 @@ onBeforeUnmount(() => {
                 class="wm-region"
                 :style="{ left: `${region.x}%`, top: `${region.y}%`, width: `${region.width}%`, height: `${region.height}%` }"
               >
-                <button type="button" title="删除框选区域" aria-label="删除框选区域" @pointerdown.stop @click.stop="removeRegion(region.id)">
+                <button
+                  type="button"
+                  :title="t('pages.imageWatermarkRemoval.preview.removeRegion')"
+                  :aria-label="t('pages.imageWatermarkRemoval.preview.removeRegion')"
+                  @pointerdown.stop
+                  @click.stop="removeRegion(region.id)"
+                >
                   <X :size="13" />
                 </button>
               </span>
@@ -613,33 +629,33 @@ onBeforeUnmount(() => {
           </div>
           <div v-else class="wm-empty-preview">
             <div class="wm-empty-preview__art" aria-hidden="true"><ImagePlus :size="96" /><Brush :size="50" /></div>
-            <strong>暂无图片</strong>
-            <span>请从左侧添加图片开始处理</span>
+            <strong>{{ t("pages.imageWatermarkRemoval.preview.emptyTitle") }}</strong>
+            <span>{{ t("pages.imageWatermarkRemoval.preview.emptyHint") }}</span>
           </div>
         </div>
 
         <footer class="wm-preview-foot">
-          <p><Info :size="14" />提示：请尽量完整框选水印区域，边缘可稍大一些，效果更佳</p>
-          <button v-if="selectedItem" type="button" class="wm-btn wm-btn--small" @click="clearRegions"><Trash2 :size="14" />清除全部框选</button>
+          <p><Info :size="14" />{{ t("pages.imageWatermarkRemoval.preview.footTip") }}</p>
+          <button v-if="selectedItem" type="button" class="wm-btn wm-btn--small" @click="clearRegions"><Trash2 :size="14" />{{ t("pages.imageWatermarkRemoval.preview.clearRegions") }}</button>
         </footer>
       </section>
 
       <section class="wm-card wm-card--settings" aria-labelledby="wm-settings-title">
-        <h3 id="wm-settings-title" class="wm-card-head__title">去除设置</h3>
+        <h3 id="wm-settings-title" class="wm-card-head__title">{{ t("pages.imageWatermarkRemoval.settings.title") }}</h3>
         <div class="wm-separator" />
 
         <div class="wm-settings-section">
-          <h4>基础设置</h4>
-          <label class="wm-field-label">去除模式</label>
+          <h4>{{ t("pages.imageWatermarkRemoval.settings.basics") }}</h4>
+          <label class="wm-field-label">{{ t("pages.imageWatermarkRemoval.settings.removalMode") }}</label>
           <div class="wm-segment wm-segment--two">
-            <button type="button" :class="{ on: removalMode === 'standard' }" @click="applyMode('standard')">标准</button>
-            <button type="button" :class="{ on: removalMode === 'quality' }" @click="applyMode('quality')">高清</button>
+            <button type="button" :class="{ on: removalMode === 'standard' }" @click="applyMode('standard')">{{ t("pages.imageWatermarkRemoval.settings.modeStandard") }}</button>
+            <button type="button" :class="{ on: removalMode === 'quality' }" @click="applyMode('quality')">{{ t("pages.imageWatermarkRemoval.settings.modeQuality") }}</button>
           </div>
-          <p class="wm-muted">标准模式按原图局部修复并融合回原图；高清模式使用 LaMA，速度更慢</p>
+          <p class="wm-muted">{{ t("pages.imageWatermarkRemoval.settings.removalModeHint") }}</p>
         </div>
 
         <label class="wm-switch-row">
-          <span><strong>批量应用</strong><em>将当前标注区域应用到全部图片</em></span>
+          <span><strong>{{ t("pages.imageWatermarkRemoval.settings.batchApply") }}</strong><em>{{ t("pages.imageWatermarkRemoval.settings.batchApplyHint") }}</em></span>
           <input v-model="batchApply" type="checkbox" />
           <i />
         </label>
@@ -647,14 +663,14 @@ onBeforeUnmount(() => {
         <div class="wm-separator" />
 
         <div class="wm-settings-section">
-          <h4>输出设置</h4>
-          <label class="wm-field-label">输出格式</label>
+          <h4>{{ t("pages.imageWatermarkRemoval.settings.outputSection") }}</h4>
+          <label class="wm-field-label">{{ t("pages.imageWatermarkRemoval.settings.outputFormat") }}</label>
           <div class="wm-segment">
-            <button type="button" :class="{ on: outputFormat === 'auto' }" @click="outputFormat = 'auto'">原格式</button>
+            <button type="button" :class="{ on: outputFormat === 'auto' }" @click="outputFormat = 'auto'">{{ t("pages.imageWatermarkRemoval.settings.formatAuto") }}</button>
             <button type="button" :class="{ on: outputFormat === 'png' }" @click="outputFormat = 'png'">PNG</button>
             <button type="button" :class="{ on: outputFormat === 'jpg' }" @click="outputFormat = 'jpg'">JPG</button>
           </div>
-          <p class="wm-muted">默认按原图格式输出；PNG 无损，JPG 体积更小</p>
+          <p class="wm-muted">{{ t("pages.imageWatermarkRemoval.settings.outputFormatHint") }}</p>
         </div>
       </section>
     </div>
@@ -663,26 +679,26 @@ onBeforeUnmount(() => {
       <div class="wm-bottom__summary">
         <div class="wm-ring" :style="{ '--p': progressPercent }"><span>{{ progressPercent }}%</span></div>
         <div class="wm-bottom__metrics">
-          <h3>整体进度</h3>
+          <h3>{{ t("pages.imageWatermarkRemoval.bottomBar.overallProgress") }}</h3>
           <dl class="wm-metrics-grid">
             <div>
-              <dt>状态</dt>
-              <dd>{{ isRunning ? progressTitle : "暂无任务" }}</dd>
+              <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.status") }}</dt>
+              <dd>{{ isRunning ? progressTitle : t("pages.imageWatermarkRemoval.progress.noTask") }}</dd>
             </div>
             <div>
-              <dt>AI 引擎</dt>
+              <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.aiEngine") }}</dt>
               <dd>{{ runtimeDevice ? `${runtimeDevice.toUpperCase()}${torchVersion ? ` / Torch ${torchVersion}` : ""}` : "--" }}</dd>
             </div>
             <div>
-              <dt>任务数量</dt>
-              <dd>共 {{ items.length }} 张图片</dd>
+              <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.taskCount") }}</dt>
+              <dd>{{ t("pages.imageWatermarkRemoval.bottomBar.taskCountValue", { count: items.length }) }}</dd>
             </div>
             <div>
-              <dt>已用时间</dt>
+              <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.elapsed") }}</dt>
               <dd>{{ isRunning ? formatDuration(elapsedSeconds) : "--:--:--" }}</dd>
             </div>
             <div class="wm-metrics-grid__progress">
-              <dt>总体进度</dt>
+              <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.overallProgressDetail") }}</dt>
               <dd>
                 <span>{{ isRunning || modelLoading ? `${modelLoading ? modelPercent : progressPercent}%` : "--" }}</span>
                 <div class="wm-progress-line"><i :style="{ width: `${modelLoading ? modelPercent : progressPercent}%` }" /></div>
@@ -694,42 +710,60 @@ onBeforeUnmount(() => {
 
       <div class="wm-bottom__footer">
         <div class="wm-bottom__output">
-          <label for="wm-bottom-output-dir">输出目录：</label>
+          <label for="wm-bottom-output-dir">{{ t("pages.imageWatermarkRemoval.bottomBar.outputDirLabel") }}</label>
           <div class="wm-bottom__output-row">
-            <input id="wm-bottom-output-dir" v-model="outputDir" type="text" :disabled="isRunning" title="输出目录" />
-            <button type="button" title="选择输出目录" aria-label="选择输出目录" :disabled="isRunning" @click="pickOutputDir">
+            <input
+              id="wm-bottom-output-dir"
+              v-model="outputDir"
+              type="text"
+              :disabled="isRunning"
+              :title="t('pages.imageWatermarkRemoval.bottomBar.outputDirTitle')"
+            />
+            <button
+              type="button"
+              :title="t('pages.imageWatermarkRemoval.bottomBar.pickOutputAria')"
+              :aria-label="t('pages.imageWatermarkRemoval.bottomBar.pickOutputAria')"
+              :disabled="isRunning"
+              @click="pickOutputDir"
+            >
               <Folder :size="18" />
             </button>
           </div>
         </div>
 
         <div class="wm-bottom__actions">
-          <button type="button" class="wm-action wm-action--primary" :disabled="!canStart" @click="startRemoval"><PlayCircle :size="18" />{{ modelLoading ? "模型准备中" : "开始去除" }}</button>
-          <button type="button" class="wm-action" :disabled="!isRunning" @click="stopTask"><PauseCircle :size="18" />停止任务</button>
-          <button type="button" class="wm-action" @click="openOutputDirectory"><Folder :size="18" />打开输出目录</button>
+          <button type="button" class="wm-action wm-action--primary" :disabled="!canStart" @click="startRemoval">
+            <PlayCircle :size="18" />{{ modelLoading ? t("pages.imageWatermarkRemoval.bottomBar.preparingModel") : t("pages.imageWatermarkRemoval.bottomBar.start") }}
+          </button>
+          <button type="button" class="wm-action" :disabled="!isRunning" @click="stopTask"><PauseCircle :size="18" />{{ t("pages.imageWatermarkRemoval.bottomBar.stopTask") }}</button>
+          <button type="button" class="wm-action" @click="openOutputDirectory"><Folder :size="18" />{{ t("pages.imageWatermarkRemoval.bottomBar.openOutput") }}</button>
         </div>
       </div>
     </footer>
     <div v-if="modelLoading" class="wm-model-loading" role="status" aria-live="polite">
       <div class="wm-model-loading__panel">
-        <strong>正在准备 LaMA 修复模型</strong>
-        <span>{{ modelStage || "正在准备模型文件" }}</span>
+        <strong>{{ t("pages.imageWatermarkRemoval.model.overlayTitle") }}</strong>
+        <span>{{ modelStage || t("pages.imageWatermarkRemoval.model.preparingFiles") }}</span>
         <div class="wm-model-loading__bar"><i :style="{ width: `${modelPercent}%` }" /></div>
         <div class="wm-model-loading__meta">
-          <span>{{ runtimeDevice ? `当前设备：${runtimeDevice.toUpperCase()}` : "正在检测 CUDA / CPU" }}</span>
+          <span>{{
+            runtimeDevice
+              ? t("pages.imageWatermarkRemoval.model.currentDevice", { device: runtimeDevice.toUpperCase() })
+              : t("pages.imageWatermarkRemoval.model.detectingRuntime")
+          }}</span>
           <span v-if="torchVersion">Torch {{ torchVersion }}</span>
         </div>
-        <p v-if="modelStorePath">模型保存位置：{{ modelStorePath }}</p>
+        <p v-if="modelStorePath">{{ t("pages.imageWatermarkRemoval.model.storePathLabel", { path: modelStorePath }) }}</p>
       </div>
     </div>
     <div v-if="modelError && !modelLoading" class="wm-model-error" role="alert">
       <div>
-        <strong>AI 模型准备失败</strong>
+        <strong>{{ t("pages.imageWatermarkRemoval.model.prepFailedTitle") }}</strong>
         <span>{{ modelError }}</span>
       </div>
-      <button type="button" @click="modelError = ''">关闭</button>
+      <button type="button" @click="modelError = ''">{{ t("pages.imageWatermarkRemoval.model.close") }}</button>
     </div>
-    <p class="wm-toast-tip">温馨提示：请先在图片上框选需要去除的水印区域，才能开始处理。</p>
+    <p class="wm-toast-tip">{{ t("pages.imageWatermarkRemoval.toastTip") }}</p>
   </div>
 </template>
 

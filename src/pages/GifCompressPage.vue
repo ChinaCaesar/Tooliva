@@ -572,7 +572,7 @@ async function onOpenOutput() {
     <div class="gif-workspace">
       <section class="gif-card gif-card--list" aria-labelledby="gif-list-title">
         <div class="gif-card-head">
-          <h3 id="gif-list-title" class="gif-card-head__title">{{ t("pages.gifCompress.listTitle") }}（{{ items.length }}）</h3>
+          <h3 id="gif-list-title" class="gif-card-head__title">{{ t("pages.gifCompress.listTitle") }} ({{ items.length }})</h3>
           <div class="gif-card-head__actions">
             <button type="button" class="gif-btn gif-btn--list-action" @click="pickFiles"><Plus :size="14" />{{ t("pages.gifCompress.addFiles") }}</button>
             <button type="button" class="gif-btn gif-btn--list-action" :disabled="isRunning || items.length === 0" @click="clearList"><Trash2 :size="14" />{{ t("pages.gifCompress.clearList") }}</button>
@@ -581,16 +581,16 @@ async function onOpenOutput() {
 
         <div v-if="items.length === 0" class="gif-drop gif-drop--empty" :class="{ 'gif-drop--active': isDropActive }" @click.self="pickFiles" @drop="handleDrop" @dragover="onDragOver" @dragleave="onDragLeave">
           <img class="gif-drop__image" :src="gifListImageUrl" alt="" />
-          <p class="gif-drop__title">拖拽 GIF 文件到此处，或<span @click.stop="pickFiles">点击添加</span></p>
-          <p class="gif-drop__sub">支持批量添加，最多同时处理 {{ MAX_FILES }} 个文件</p>
-          <div class="gif-drop__rules"><p>支持格式：.gif</p><p>建议单个文件小于 {{ RECOMMENDED_MB }}MB</p></div>
+          <p class="gif-drop__title">{{ t("pages.gifCompress.dropTitlePrefix") }}<span @click.stop="pickFiles">{{ t("pages.gifCompress.dropTitleAction") }}</span></p>
+          <p class="gif-drop__sub">{{ t("pages.gifCompress.maxFilesHint", { n: MAX_FILES }) }}</p>
+          <div class="gif-drop__rules"><p>{{ t("pages.gifCompress.formatHint") }}</p><p>{{ t("pages.gifCompress.sizeHint", { mb: RECOMMENDED_MB }) }}</p></div>
         </div>
 
         <template v-else>
           <div class="gif-drop gif-drop--compact" :class="{ 'gif-drop--active': isDropActive }" @click.self="pickFiles" @drop="handleDrop" @dragover="onDragOver" @dragleave="onDragLeave">
             <ImagePlus class="gif-drop__mini-icon" :size="34" :stroke-width="1.8" />
-            <p class="gif-drop__compact-title">拖拽 GIF 文件到此处，或<span @click.stop="pickFiles">点击添加</span></p>
-            <p class="gif-drop__sub">支持批量添加，最多同时处理 {{ MAX_FILES }} 个文件</p>
+            <p class="gif-drop__compact-title">{{ t("pages.gifCompress.dropTitlePrefix") }}<span @click.stop="pickFiles">{{ t("pages.gifCompress.dropTitleAction") }}</span></p>
+            <p class="gif-drop__sub">{{ t("pages.gifCompress.maxFilesHint", { n: MAX_FILES }) }}</p>
           </div>
           <ul class="gif-file-list">
             <li v-for="it in items" :key="it.id" class="gif-file" :class="{ 'gif-file--selected': it.id === selectedId }" @click="selectedId = it.id">
@@ -605,7 +605,7 @@ async function onOpenOutput() {
           </ul>
         </template>
         <p v-if="hintMessage" class="gif-hint">{{ hintMessage }}</p>
-        <footer v-if="items.length" class="gif-list-foot"><span>共 {{ items.length }} 个文件</span><span>总大小：{{ formatBytes(totalBytes) }}</span></footer>
+        <footer v-if="items.length" class="gif-list-foot"><span>{{ t("pages.gifCompress.totalFiles", { n: items.length }) }}</span><span>{{ t("pages.gifCompress.totalSize", { size: formatBytes(totalBytes) }) }}</span></footer>
       </section>
 
       <section class="gif-card gif-card--preview" aria-labelledby="gif-preview-title">
@@ -622,8 +622,8 @@ async function onOpenOutput() {
           <div v-if="!selectedItem" class="gif-preview-empty"><img class="gif-preview-empty__image" :src="gifPreviewImageUrl" alt="" /><p class="gif-preview-empty__title">{{ t("pages.gifCompress.emptyPreviewTitle") }}</p><p class="gif-preview-empty__sub">{{ t("pages.gifCompress.emptyPreviewDesc") }}</p></div>
         </div>
         <div class="gif-size-card">
-          <template v-if="selectedItem && estimatedCompressedBytes != null"><div class="gif-size-card__main"><strong>{{ formatBytes(selectedItem.bytes) }}</strong><span>→</span><strong class="gif-size-card__compressed">{{ formatBytes(estimatedCompressedBytes) }}</strong></div><p class="gif-savings">预计节省 {{ formatBytes(Math.max(0, selectedItem.bytes - estimatedCompressedBytes)) }}（{{ Math.max(0, savingsPct ?? 0) }}%）</p></template>
-          <template v-else><div class="gif-size-card__main gif-size-card__main--empty"><span>--</span><span>→</span><span>--</span></div><p class="gif-size-card__empty-row"><span>原始大小</span><span>压缩后大小</span></p><p class="muted">预计节省：--</p></template>
+          <template v-if="selectedItem && estimatedCompressedBytes != null"><div class="gif-size-card__main"><strong>{{ formatBytes(selectedItem.bytes) }}</strong><span>→</span><strong class="gif-size-card__compressed">{{ formatBytes(estimatedCompressedBytes) }}</strong></div><p class="gif-savings">{{ t("pages.gifCompress.savings", { size: formatBytes(Math.max(0, selectedItem.bytes - estimatedCompressedBytes)), pct: Math.max(0, savingsPct ?? 0) }) }}</p></template>
+          <template v-else><div class="gif-size-card__main gif-size-card__main--empty"><span>--</span><span>→</span><span>--</span></div><p class="gif-size-card__empty-row"><span>{{ t("pages.gifCompress.originalSizeShort") }}</span><span>{{ t("pages.gifCompress.compressedSizeShort") }}</span></p><p class="muted">{{ t("pages.gifCompress.savingsEmpty") }}</p></template>
         </div>
         <p class="gif-note"><Info :size="15" />{{ selectedItem ? t("pages.gifCompress.estimateDisclaimer") : t("pages.gifCompress.estimateNote") }}</p>
       </section>
@@ -655,8 +655,8 @@ async function onOpenOutput() {
     </div>
 
     <footer class="gif-bottom">
-      <div class="gif-bottom__progress"><div class="gif-ring" :style="{ '--p': progress?.percent ?? 0 }"><span>{{ progress?.percent ?? 0 }}%</span></div><div class="gif-bottom__summary"><div class="gif-bottom__title">{{ t("pages.gifCompress.bottomOverall") }}</div><div v-if="!isRunning && (!progress || progress.total === 0)" class="muted">{{ t("pages.gifCompress.bottomNoTask") }}</div><div v-else-if="progress" class="muted">{{ t("pages.gifCompress.bottomProcessing", { cur: displayProcessingIndex, total: progress.total }) }}</div><div class="muted">共 {{ items.length }} 个文件</div></div></div>
-      <div class="gif-bottom__current"><template v-if="selectedItem && isRunning"><img class="gif-bottom__thumb" :src="isTauri() ? convertFileSrc(selectedItem.path) : gifListImageUrl" alt="" /><div class="gif-bottom__file"><strong>{{ selectedItem.name }}</strong><span>正在压缩...</span></div></template><div class="gif-bottom__bar-wrap"><div class="gif-bottom__bar" :style="{ width: `${progress?.percent ?? 0}%` }" /></div><span class="gif-bottom__percent">{{ isRunning ? `${progress?.percent ?? 0}%` : "--" }}</span></div>
+      <div class="gif-bottom__progress"><div class="gif-ring" :style="{ '--p': progress?.percent ?? 0 }"><span>{{ progress?.percent ?? 0 }}%</span></div><div class="gif-bottom__summary"><div class="gif-bottom__title">{{ t("pages.gifCompress.bottomOverall") }}</div><div v-if="!isRunning && (!progress || progress.total === 0)" class="muted">{{ t("pages.gifCompress.bottomNoTask") }}</div><div v-else-if="progress" class="muted">{{ t("pages.gifCompress.bottomProcessing", { cur: displayProcessingIndex, total: progress.total }) }}</div><div class="muted">{{ t("pages.gifCompress.totalFiles", { n: items.length }) }}</div></div></div>
+      <div class="gif-bottom__current"><template v-if="selectedItem && isRunning"><img class="gif-bottom__thumb" :src="isTauri() ? convertFileSrc(selectedItem.path) : gifListImageUrl" alt="" /><div class="gif-bottom__file"><strong>{{ selectedItem.name }}</strong><span>{{ t("pages.gifCompress.statusCompressing") }}</span></div></template><div class="gif-bottom__bar-wrap"><div class="gif-bottom__bar" :style="{ width: `${progress?.percent ?? 0}%` }" /></div><span class="gif-bottom__percent">{{ isRunning ? `${progress?.percent ?? 0}%` : "--" }}</span></div>
       <div class="gif-bottom__actions"><button type="button" class="gif-action gif-action--primary" :disabled="!canStart" @click="startCompression"><PlayCircle :size="18" />{{ t("pages.gifCompress.start") }}</button><button type="button" class="gif-action gif-action--secondary" :disabled="!isRunning" @click="cancel"><PauseCircle :size="18" />{{ t("pages.gifCompress.stop") }}</button><button type="button" class="gif-action gif-action--secondary" @click="onOpenOutput"><Folder :size="18" />{{ t("pages.gifCompress.openOutput") }}</button></div>
     </footer>
   </div>

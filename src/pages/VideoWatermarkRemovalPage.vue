@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { Folder, Info, Maximize2, MoreVertical, PauseCircle, PlayCircle, Plus, Trash2, Video, Volume2, VolumeX, X } from "@lucide/vue";
 import { useBatchTask } from "@/modules/batch";
+
+const { t } = useI18n();
 
 type RemovalStatus = "pending" | "processing" | "done" | "failed";
 
@@ -35,7 +38,7 @@ const supportedExtensions = ["mp4", "webm", "mkv", "mov", "avi", "m4v", "wmv"];
 const items = ref<RemovalItem[]>([]);
 const selectedId = ref<string | null>(null);
 const isDropActive = ref(false);
-const outputDir = ref("D:\\工具箱\\视频去水印结果");
+const outputDir = ref(t("pages.videoWatermarkRemoval.output.defaultDirectory"));
 const hintMessage = ref("");
 const elapsedSeconds = ref(0);
 const draftRegion = ref<WatermarkRegion | null>(null);
@@ -73,10 +76,13 @@ const canStart = computed(() => items.value.length > 0 && hasRegions.value && !i
 const currentProgressItem = computed(() => items.value[Math.min(currentIndex.value, Math.max(0, items.value.length - 1))] ?? selectedItem.value);
 const progressTitle = computed(() => {
   if (progress.value?.message && isRunning.value) return progress.value.message;
-  if (!isRunning.value) return "暂无任务";
-  return `正在处理 ${currentDisplayIndex.value} / ${items.value.length} 个视频`;
+  if (!isRunning.value) return t("pages.videoWatermarkRemoval.progressPanel.idleTitle");
+  return t("pages.videoWatermarkRemoval.progressPanel.processingTitle", {
+    current: currentDisplayIndex.value,
+    total: items.value.length
+  });
 });
-const processingEngineLabel = computed(() => "FFmpeg 流式处理 / 自动硬件编码");
+const processingEngineLabel = computed(() => t("pages.videoWatermarkRemoval.engine.label"));
 const remainingTime = computed(() => {
   if (!isRunning.value) return "--";
   const remaining = Math.max(0, Math.round(((100 - progressPercent.value) / Math.max(1, progressPercent.value)) * elapsedSeconds.value));
@@ -132,13 +138,16 @@ function isSupportedVideo(path: string): boolean {
 }
 
 function statusLabel(status: RemovalStatus): string {
-  const labels: Record<RemovalStatus, string> = {
-    pending: "待处理",
-    processing: "处理中",
-    done: "已完成",
-    failed: "失败"
-  };
-  return labels[status];
+  switch (status) {
+    case "pending":
+      return t("pages.videoWatermarkRemoval.status.pending");
+    case "processing":
+      return t("pages.videoWatermarkRemoval.status.processing");
+    case "done":
+      return t("pages.videoWatermarkRemoval.status.done");
+    case "failed":
+      return t("pages.videoWatermarkRemoval.status.failed");
+  }
 }
 
 async function readMetadata(path: string): Promise<{ bytes: number; width: number; height: number; duration: number; previewUrl: string }> {
@@ -195,7 +204,7 @@ function loadVideoMetadata(src: string): Promise<{ width: number; height: number
 async function appendPaths(paths: string[]) {
   const unique = paths.filter(isSupportedVideo).filter((path) => !items.value.some((item) => item.path === path));
   if (unique.length === 0) {
-    hintMessage.value = "仅支持 MP4 / MOV / WebM / MKV / AVI / M4V / WMV 视频";
+    hintMessage.value = t("pages.videoWatermarkRemoval.hints.unsupportedFormats");
     return;
   }
   hintMessage.value = "";
@@ -220,7 +229,7 @@ async function appendPaths(paths: string[]) {
 async function pickFiles() {
   const selected = await open({
     multiple: true,
-    filters: [{ name: "Videos", extensions: supportedExtensions }]
+    filters: [{ name: t("pages.videoWatermarkRemoval.filePicker.videoFilter"), extensions: supportedExtensions }]
   });
   if (!selected) return;
   await appendPaths(Array.isArray(selected) ? selected : [selected]);
@@ -410,7 +419,10 @@ async function requestPreviewFullscreen() {
 
 async function startRemoval() {
   if (!canStart.value) {
-    hintMessage.value = items.value.length === 0 ? "请先添加视频" : "请先在视频画面上框选需要去除的水印区域";
+    hintMessage.value =
+      items.value.length === 0
+        ? t("pages.videoWatermarkRemoval.hints.addVideoFirst")
+        : t("pages.videoWatermarkRemoval.hints.selectRegionFirst");
     return;
   }
   stopTimers();
@@ -436,7 +448,7 @@ async function startRemoval() {
   } catch (error) {
     stopTimers();
     const message = error instanceof Error ? error.message : String(error);
-    hintMessage.value = message || "启动视频去水印任务失败";
+    hintMessage.value = message || t("pages.videoWatermarkRemoval.hints.startTaskFailed");
   }
 }
 
@@ -514,7 +526,7 @@ watch([result, failures], () => {
     item.outputPath = outputPaths.shift();
   });
   if (snapshot.status === "FAILED") {
-    hintMessage.value = failures.value[0]?.errorMessage || snapshot.message || "视频去水印任务失败";
+    hintMessage.value = failures.value[0]?.errorMessage || snapshot.message || t("pages.videoWatermarkRemoval.hints.taskFailed");
   }
   stopTimers();
 });
@@ -540,11 +552,11 @@ onBeforeUnmount(() => {
     <div class="vw-workspace">
       <section class="vw-card vw-card--list" aria-labelledby="vw-list-title">
         <div class="vw-card-head">
-          <h3 id="vw-list-title" class="vw-card-head__title">文件列表（{{ items.length }}）</h3>
+          <h3 id="vw-list-title" class="vw-card-head__title">{{ t("pages.videoWatermarkRemoval.list.title", { count: items.length }) }}</h3>
           <div class="vw-card-head__actions">
-            <button type="button" class="vw-btn vw-btn--small" @click="pickFiles"><Plus :size="15" />添加视频</button>
+            <button type="button" class="vw-btn vw-btn--small" @click="pickFiles"><Plus :size="15" />{{ t("pages.videoWatermarkRemoval.list.addVideos") }}</button>
             <button type="button" class="vw-btn vw-btn--small" :disabled="items.length === 0 || isRunning" @click="clearList">
-              <Trash2 :size="15" />清空列表
+              <Trash2 :size="15" />{{ t("pages.videoWatermarkRemoval.list.clearList") }}
             </button>
           </div>
         </div>
@@ -561,11 +573,11 @@ onBeforeUnmount(() => {
             <Video :size="items.length ? 34 : 56" :stroke-width="1.6" />
             <span class="vw-drop__plus">+</span>
           </div>
-          <p class="vw-drop__title">拖拽视频到此处，或<span @click.stop="pickFiles">点击添加视频</span></p>
-          <p class="vw-drop__sub">支持 MP4 / MOV / WebM / MKV / AVI / M4V / WMV</p>
+          <p class="vw-drop__title">{{ t("pages.videoWatermarkRemoval.list.dropHint") }}<span @click.stop="pickFiles">{{ t("pages.videoWatermarkRemoval.list.dropAddLink") }}</span></p>
+          <p class="vw-drop__sub">{{ t("pages.videoWatermarkRemoval.list.formatsLine") }}</p>
           <template v-if="items.length === 0">
-            <strong class="vw-drop__batch">支持批量导入</strong>
-            <p class="vw-drop__sub">同一水印位置的视频可共用当前框选区域</p>
+            <strong class="vw-drop__batch">{{ t("pages.videoWatermarkRemoval.list.batchImport") }}</strong>
+            <p class="vw-drop__sub">{{ t("pages.videoWatermarkRemoval.list.sharedRegionHint") }}</p>
           </template>
         </div>
 
@@ -584,18 +596,18 @@ onBeforeUnmount(() => {
 
         <p v-if="hintMessage" class="vw-hint">{{ hintMessage }}</p>
         <footer class="vw-list-foot">
-          <span>共 {{ items.length }} 个视频</span>
-          <span>总大小：{{ formatBytes(totalBytes) }}</span>
+          <span>{{ t("pages.videoWatermarkRemoval.list.totalVideos", { count: items.length }) }}</span>
+          <span>{{ t("pages.videoWatermarkRemoval.list.totalSize", { size: formatBytes(totalBytes) }) }}</span>
         </footer>
       </section>
 
-      <section class="vw-card vw-card--preview" aria-label="视频预览与框选区域">
+      <section class="vw-card vw-card--preview" :aria-label="t('pages.videoWatermarkRemoval.preview.aria')">
         <div class="vw-preview-head">
           <div>
-            <h3 class="vw-card-head__title">{{ selectedItem?.name || "视频预览" }}</h3>
-            <p class="vw-muted">在画面上拖拽框选需要去除的固定水印区域</p>
+            <h3 class="vw-card-head__title">{{ selectedItem?.name || t("pages.videoWatermarkRemoval.preview.titleFallback") }}</h3>
+            <p class="vw-muted">{{ t("pages.videoWatermarkRemoval.preview.instruction") }}</p>
           </div>
-          <button type="button" class="vw-btn vw-btn--small" :disabled="!selectedItem || isRunning" @click="clearRegions">清除框选</button>
+          <button type="button" class="vw-btn vw-btn--small" :disabled="!selectedItem || isRunning" @click="clearRegions">{{ t("pages.videoWatermarkRemoval.preview.clearRegions") }}</button>
         </div>
 
         <div ref="previewShellRef" class="vw-canvas-shell">
@@ -638,12 +650,12 @@ onBeforeUnmount(() => {
           </div>
           <div v-else class="vw-empty-preview">
             <div class="vw-empty-preview__art"><Video :size="92" :stroke-width="1.2" /></div>
-            <strong>暂无视频文件</strong>
-            <span>添加视频后即可在这里框选水印区域</span>
+            <strong>{{ t("pages.videoWatermarkRemoval.preview.emptyTitle") }}</strong>
+            <span>{{ t("pages.videoWatermarkRemoval.preview.emptyDesc") }}</span>
           </div>
         </div>
 
-        <div v-if="selectedItem" class="vw-player-controls" aria-label="视频预览控制">
+        <div v-if="selectedItem" class="vw-player-controls" :aria-label="t('pages.videoWatermarkRemoval.preview.controlsAria')">
           <button type="button" class="vw-player-button" @click="togglePreviewPlayback">
             <PauseCircle v-if="isPreviewPlaying" :size="19" />
             <PlayCircle v-else :size="19" />
@@ -669,41 +681,41 @@ onBeforeUnmount(() => {
         </div>
 
         <footer class="vw-preview-foot">
-          <p><Info :size="15" />输出格式默认保持原视频格式；多视频水印位置一致时可共用当前框选区域。</p>
-          <span v-if="selectedItem">已框选 {{ selectedItem.regions.length }} 个区域</span>
+          <p><Info :size="15" />{{ t("pages.videoWatermarkRemoval.preview.outputNote") }}</p>
+          <span v-if="selectedItem">{{ t("pages.videoWatermarkRemoval.preview.regionsSelected", { count: selectedItem.regions.length }) }}</span>
         </footer>
       </section>
 
     </div>
 
-    <section class="vw-bottom" aria-label="处理进度">
+    <section class="vw-bottom" :aria-label="t('pages.videoWatermarkRemoval.progressPanel.aria')">
       <div class="vw-bottom__summary">
         <div class="vw-ring" :style="{ '--p': progressPercent }"><span>{{ Math.round(progressPercent) }}%</span></div>
         <div class="vw-bottom__metrics">
           <h3>{{ progressTitle }}</h3>
           <dl class="vw-metrics-grid">
             <div>
-              <dt>任务数量</dt>
+              <dt>{{ t("pages.videoWatermarkRemoval.progressPanel.taskCount") }}</dt>
               <dd>{{ progress?.finished ?? 0 }} / {{ items.length }}</dd>
             </div>
             <div>
-              <dt>当前文件</dt>
+              <dt>{{ t("pages.videoWatermarkRemoval.progressPanel.currentFile") }}</dt>
               <dd>{{ currentProgressItem?.name || "--" }}</dd>
             </div>
             <div>
-              <dt>预计剩余</dt>
+              <dt>{{ t("pages.videoWatermarkRemoval.progressPanel.estimatedRemaining") }}</dt>
               <dd>{{ remainingTime }}</dd>
             </div>
             <div>
-              <dt>已用时间</dt>
+              <dt>{{ t("pages.videoWatermarkRemoval.progressPanel.elapsed") }}</dt>
               <dd>{{ isRunning || elapsedSeconds > 0 ? formatDuration(elapsedSeconds) : "--:--:--" }}</dd>
             </div>
             <div>
-              <dt>处理引擎</dt>
+              <dt>{{ t("pages.videoWatermarkRemoval.progressPanel.engine") }}</dt>
               <dd :title="processingEngineLabel">{{ processingEngineLabel }}</dd>
             </div>
             <div class="vw-metrics-grid__progress">
-              <dt>总体进度</dt>
+              <dt>{{ t("pages.videoWatermarkRemoval.progressPanel.overallProgress") }}</dt>
               <dd><span>{{ Math.round(progressPercent) }}%</span><i class="vw-progress-line"><i :style="{ width: `${progressPercent}%` }"></i></i></dd>
             </div>
           </dl>
@@ -711,23 +723,23 @@ onBeforeUnmount(() => {
       </div>
       <div class="vw-bottom__footer">
         <div class="vw-bottom__output">
-          <label>输出目录</label>
+          <label>{{ t("pages.videoWatermarkRemoval.output.directoryLabel") }}</label>
           <div class="vw-bottom__output-row">
             <input v-model="outputDir" :disabled="isRunning" />
             <button type="button" :disabled="isRunning" @click="pickOutputDir"><Folder :size="18" /></button>
           </div>
         </div>
         <div class="vw-bottom__actions">
-          <button type="button" class="vw-action" :disabled="!result?.successOutputPaths?.length" @click="openOutputDirectory"><Folder :size="18" />打开目录</button>
-          <button v-if="isRunning" type="button" class="vw-action" @click="stopTask"><PauseCircle :size="19" />停止处理</button>
+          <button type="button" class="vw-action" :disabled="!result?.successOutputPaths?.length" @click="openOutputDirectory"><Folder :size="18" />{{ t("pages.videoWatermarkRemoval.output.openFolder") }}</button>
+          <button v-if="isRunning" type="button" class="vw-action" @click="stopTask"><PauseCircle :size="19" />{{ t("pages.videoWatermarkRemoval.actions.stop") }}</button>
           <button v-else type="button" class="vw-action vw-action--primary" :disabled="!canStart" @click="startRemoval">
-            <PlayCircle :size="19" />开始去水印
+            <PlayCircle :size="19" />{{ t("pages.videoWatermarkRemoval.actions.start") }}
           </button>
         </div>
       </div>
     </section>
 
-    <p class="vw-toast-tip">温馨提示：请先在视频画面上框选需要去除的水印区域，再开始处理。</p>
+    <p class="vw-toast-tip">{{ t("pages.videoWatermarkRemoval.tip") }}</p>
   </div>
 </template>
 

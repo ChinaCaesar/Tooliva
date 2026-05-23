@@ -23,6 +23,5 @@ export const APP_NAV_SECONDARY_ITEMS: AppNavSecondaryItem[] = [
     subtitleKey: "layout.appShell.nav.membershipSubtitle",
     path: ROUTE_PATHS.membership
   },
-  { id: "history", kind: "placeholder", labelKey: "layout.appShell.nav.history", placeholderMessageKey: "layout.appShell.placeholders.history" },
   { id: "settings", kind: "route", labelKey: "layout.appShell.nav.settings", path: ROUTE_PATHS.settings }
 ];

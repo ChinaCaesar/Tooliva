@@ -66,7 +66,6 @@ const PREVIEW_BASE = {
   width: 920,
   height: 620
 } as const;
-const DEFAULT_WATERMARK_TEXT = "水印";
 const DEFAULT_WATERMARK_FONT_SIZE = 100;
 const WINDOWS_PATH_SEPARATOR = "\\";
 
@@ -183,7 +182,7 @@ function resolvePresetRatios(
  * 图片加水印页核心动作：导入、参数校验、串行处理与结果汇总。
  */
 export function useImageWatermarkActions() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const settingsStore = useSettingsStore();
   const taskStore = useTaskStore();
   const { notifyTaskBatchCompleted } = useTaskBatchNotification();
@@ -196,7 +195,8 @@ export function useImageWatermarkActions() {
   const outputMode = ref<WatermarkOutputMode>("source");
   const sourceDirectory = ref("");
   const mode = ref<WatermarkMode>("text");
-  const text = ref(DEFAULT_WATERMARK_TEXT);
+  const localizedDefaultWatermarkText = ref(t("pages.imageWatermark.settings.defaultText"));
+  const text = ref(localizedDefaultWatermarkText.value);
   const fontSize = ref(DEFAULT_WATERMARK_FONT_SIZE);
   const textColor = ref("#FFFFFF");
   const imagePath = ref("");
@@ -232,6 +232,15 @@ export function useImageWatermarkActions() {
   let watermarkGeometryRequestId = 0;
   let textOverlayPreviewRequestId = 0;
   let textOverlayRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  watch(locale, () => {
+    const previousDefault = localizedDefaultWatermarkText.value;
+    const nextDefault = t("pages.imageWatermark.settings.defaultText");
+    if (text.value === previousDefault) {
+      text.value = nextDefault;
+    }
+    localizedDefaultWatermarkText.value = nextDefault;
+  });
 
   const visibleItems = computed(() => items.value.slice(0, MAX_VISIBLE_ITEMS));
   const hiddenItemCount = computed(() => Math.max(0, items.value.length - visibleItems.value.length));
@@ -385,7 +394,9 @@ export function useImageWatermarkActions() {
       appendImagePaths(imagePaths);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      hintMessage.value = message ? `选择图片失败：${message}` : "无法打开图片选择器";
+      hintMessage.value = message
+        ? t("pages.imageWatermark.hints.pickImagesFailed", { message })
+        : t("pages.imageWatermark.hints.cannotOpenImagePicker");
     }
   }
 
@@ -414,14 +425,16 @@ export function useImageWatermarkActions() {
    */
   async function openEffectiveOutputDirectory(): Promise<void> {
     if (!effectiveOutputDirectory.value) {
-      hintMessage.value = "当前暂无可打开的输出目录";
+      hintMessage.value = t("pages.imageWatermark.hints.noOutputDirectory");
       return;
     }
     try {
       await tauriClient.openDirectoryInFileManager({ directoryPath: effectiveOutputDirectory.value });
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      hintMessage.value = message ? `打开输出目录失败：${message}` : "打开输出目录失败";
+      hintMessage.value = message
+        ? t("pages.imageWatermark.hints.openOutputDirectoryFailed", { message })
+        : t("pages.imageWatermark.errors.openOutputDirectoryFailed");
     }
   }
 
@@ -436,14 +449,16 @@ export function useImageWatermarkActions() {
       });
       if (!selected || Array.isArray(selected)) return;
       if (!SUPPORTED_WATERMARK_EXTENSIONS.some((ext) => selected.toLowerCase().endsWith(ext))) {
-        hintMessage.value = "水印素材仅支持 PNG/WEBP/JPG/JPEG";
+        hintMessage.value = t("pages.imageWatermark.hints.watermarkImageUnsupportedFormats");
         return;
       }
       imagePath.value = selected;
       hintMessage.value = "";
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      hintMessage.value = message ? `选择水印图片失败：${message}` : "无法打开水印图片选择器";
+      hintMessage.value = message
+        ? t("pages.imageWatermark.hints.pickWatermarkImageFailed", { message })
+        : t("pages.imageWatermark.hints.cannotOpenWatermarkPicker");
     }
   }
 
@@ -461,7 +476,9 @@ export function useImageWatermarkActions() {
       if (path) imagePaths.push(path);
     }
     if (imagePaths.length === 0) {
-      hintMessage.value = "拖拽未获取到有效本地路径，请点击“添加图片”";
+      hintMessage.value = t("pages.imageWatermark.hints.dragDropNoLocalPath", {
+        pickImages: t("pages.imageWatermark.source.pickImages")
+      });
       return;
     }
     appendImagePaths(imagePaths);
@@ -812,7 +829,7 @@ export function useImageWatermarkActions() {
     if (!changed) return;
     resultSummary.value = null;
     if (reason === "mode") {
-      hintMessage.value = "已切换水印模式，可重新执行当前任务";
+      hintMessage.value = t("pages.imageWatermark.hints.modeSwitchedReprocess");
     }
   }
 
@@ -862,8 +879,8 @@ export function useImageWatermarkActions() {
   async function startWatermark(): Promise<void> {
     if (!canStart.value) return;
     if (mode.value === "text" && text.value.trim().length === 0) {
-      hintMessage.value = "请输入水印文字后再开始处理";
-      globalThis.alert("水印文字不能为空，请先输入内容。");
+      hintMessage.value = t("pages.imageWatermark.hints.enterWatermarkTextBeforeStart");
+      globalThis.alert(t("pages.imageWatermark.alerts.watermarkTextRequired"));
       return;
     }
     isProcessing.value = true;
@@ -911,7 +928,7 @@ export function useImageWatermarkActions() {
       };
       if (event.stage === "failed") {
         progressPatch.status = "failed";
-        progressPatch.error = event.message || "处理失败";
+        progressPatch.error = event.message || t("pages.imageWatermark.errors.processFailed");
       }
       updateItem(event.taskId, progressPatch);
     });
@@ -923,12 +940,12 @@ export function useImageWatermarkActions() {
   async function processSingleWatermarkItem(current: WatermarkItem): Promise<{ successCount: number; failedCount: number }> {
     const task = taskStore.createTask("image-watermark", "image-watermark");
     updateItem(current.id, { status: "running", progress: 0, error: undefined });
-    taskStore.updateTaskProgress(task.id, 1, "图片加水印中");
+    taskStore.updateTaskProgress(task.id, 1, t("pages.imageWatermark.task.running"));
     try {
       const result = await tauriClient.startImageWatermark(buildWatermarkPayload(current));
       applyResult(current.id, result);
       if (result.success) {
-        taskStore.completeTask(task.id, "处理完成");
+        taskStore.completeTask(task.id, t("pages.imageWatermark.task.completed"));
         try {
           await tauriClient.recordToolUsage({
             toolKey: "image-watermark",
@@ -939,10 +956,10 @@ export function useImageWatermarkActions() {
         }
         return { successCount: 1, failedCount: 0 };
       }
-      taskStore.failTask(task.id, result.error || "处理失败");
+      taskStore.failTask(task.id, result.error || t("pages.imageWatermark.errors.processFailed"));
       return { successCount: 0, failedCount: 1 };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "处理失败";
+      const message = error instanceof Error ? error.message : t("pages.imageWatermark.errors.processFailed");
       updateItem(current.id, { status: "failed", progress: 100, error: message });
       taskStore.failTask(task.id, message);
       return { successCount: 0, failedCount: 1 };
@@ -994,7 +1011,7 @@ export function useImageWatermarkActions() {
       outputPath: undefined,
       originalSize: formatSize(result.originalWidth, result.originalHeight),
       outputSize: formatSize(result.outputWidth, result.outputHeight),
-      error: result.error || "处理失败"
+      error: result.error || t("pages.imageWatermark.errors.processFailed")
     });
   }
 
@@ -1011,13 +1028,13 @@ export function useImageWatermarkActions() {
       .filter((path) => path.length > 0)
       .filter((path) => SUPPORTED_IMAGE_EXTENSIONS.some((ext) => path.toLowerCase().endsWith(ext)));
     if (normalized.length === 0) {
-      hintMessage.value = "仅支持 PNG/JPG/JPEG/WEBP/BMP 格式";
+      hintMessage.value = t("pages.imageWatermark.hints.unsupportedImageFormats");
       return;
     }
     const existing = new Set(items.value.map((item) => item.inputPath.toLowerCase()));
     const unique = normalized.filter((path) => !existing.has(path.toLowerCase()));
     if (unique.length === 0) {
-      hintMessage.value = "文件已在任务列表中";
+      hintMessage.value = t("pages.imageWatermark.hints.fileAlreadyInQueue");
       return;
     }
     const newItems: WatermarkItem[] = unique.map((path) => ({
@@ -1052,7 +1069,9 @@ export function useImageWatermarkActions() {
         result.matchedCount === 0 ? t("common.sourceDirectoryNoMatch") : t("common.sourceDirectoryNoNewFiles");
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      hintMessage.value = message ? `扫描目录失败：${message}` : "扫描目录失败";
+      hintMessage.value = message
+        ? t("pages.imageWatermark.hints.scanSourceDirectoryFailed", { message })
+        : t("pages.imageWatermark.errors.scanSourceDirectoryFailed");
     }
   }
 

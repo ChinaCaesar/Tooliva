@@ -16,6 +16,8 @@ export const enUS = {
     websiteLoginMessage: "Complete sign-in and authorization in your browser. You will return to the desktop app automatically.",
     websiteLoginFailedTitle: "Could not open browser",
     websiteLoginFailedMessage: "Check that a system browser is available, then try again.",
+    websiteOpenFailedTitle: "Could not open website",
+    websiteOpenFailedMessage: "Check that a system browser is available, then try again.",
     loggedInVia: "Signed in via {provider}",
     logout: "Sign out",
     provider: {
@@ -92,7 +94,6 @@ export const enUS = {
         moreTools: "More tools",
         membership: "Membership",
         membershipSubtitle: "Unlock all premium features",
-        history: "History",
         settings: "Settings"
       },
       placeholders: {
@@ -101,8 +102,7 @@ export const enUS = {
         copywriting: "Copywriting tools are not available yet.",
         file: "File utilities are not available yet.",
         efficiency: "Productivity tools are not available yet.",
-        moreTools: "More tools will be available in a future release.",
-        history: "History center will be available in a future release."
+        moreTools: "More tools will be available in a future release."
       }
     }
   },
@@ -178,7 +178,6 @@ export const enUS = {
           changelog: {
             title: "Changelog",
             viewAll: "View all",
-            viewAllHint: "Full release notes will arrive in a future update.",
             v100: {
               date: "2024-05-20",
               summary: "Toolbox initial release."
@@ -539,15 +538,9 @@ export const enUS = {
       },
       aside: {
         ariaLabel: "Membership supplements",
-        paymentTitle: "Secure payments",
-        paymentBody: "Encrypted checkout with extra checks to keep every transaction safe.",
         faqTitle: "FAQ",
         faqViewAll: "View all",
-        faqExpand: "Show answer",
-        contactTitle: "Contact us",
-        contactHours: "Support hours: weekdays 9:00–18:00",
-        contactEmailLabel: "Email: ",
-        contactEmail: "support@toolbox.com"
+        faqExpand: "Show answer"
       },
       faq: {
         q1: {
@@ -566,8 +559,7 @@ export const enUS = {
           q: "Can I get a refund?",
           a: "Refunds follow processor and platform policies shown on the order page."
         }
-      },
-      faqViewAllPlaceholder: "A full FAQ page will ship in a future release—this is a placeholder."
+      }
     },
     imageCompress: {
       title: "Image Compression",
@@ -687,6 +679,8 @@ export const enUS = {
       totalFiles: "{n} files total",
       totalSize: "Total size: {size}",
       dropTitle: "Drag GIF files here or click to add",
+      dropTitlePrefix: "Drag GIF files here, or ",
+      dropTitleAction: "click to add",
       emptyPreviewTitle: "Add a GIF to start preview",
       emptyPreviewDesc: "Preview playback with a side-by-side size comparison",
       previewTitle: "Preview",
@@ -699,6 +693,10 @@ export const enUS = {
       sizeArrow: "{from} → {to}",
       savings: "Estimated savings {size} ({pct}%)",
       savingsShort: "Estimated savings: {v}",
+      originalSizeShort: "Original size",
+      compressedSizeShort: "Compressed size",
+      savingsEmpty: "Estimated savings: --",
+      statusCompressing: "Compressing…",
       estimateNote: "Estimated output updates when you change parameters",
       estimateDisclaimer: "Estimates are indicative; actual size depends on content.",
       targetSizePlaceholder: "e.g. 2",
@@ -1056,14 +1054,179 @@ export const enUS = {
       description:
         "This tool will detect and process watermark regions in still images on-device. It does not remove watermarks from video files.",
       comingSoon: "Under development. Algorithms and batch jobs will arrive in a future update.",
-      relatedVideoLink: "Need video instead? Open remove video watermark"
+      relatedVideoLink: "Need video instead? Open remove video watermark",
+      list: {
+        fileListTitle: "Files ({count})",
+        addImages: "Add images",
+        clearList: "Clear list",
+        summaryCount: "{count} images",
+        totalSize: "Total size: {size}"
+      },
+      drop: {
+        titlePrefix: "Drag images here, or ",
+        titleAction: "click to add",
+        formatsHint: "JPG / PNG / BMP / WEBP supported",
+        batchLabel: "Batch import supported",
+        batchHint: "Add multiple images at once"
+      },
+      preview: {
+        sectionTitle: "Markup & preview",
+        hintWithImage:
+          "Drag a rectangle over the watermark. Add multiple regions; delete from the corner handle.",
+        hintNoImage: "Add an image first, then mark regions to remove.",
+        tabOriginal: "Original",
+        tabProcessed: "After",
+        removeRegion: "Remove region",
+        emptyTitle: "No image",
+        emptyHint: "Add images from the left panel to begin.",
+        footTip:
+          "Tip: cover the watermark fully—slightly larger edges often produce better blends.",
+        clearRegions: "Clear all regions"
+      },
+      settings: {
+        title: "Removal settings",
+        basics: "Basics",
+        removalMode: "Removal mode",
+        modeStandard: "Standard",
+        modeQuality: "High quality",
+        removalModeHint:
+          "Standard repairs locally into the original image; high quality uses LaMA and is slower.",
+        batchApply: "Apply marks to all",
+        batchApplyHint: "Reuse the marked regions across every image",
+        outputSection: "Output",
+        outputFormat: "Output format",
+        formatAuto: "Match source",
+        outputFormatHint: "Keeps original format by default; PNG is lossless, JPG is smaller."
+      },
+      bottomBar: {
+        overallProgress: "Overall progress",
+        status: "Status",
+        aiEngine: "AI engine",
+        taskCount: "Items",
+        taskCountValue: "{count} images",
+        elapsed: "Elapsed",
+        overallProgressDetail: "Progress",
+        outputDirLabel: "Output:",
+        pickOutputAria: "Choose output folder",
+        outputDirTitle: "Output folder",
+        start: "Remove watermarks",
+        preparingModel: "Preparing model",
+        stopTask: "Stop task",
+        openOutput: "Open output"
+      },
+      progress: {
+        noTask: "Idle",
+        processing: "{current} / {total} images"
+      },
+      itemStatus: {
+        pending: "Pending",
+        processing: "Working",
+        done: "Done",
+        failed: "Failed"
+      },
+      hints: {
+        unsupportedFormats:
+          "Only JPG / PNG / BMP / WEBP images are supported",
+        addImagesFirst: "Please add images first",
+        selectRegionsFirst: "Draw regions on the watermark first",
+        startTaskFailed: "Could not start AI removal",
+        batchFailed: "AI removal failed"
+      },
+      model: {
+        startingWorker: "Starting LaMA worker ({device})",
+        detectingRuntime: "Detecting CUDA / CPU",
+        downloadingFirstUse: "Downloading LaMA model (first run)",
+        lamaReady: "LaMA model ready",
+        downloading: "Downloading LaMA model",
+        overlayTitle: "Preparing LaMA model",
+        preparingFiles: "Preparing files",
+        currentDevice: "Device: {device}",
+        storePathLabel: "Stored at {path}",
+        prepFailedTitle: "Model preparation failed",
+        close: "Close"
+      },
+      output: {
+        defaultDirectory: "D:\\Toolbox\\watermark-removal-output"
+      },
+      dialog: {
+        imagesFilterName: "Images"
+      },
+      toastTip: "Tip: Draw watermark regions first, then click remove."
     },
     videoWatermarkRemoval: {
       title: "Remove video watermark",
       description:
         "This tool will detect and process watermark regions in video files on-device. It does not remove watermarks from still images.",
       comingSoon: "Under development. Algorithms and batch jobs will arrive in a future update.",
-      relatedImageLink: "Need still images instead? Open remove image watermark"
+      relatedImageLink: "Need still images instead? Open remove image watermark",
+      filePicker: {
+        videoFilter: "Videos"
+      },
+      engine: {
+        label: "FFmpeg streaming / automatic hardware encoding"
+      },
+      progressPanel: {
+        idleTitle: "No active task",
+        processingTitle: "Processing video {current} / {total}",
+        aria: "Processing progress",
+        taskCount: "Tasks",
+        currentFile: "Current file",
+        estimatedRemaining: "Est. remaining",
+        elapsed: "Elapsed",
+        engine: "Engine",
+        overallProgress: "Overall progress"
+      },
+      status: {
+        pending: "Pending",
+        processing: "Working",
+        done: "Done",
+        failed: "Failed"
+      },
+      hints: {
+        unsupportedFormats:
+          "Only MP4 / MOV / WebM / MKV / AVI / M4V / WMV videos are supported",
+        addVideoFirst: "Add at least one video first",
+        selectRegionFirst:
+          "Draw a rectangle on the preview to select the watermark area to remove",
+        startTaskFailed: "Could not start the watermark removal task",
+        taskFailed: "Watermark removal failed"
+      },
+      list: {
+        title: "Files ({count})",
+        addVideos: "Add videos",
+        clearList: "Clear list",
+        dropHint: "Drag videos here, or ",
+        dropAddLink: "click to add videos",
+        formatsLine: "Supports MP4 / MOV / WebM / MKV / AVI / M4V / WMV",
+        batchImport: "Batch import supported",
+        sharedRegionHint:
+          "Videos with the same watermark position can share the current selection",
+        totalVideos: "{count} videos",
+        totalSize: "Total size: {size}"
+      },
+      preview: {
+        aria: "Video preview and watermark region",
+        titleFallback: "Video preview",
+        instruction:
+          "Drag on the preview to select the fixed watermark area to remove",
+        clearRegions: "Clear selection",
+        emptyTitle: "No video yet",
+        emptyDesc: "Add a video to draw watermark regions here",
+        controlsAria: "Preview controls",
+        outputNote:
+          "Output keeps the original format by default; multiple videos can share the same region when the watermark aligns.",
+        regionsSelected: "{count} region(s) selected"
+      },
+      output: {
+        directoryLabel: "Output folder",
+        openFolder: "Open folder",
+        defaultDirectory: "D:\\Toolbox\\video-watermark-removal-output"
+      },
+      actions: {
+        stop: "Stop",
+        start: "Remove watermark"
+      },
+      tip: "Tip: select the watermark region on the preview before you start processing."
     },
     imageWatermark: {
       title: "Image Watermark",
@@ -1138,7 +1301,8 @@ export const enUS = {
         margin: "Margin (px)",
         rotation: "Rotation",
         position: "Position",
-        tip: "The first release applies one shared config to all images. Use light text or a transparent PNG logo for best results."
+        tip: "The first release applies one shared config to all images. Use light text or a transparent PNG logo for best results.",
+        defaultText: "Watermark"
       },
       positions: {
         topLeft: "Top Left",
@@ -1163,6 +1327,33 @@ export const enUS = {
         dropTitle: "Drag images here or click to add",
         dropDesc: "PNG / JPG / JPEG / WEBP / BMP supported, auto dedupe with serial processing",
         button: "Add Images"
+      },
+      hints: {
+        pickImagesFailed: "Could not pick images: {message}",
+        cannotOpenImagePicker: "Could not open the image picker",
+        noOutputDirectory: "No output folder is available to open yet",
+        openOutputDirectoryFailed: "Could not open output folder: {message}",
+        watermarkImageUnsupportedFormats: "Watermark images must be PNG, WEBP, JPG, or JPEG",
+        pickWatermarkImageFailed: "Could not pick watermark image: {message}",
+        cannotOpenWatermarkPicker: "Could not open the watermark image picker",
+        dragDropNoLocalPath: "Drag-and-drop did not provide a local path. Use \"{pickImages}\" to add files instead.",
+        modeSwitchedReprocess: "Watermark mode changed; you can run the task again",
+        enterWatermarkTextBeforeStart: "Enter watermark text before processing",
+        unsupportedImageFormats: "Only PNG, JPG, JPEG, WEBP, and BMP are supported",
+        fileAlreadyInQueue: "These files are already in the task list",
+        scanSourceDirectoryFailed: "Could not scan folder: {message}"
+      },
+      alerts: {
+        watermarkTextRequired: "Watermark text cannot be empty. Enter text and try again."
+      },
+      errors: {
+        processFailed: "Processing failed",
+        openOutputDirectoryFailed: "Could not open output folder",
+        scanSourceDirectoryFailed: "Could not scan folder"
+      },
+      task: {
+        running: "Applying watermark",
+        completed: "Finished"
       },
       status: {
         idle: "Pending",

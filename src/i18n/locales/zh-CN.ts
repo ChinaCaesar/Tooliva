@@ -16,6 +16,8 @@ export const zhCN = {
     websiteLoginMessage: "请在浏览器中完成登录与授权，完成后将自动返回桌面端。",
     websiteLoginFailedTitle: "无法打开浏览器",
     websiteLoginFailedMessage: "请检查系统浏览器是否可用，或稍后重试。",
+    websiteOpenFailedTitle: "无法打开官网",
+    websiteOpenFailedMessage: "请检查系统浏览器是否可用，或稍后重试。",
     loggedInVia: "通过 {provider} 登录",
     logout: "退出登录",
     provider: {
@@ -92,7 +94,6 @@ export const zhCN = {
         moreTools: "更多工具",
         membership: "会员中心",
         membershipSubtitle: "尊享全部高级功能",
-        history: "历史记录",
         settings: "设置"
       },
       placeholders: {
@@ -101,8 +102,7 @@ export const zhCN = {
         copywriting: "文案工具尚未接入，敬请期待。",
         file: "文件工具尚未接入，敬请期待。",
         efficiency: "效率工具尚未接入，敬请期待。",
-        moreTools: "更多工具入口将在后续版本开放。",
-        history: "历史记录中心将在后续版本提供。"
+        moreTools: "更多工具入口将在后续版本开放。"
       }
     }
   },
@@ -178,7 +178,6 @@ export const zhCN = {
           changelog: {
             title: "更新日志",
             viewAll: "查看全部",
-            viewAllHint: "完整更新说明将在后续版本中提供。",
             v100: {
               date: "2024-05-20",
               summary: "工具箱新上线"
@@ -539,15 +538,9 @@ export const zhCN = {
       },
       aside: {
         ariaLabel: "会员中心补充说明",
-        paymentTitle: "支付安全",
-        paymentBody: "加密支付，多重校验，保障您的交易安全。",
         faqTitle: "常见问题",
         faqViewAll: "查看全部问题",
-        faqExpand: "展开说明",
-        contactTitle: "联系我们",
-        contactHours: "客服时间：工作日 9:00–18:00",
-        contactEmailLabel: "邮箱：",
-        contactEmail: "support@toolbox.com"
+        faqExpand: "展开说明"
       },
       faq: {
         q1: {
@@ -566,8 +559,7 @@ export const zhCN = {
           q: "购买后可以退款吗？",
           a: "退款规则将遵循支付渠道与平台政策，请以订单页说明为准。"
         }
-      },
-      faqViewAllPlaceholder: "完整常见问题列表将在后续版本提供，当前为占位提示。"
+      }
     },
     imageCompress: {
       title: "图片压缩",
@@ -687,6 +679,8 @@ export const zhCN = {
       totalFiles: "共 {n} 个文件",
       totalSize: "总大小：{size}",
       dropTitle: "拖拽 GIF 文件到此处，或点击添加",
+      dropTitlePrefix: "拖拽 GIF 文件到此处，或",
+      dropTitleAction: "点击添加",
       emptyPreviewTitle: "请添加 GIF 文件开始预览",
       emptyPreviewDesc: "支持预览播放，真实对比压缩效果",
       previewTitle: "预览对比",
@@ -699,6 +693,10 @@ export const zhCN = {
       sizeArrow: "{from} → {to}",
       savings: "预计节省 {size}（{pct}%）",
       savingsShort: "预计节省: {v}",
+      originalSizeShort: "原始大小",
+      compressedSizeShort: "压缩后大小",
+      savingsEmpty: "预计节省：--",
+      statusCompressing: "正在压缩…",
       estimateNote: "参数调整后可实时预估压缩大小",
       estimateDisclaimer: "预估值仅供参考，实际压缩结果可能因内容复杂度略有差异",
       targetSizePlaceholder: "例如：2",
@@ -1054,14 +1052,174 @@ export const zhCN = {
       description:
         "本工具将支持在本地识别并处理静态图片中的水印区域；当前版本尚未开放处理入口。不提供视频去水印能力。",
       comingSoon: "功能开发中，后续版本将接入算法与批量任务。",
-      relatedVideoLink: "需要处理视频？前往视频去水印"
+      relatedVideoLink: "需要处理视频？前往视频去水印",
+      list: {
+        fileListTitle: "文件列表（{count}）",
+        addImages: "添加图片",
+        clearList: "清空列表",
+        summaryCount: "共 {count} 张图片",
+        totalSize: "总大小：{size}"
+      },
+      drop: {
+        titlePrefix: "拖拽图片到此处，或",
+        titleAction: "点击添加图片",
+        formatsHint: "支持 JPG / PNG / BMP / WEBP 等格式",
+        batchLabel: "支持批量导入",
+        batchHint: "可同时添加多张图片进行处理"
+      },
+      preview: {
+        sectionTitle: "图片标注与预览",
+        hintWithImage: "在图片上拖拽矩形框选水印位置，可添加多个框，框右上角可删除",
+        hintNoImage: "请先添加图片，并在图片上框选需要去除的水印区域",
+        tabOriginal: "原图",
+        tabProcessed: "处理后",
+        removeRegion: "删除框选区域",
+        emptyTitle: "暂无图片",
+        emptyHint: "请从左侧添加图片开始处理",
+        footTip:
+          "提示：请尽量完整框选水印区域，边缘可稍大一些，效果更佳",
+        clearRegions: "清除全部框选"
+      },
+      settings: {
+        title: "去除设置",
+        basics: "基础设置",
+        removalMode: "去除模式",
+        modeStandard: "标准",
+        modeQuality: "高清",
+        removalModeHint:
+          "标准模式按原图局部修复并融合回原图；高清模式使用 LaMA，速度更慢",
+        batchApply: "批量应用",
+        batchApplyHint: "将当前标注区域应用到全部图片",
+        outputSection: "输出设置",
+        outputFormat: "输出格式",
+        formatAuto: "原格式",
+        outputFormatHint: "默认按原图格式输出；PNG 无损，JPG 体积更小"
+      },
+      bottomBar: {
+        overallProgress: "整体进度",
+        status: "状态",
+        aiEngine: "AI 引擎",
+        taskCount: "任务数量",
+        taskCountValue: "共 {count} 张图片",
+        elapsed: "已用时间",
+        overallProgressDetail: "总体进度",
+        outputDirLabel: "输出目录：",
+        pickOutputAria: "选择输出目录",
+        outputDirTitle: "输出目录",
+        start: "开始去除",
+        preparingModel: "模型准备中",
+        stopTask: "停止任务",
+        openOutput: "打开输出目录"
+      },
+      progress: {
+        noTask: "暂无任务",
+        processing: "正在处理 {current} / {total} 张图片"
+      },
+      itemStatus: {
+        pending: "待处理",
+        processing: "处理中",
+        done: "已完成",
+        failed: "失败"
+      },
+      hints: {
+        unsupportedFormats: "仅支持 JPG / PNG / BMP / WEBP 格式图片",
+        addImagesFirst: "请先添加图片",
+        selectRegionsFirst: "请先在图片上框选需要去除的水印区域",
+        startTaskFailed: "启动 AI 去水印任务失败",
+        batchFailed: "AI 去水印任务失败"
+      },
+      model: {
+        startingWorker: "正在启动 LaMA worker（{device}）",
+        detectingRuntime: "正在检测 CUDA / CPU",
+        downloadingFirstUse: "首次使用正在下载 LaMA 模型",
+        lamaReady: "LaMA 模型已准备完成",
+        downloading: "正在下载 LaMA 模型",
+        overlayTitle: "正在准备 LaMA 修复模型",
+        preparingFiles: "正在准备模型文件",
+        currentDevice: "当前设备：{device}",
+        storePathLabel: "模型保存位置：{path}",
+        prepFailedTitle: "AI 模型准备失败",
+        close: "关闭"
+      },
+      output: {
+        defaultDirectory: "D:\\工具箱\\去水印结果"
+      },
+      dialog: {
+        imagesFilterName: "图片"
+      },
+      toastTip:
+        "温馨提示：请先在图片上框选需要去除的水印区域，才能开始处理。"
     },
     videoWatermarkRemoval: {
       title: "视频去水印",
       description:
         "本工具将支持在本地识别并处理视频画面中的水印区域；当前版本尚未开放处理入口。不提供静态图片去水印能力。",
       comingSoon: "功能开发中，后续版本将接入算法与批量任务。",
-      relatedImageLink: "需要处理静态图片？前往图片去水印"
+      relatedImageLink: "需要处理静态图片？前往图片去水印",
+      filePicker: {
+        videoFilter: "视频"
+      },
+      engine: {
+        label: "FFmpeg 流式处理 / 自动硬件编码"
+      },
+      progressPanel: {
+        idleTitle: "暂无任务",
+        processingTitle: "正在处理 {current} / {total} 个视频",
+        aria: "处理进度",
+        taskCount: "任务数量",
+        currentFile: "当前文件",
+        estimatedRemaining: "预计剩余",
+        elapsed: "已用时间",
+        engine: "处理引擎",
+        overallProgress: "总体进度"
+      },
+      status: {
+        pending: "待处理",
+        processing: "处理中",
+        done: "已完成",
+        failed: "失败"
+      },
+      hints: {
+        unsupportedFormats: "仅支持 MP4 / MOV / WebM / MKV / AVI / M4V / WMV 视频",
+        addVideoFirst: "请先添加视频",
+        selectRegionFirst: "请先在视频画面上框选需要去除的水印区域",
+        startTaskFailed: "启动视频去水印任务失败",
+        taskFailed: "视频去水印任务失败"
+      },
+      list: {
+        title: "文件列表（{count}）",
+        addVideos: "添加视频",
+        clearList: "清空列表",
+        dropHint: "拖拽视频到此处，或",
+        dropAddLink: "点击添加视频",
+        formatsLine: "支持 MP4 / MOV / WebM / MKV / AVI / M4V / WMV",
+        batchImport: "支持批量导入",
+        sharedRegionHint: "同一水印位置的视频可共用当前框选区域",
+        totalVideos: "共 {count} 个视频",
+        totalSize: "总大小：{size}"
+      },
+      preview: {
+        aria: "视频预览与框选区域",
+        titleFallback: "视频预览",
+        instruction: "在画面上拖拽框选需要去除的固定水印区域",
+        clearRegions: "清除框选",
+        emptyTitle: "暂无视频文件",
+        emptyDesc: "添加视频后即可在这里框选水印区域",
+        controlsAria: "视频预览控制",
+        outputNote:
+          "输出格式默认保持原视频格式；多视频水印位置一致时可共用当前框选区域。",
+        regionsSelected: "已框选 {count} 个区域"
+      },
+      output: {
+        directoryLabel: "输出目录",
+        openFolder: "打开目录",
+        defaultDirectory: "D:\\工具箱\\视频去水印结果"
+      },
+      actions: {
+        stop: "停止处理",
+        start: "开始去水印"
+      },
+      tip: "温馨提示：请先在视频画面上框选需要去除的水印区域，再开始处理。"
     },
     imageWatermark: {
       title: "图片加水印",
@@ -1136,7 +1294,8 @@ export const zhCN = {
         margin: "边距",
         rotation: "旋转角度",
         position: "水印位置",
-        tip: "首版支持统一参数批量处理。文字水印建议选择浅色，Logo 水印建议使用透明背景 PNG。"
+        tip: "首版支持统一参数批量处理。文字水印建议选择浅色，Logo 水印建议使用透明背景 PNG。",
+        defaultText: "水印"
       },
       positions: {
         topLeft: "左上",
@@ -1161,6 +1320,33 @@ export const zhCN = {
         dropTitle: "拖拽图片到此处，或点击添加",
         dropDesc: "支持 PNG / JPG / JPEG / WEBP / BMP，自动去重并串行处理",
         button: "添加图片"
+      },
+      hints: {
+        pickImagesFailed: "选择图片失败：{message}",
+        cannotOpenImagePicker: "无法打开图片选择器",
+        noOutputDirectory: "当前暂无可打开的输出目录",
+        openOutputDirectoryFailed: "打开输出目录失败：{message}",
+        watermarkImageUnsupportedFormats: "水印素材仅支持 PNG/WEBP/JPG/JPEG",
+        pickWatermarkImageFailed: "选择水印图片失败：{message}",
+        cannotOpenWatermarkPicker: "无法打开水印图片选择器",
+        dragDropNoLocalPath: "拖拽未获取到有效本地路径，请点击「{pickImages}」",
+        modeSwitchedReprocess: "已切换水印模式，可重新执行当前任务",
+        enterWatermarkTextBeforeStart: "请输入水印文字后再开始处理",
+        unsupportedImageFormats: "仅支持 PNG/JPG/JPEG/WEBP/BMP 格式",
+        fileAlreadyInQueue: "文件已在任务列表中",
+        scanSourceDirectoryFailed: "扫描目录失败：{message}"
+      },
+      alerts: {
+        watermarkTextRequired: "水印文字不能为空，请先输入内容。"
+      },
+      errors: {
+        processFailed: "处理失败",
+        openOutputDirectoryFailed: "打开输出目录失败",
+        scanSourceDirectoryFailed: "扫描目录失败"
+      },
+      task: {
+        running: "图片加水印中",
+        completed: "处理完成"
       },
       status: {
         idle: "待处理",

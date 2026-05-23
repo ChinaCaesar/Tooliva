@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { message } from "@tauri-apps/plugin-dialog";
+import { isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
 import HomeGreetingHero from "@/pages/home/components/HomeGreetingHero.vue";
 import HomeFeaturedToolsRow from "@/pages/home/components/HomeFeaturedToolsRow.vue";
@@ -13,8 +15,10 @@ import { useHomePageData } from "@/pages/home/composables/useHomePageData";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { resolveHomeToolRoute } from "@/pages/home/config/homeToolRoutes";
 import { showHomeInfoDialog } from "@/pages/home/utils/homeDialogs";
+import { openExternalUrl } from "@/utils/openExternalUrl";
+import { buildWebsiteUrl, type AppLocale } from "@/utils/websiteLinks";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const router = useRouter();
 const {
   greetingTitleKey,
@@ -50,17 +54,32 @@ async function handlePlaceholder(messageKey: string): Promise<void> {
   await showHomeInfoDialog(t(messageKey), t("pages.home.dialogs.placeholderTitle"));
 }
 
+async function openWebsitePage(logicalPath: string): Promise<void> {
+  try {
+    await openExternalUrl(buildWebsiteUrl(locale.value as AppLocale, logicalPath));
+  } catch {
+    const title = t("auth.websiteOpenFailedTitle");
+    const body = t("auth.websiteOpenFailedMessage");
+    if (isTauri()) {
+      await message(body, { title });
+    } else {
+      globalThis.alert(`${title}\n\n${body}`);
+    }
+  }
+}
+
 function goMembership(): void {
   router.push(ROUTE_PATHS.membership).catch(() => {
     /* 路由重复导航等可忽略 */
   });
 }
 
+async function handleMembershipLearnMore(): Promise<void> {
+  await openWebsitePage("/pricing");
+}
+
 async function handleChangelogViewAll(): Promise<void> {
-  await showHomeInfoDialog(
-    t("pages.home.sections.sidebar.changelog.viewAllHint"),
-    t(pageConfig.value.sections.sidebar.changelog.titleKey)
-  );
+  await openWebsitePage("/changelog");
 }
 
 async function handleViewAllRecent(): Promise<void> {
@@ -123,7 +142,7 @@ async function handleViewAllRecent(): Promise<void> {
             :learn-more-label="t(pageConfig.sections.sidebar.membership.learnMoreKey)"
             :bullets="membershipBullets"
             :cta-label="t(pageConfig.sections.sidebar.membership.ctaKey)"
-            @learn-more="goMembership"
+            @learn-more="handleMembershipLearnMore"
             @cta="goMembership"
           />
           <SidebarChangelogCard
