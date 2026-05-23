@@ -3,17 +3,22 @@ import { computed, toRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ROUTE_PATHS } from "@/config/constants";
+import { useAuthEntry } from "@/auth/composables/useAuthEntry";
+import UserProfileModal from "@/components/auth/UserProfileModal.vue";
 import AppSidebar from "@/layouts/app-shell/AppSidebar.vue";
 import AppFooter from "@/layouts/app-shell/AppFooter.vue";
 import { useAppSidebarCollapse } from "@/layouts/app-shell/composables/useAppSidebarCollapse";
 import HomeTopBar from "@/pages/home/components/HomeTopBar.vue";
 import { useHomePageData } from "@/pages/home/composables/useHomePageData";
 import { resolveHomeToolRoute } from "@/pages/home/config/homeToolRoutes";
+import { useAuthStore } from "@/stores/auth.store";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
 const { topBar, searchToolEntries, pageConfig } = useHomePageData();
+const { profileModalOpen, loginInProgress, handleAuthClick, closeProfileModal } = useAuthEntry();
 const appSidebarCollapse = useAppSidebarCollapse();
 const sidebarCollapsed = toRef(appSidebarCollapse, "collapsed");
 
@@ -62,6 +67,18 @@ function goMembership(): void {
     /* 重复导航 */
   });
 }
+
+const nicknameInitial = computed(() => authStore.user?.nickname.slice(0, 1) ?? "");
+
+const userAvatarAriaLabel = computed(() =>
+  authStore.isLoggedIn
+    ? t("auth.userProfile.viewAccountAria")
+    : t("auth.userProfile.signInAria")
+);
+
+function onLogout(): void {
+  authStore.logout();
+}
 </script>
 
 <template>
@@ -78,8 +95,19 @@ function goMembership(): void {
       :member-cta-label="t(topBar.memberCtaKey)"
       :crown-icon-url="topBar.crownIconUrl"
       :search-tools="searchableTools"
+      :is-logged-in="authStore.isLoggedIn"
+      :nickname-initial="nicknameInitial"
+      :user-avatar-aria-label="userAvatarAriaLabel"
+      :login-in-progress="loginInProgress"
       @search-select="handleSearchSelect"
       @member-cta="goMembership"
+      @user-click="handleAuthClick"
+    />
+
+    <UserProfileModal
+      :open="profileModalOpen"
+      @close="closeProfileModal"
+      @logout="onLogout"
     />
 
     <div class="app-shell__body">

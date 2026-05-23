@@ -11,7 +11,6 @@ import VideoWatermarkRemovalPage from "@/pages/VideoWatermarkRemovalPage.vue";
 import GifCompressPage from "@/pages/GifCompressPage.vue";
 import SettingsPage from "@/pages/SettingsPage.vue";
 import MembershipPage from "@/pages/MembershipPage.vue";
-import LoginPage from "@/pages/LoginPage.vue";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -38,7 +37,7 @@ const routes: RouteRecordRaw[] = [
       { path: ROUTE_PATHS.gifCompress.replace(/^\//, ""), name: "gif-compress", component: GifCompressPage }
     ]
   },
-  { path: ROUTE_PATHS.login, name: "login", component: LoginPage }
+  { path: ROUTE_PATHS.login, redirect: ROUTE_PATHS.home }
 ];
 
 export const router = createRouter({

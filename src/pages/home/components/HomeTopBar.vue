@@ -25,13 +25,24 @@ const props = withDefaults(
     searchTools: SearchToolItem[];
     /** 是否在顶栏右侧展示窗口控制（Tauri 桌面端）。 */
     showWindowControls?: boolean;
+    isLoggedIn?: boolean;
+    nicknameInitial?: string;
+    userAvatarAriaLabel?: string;
+    loginInProgress?: boolean;
   }>(),
-  { showWindowControls: false }
+  {
+    showWindowControls: false,
+    isLoggedIn: false,
+    nicknameInitial: "",
+    userAvatarAriaLabel: "",
+    loginInProgress: false,
+  }
 );
 
 const emit = defineEmits<{
   searchSelect: [route: string];
   memberCta: [];
+  userClick: [];
 }>();
 
 const { t } = useI18n();
@@ -135,6 +146,35 @@ onUnmounted(() => {
       <button type="button" class="home-top-bar__member" @click="emit('memberCta')">
         <img :src="crownIconUrl" alt="" class="home-top-bar__crown" />
         <span>{{ memberCtaLabel }}</span>
+      </button>
+      <button
+        type="button"
+        class="home-top-bar__avatar-btn"
+        :class="{
+          'home-top-bar__avatar-btn--logged-in': props.isLoggedIn,
+          'home-top-bar__avatar-btn--loading': props.loginInProgress,
+        }"
+        :aria-label="props.userAvatarAriaLabel"
+        :disabled="props.loginInProgress"
+        @click="emit('userClick')"
+      >
+        <span v-if="props.loginInProgress" class="home-top-bar__avatar-spinner" aria-hidden="true" />
+        <span
+          v-else-if="props.isLoggedIn && props.nicknameInitial"
+          class="home-top-bar__avatar-initial"
+          aria-hidden="true"
+        >
+          {{ props.nicknameInitial }}
+        </span>
+        <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true" class="home-top-bar__avatar-icon">
+          <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7" />
+          <path
+            d="M5 20c0-3.314 3.134-6 7-6s7 2.686 7 6"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+          />
+        </svg>
       </button>
       <button
         type="button"
@@ -381,6 +421,80 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   object-fit: contain;
+}
+
+.home-top-bar__avatar-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e7e9ee;
+  background: #f5f6fa;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  flex-shrink: 0;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
+}
+
+.home-top-bar__avatar-btn:hover:not(:disabled) {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
+.home-top-bar__avatar-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+.home-top-bar__avatar-btn:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.home-top-bar__avatar-btn--logged-in {
+  background: linear-gradient(145deg, #eef2ff 0%, #e0e7ff 55%, #c7d2fe 100%);
+  border-color: #e0e7ff;
+  color: #4338ca;
+}
+
+.home-top-bar__avatar-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.home-top-bar__avatar-initial {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.home-top-bar__avatar-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #c7d2fe;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: home-top-bar-spin 0.7s linear infinite;
+}
+
+@keyframes home-top-bar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-top-bar__avatar-spinner {
+    animation: none;
+    border-top-color: #6366f1;
+  }
 }
 
 .home-top-bar__icon-btn {

@@ -7,6 +7,14 @@ export const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "desktop-toolbox:app-sidebar-co
 /** 清除本地数据后广播，供首页等刷新仅内存态。 */
 export const LOCAL_DATA_CLEARED_EVENT = "desktop-toolbox:local-data-cleared";
 
+/** 官网地址（开发环境默认 localhost:4322） */
+export const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL ?? "http://localhost:4322";
+export const AUTH_DESKTOP_CLIENT = "desktop";
+export const AUTH_REDIRECT_URI = "tooliva://auth/callback";
+export const AUTH_SESSION_STORAGE_KEY = "desktop-toolbox:auth-session";
+export const AUTH_PKCE_STORAGE_KEY = "desktop-toolbox:auth-pkce";
+export const AUTH_LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
+
 export const DEFAULT_LANGUAGE: AppLanguage = "zh-CN";
 export const WINDOW_SIZE_OPTIONS: WindowSizeOption[] = [
   {

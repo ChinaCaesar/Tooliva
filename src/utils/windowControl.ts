@@ -1,8 +1,28 @@
 import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, UserAttentionType } from "@tauri-apps/api/window";
 
 function warn(message: string, error?: unknown): void {
   console.warn(`[windowControl] ${message}`, error);
+}
+
+/** 授权回调成功后置前并聚焦主窗口 */
+export async function focusMainWindow(): Promise<void> {
+  try {
+    if (!isTauri()) {
+      return;
+    }
+    const win = getCurrentWindow();
+    await win.unminimize();
+    await win.show();
+    await win.setFocus();
+    try {
+      await win.requestUserAttention(UserAttentionType.Critical);
+    } catch {
+      /* 部分平台/权限下可忽略 */
+    }
+  } catch (e) {
+    warn("focusMainWindow failed", e);
+  }
 }
 
 export async function minimizeWindow(): Promise<void> {

@@ -13,9 +13,26 @@ use std::sync::Arc;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {
+            // Windows/Linux：二次唤起时由 single-instance + deep-link 特性转发 URL 到已有实例。
+        }));
+    }
+
+    builder
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                // 开发模式未安装 MSI 时，将 tooliva:// 注册到当前 debug 可执行文件。
+                app.deep_link().register_all()?;
+            }
+
             commands::db::apply_saved_window_size(app.handle())?;
             Ok(())
         })

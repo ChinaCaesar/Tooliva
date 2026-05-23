@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
-import { ROUTE_PATHS } from "@/config/constants";
+import { useAuthEntry } from "@/auth/composables/useAuthEntry";
 import MembershipHeroSection from "@/pages/membership/components/MembershipHeroSection.vue";
 import MembershipUserCard from "@/pages/membership/components/MembershipUserCard.vue";
 import MembershipPlanGrid from "@/pages/membership/components/MembershipPlanGrid.vue";
 import MembershipCompareTable from "@/pages/membership/components/MembershipCompareTable.vue";
 import MembershipAsideColumn from "@/pages/membership/components/MembershipAsideColumn.vue";
+import { useAuthStore } from "@/stores/auth.store";
 
 const { t } = useI18n();
-const router = useRouter();
+const authStore = useAuthStore();
+const { handleAuthClick, openProfileModal } = useAuthEntry();
 
-function onLoginClick(): void {
-  router.push(ROUTE_PATHS.login);
+function onLogoutClick(): void {
+  authStore.logout();
 }
 </script>
 
@@ -33,7 +34,11 @@ function onLoginClick(): void {
 
       <aside class="membership-page__sidebar" :aria-label="t('pages.membership.aside.ariaLabel')">
         <div class="membership-page__sidebar-scroll">
-          <MembershipUserCard @login="onLoginClick" />
+          <MembershipUserCard
+            @login="handleAuthClick"
+            @logout="onLogoutClick"
+            @open-profile="openProfileModal"
+          />
           <MembershipAsideColumn />
         </div>
       </aside>
