@@ -17,7 +17,7 @@ import type {
 export const HOME_CORE_TOOLS_MOCK: HomeToolCardItem[] = [
   {
     id: "tool-image-compress",
-    iconKey: "pubIconImageCompress",
+    iconKey: "pubToolImageCompress",
     titleKey: "pages.home.tools.imageCompress.title",
     descriptionKey: "pages.home.tools.imageCompress.description",
     gradient: "linear-gradient(135deg, #4286ff 0%, #2d6ff5 100%)",
@@ -25,7 +25,7 @@ export const HOME_CORE_TOOLS_MOCK: HomeToolCardItem[] = [
   },
   {
     id: "tool-video-to-gif",
-    iconKey: "pubIconVideoConvert",
+    iconKey: "pubToolVideoToGif",
     titleKey: "pages.home.tools.videoToGif.title",
     descriptionKey: "pages.home.tools.videoToGif.description",
     gradient: "linear-gradient(135deg, #a37cff 0%, #7c4dff 100%)",
@@ -33,7 +33,7 @@ export const HOME_CORE_TOOLS_MOCK: HomeToolCardItem[] = [
   },
   {
     id: "tool-image-upscale",
-    iconKey: "pubIconScreenRecord",
+    iconKey: "pubToolImageUpscale",
     titleKey: "pages.home.tools.imageUpscale.title",
     descriptionKey: "pages.home.tools.imageUpscale.description",
     gradient: "linear-gradient(135deg, #2ec591 0%, #19a374 100%)",
@@ -41,7 +41,7 @@ export const HOME_CORE_TOOLS_MOCK: HomeToolCardItem[] = [
   },
   {
     id: "tool-image-watermark",
-    iconKey: "pubIconImageWatermark",
+    iconKey: "pubToolImageWatermark",
     titleKey: "pages.home.tools.imageWatermark.title",
     descriptionKey: "pages.home.tools.imageWatermark.description",
     gradient: "linear-gradient(135deg, #ff8a48 0%, #f76b1c 100%)",
@@ -119,7 +119,7 @@ export const HOME_CHANGELOG_MOCK: HomeChangelogEntryDef[] = [
 export const HOME_RECENT_ITEMS_MOCK: HomeRecentItem[] = [
   {
     id: "recent-1",
-    iconKey: "pubIconImageCompress",
+    iconKey: "pubToolImageCompress",
     titleKey: "pages.home.tools.imageCompress.shortTitle",
     fileName: "photo_2024.jpg",
     relativeTimeKey: "pages.home.recent.usedJustNow",
@@ -128,7 +128,7 @@ export const HOME_RECENT_ITEMS_MOCK: HomeRecentItem[] = [
   },
   {
     id: "recent-2",
-    iconKey: "pubIconVideoConvert",
+    iconKey: "pubToolVideoToGif",
     titleKey: "pages.home.tools.videoToGif.shortTitle",
     fileName: "clip_001.mp4",
     relativeTimeKey: "pages.home.relativeTime.oneHourAgo",
@@ -137,7 +137,7 @@ export const HOME_RECENT_ITEMS_MOCK: HomeRecentItem[] = [
   },
   {
     id: "recent-3",
-    iconKey: "pubIconScreenRecord",
+    iconKey: "pubToolImageUpscale",
     titleKey: "pages.home.tools.imageUpscale.shortTitle",
     fileName: "photo_hd.png",
     relativeTimeKey: "pages.home.recent.usedYesterday",
@@ -146,7 +146,7 @@ export const HOME_RECENT_ITEMS_MOCK: HomeRecentItem[] = [
   },
   {
     id: "recent-4",
-    iconKey: "pubIconImageWatermark",
+    iconKey: "pubToolImageWatermark",
     titleKey: "pages.home.tools.imageWatermark.shortTitle",
     fileName: "poster.png",
     relativeTimeKey: "pages.home.recent.usedTwoDaysAgo",
@@ -192,21 +192,21 @@ export const HOME_STATS_MOCK: HomeStatItem[] = [
 export const HOME_QUICK_ACTIONS_MOCK: HomeQuickActionItem[] = [
   {
     id: "quick-history",
-    iconKey: "pubIconImageCompress",
+    iconKey: "pubToolImageCompress",
     labelKey: "pages.home.quickActions.history",
     count: 23,
     route: ROUTE_PATHS.tasks
   },
   {
     id: "quick-favorites",
-    iconKey: "pubIconImageWatermark",
+    iconKey: "pubToolImageWatermark",
     labelKey: "pages.home.quickActions.favorites",
     count: 5,
     route: ROUTE_PATHS.favorites
   },
   {
     id: "quick-docs",
-    iconKey: "pubIconScreenRecord",
+    iconKey: "pubToolImageUpscale",
     labelKey: "pages.home.quickActions.documentManager",
     count: 12,
     route: ROUTE_PATHS.tools

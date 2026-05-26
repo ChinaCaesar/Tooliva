@@ -1,29 +1,37 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { message } from "@tauri-apps/plugin-dialog";
-import { isTauri } from "@tauri-apps/api/core";
 import { MEMBERSHIP_PLAN_DEFS, type MembershipPlanId } from "@/pages/membership/config/membershipPage.config";
+import { useExternalNavigate } from "@/composables/useExternalNavigate";
 
 const { t } = useI18n();
+const { navigate } = useExternalNavigate();
 
 const selectedId = ref<MembershipPlanId>("monthly");
+
+const PLAN_LOGICAL_PATH: Record<MembershipPlanId, string> = {
+  monthly: "/pricing#plan-monthly",
+  quarterly: "/pricing#plan-quarterly",
+  annual: "/pricing#plan-annual",
+  lifetime: "/pricing#plan-lifetime"
+};
+
+const PLAN_ENTRY_ID: Record<MembershipPlanId, string> = {
+  monthly: "membership-plan-monthly-cta",
+  quarterly: "membership-plan-quarterly-cta",
+  annual: "membership-plan-annual-cta",
+  lifetime: "membership-plan-lifetime-cta"
+};
 
 function selectPlan(id: MembershipPlanId): void {
   selectedId.value = id;
 }
 
 async function onSubscribe(planId: MembershipPlanId): Promise<void> {
-  const def = MEMBERSHIP_PLAN_DEFS.find((p) => p.id === planId);
-  const planLabel = def ? t(def.nameKey) : planId;
-  const body = t("pages.membership.plans.subscribePlaceholder", { plan: planLabel });
-  const title = t("pages.membership.plans.subscribePlaceholderTitle");
-  const text = `${title}\n\n${body}`;
-  if (isTauri()) {
-    await message(text, { title });
-  } else {
-    globalThis.alert(text);
-  }
+  await navigate({
+    entryId: PLAN_ENTRY_ID[planId],
+    logicalPath: PLAN_LOGICAL_PATH[planId]
+  });
 }
 </script>
 

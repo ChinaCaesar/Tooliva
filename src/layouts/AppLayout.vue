@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppNotificationContainer from "@/components/common/AppNotificationContainer.vue";
+import ExternalNavToast from "@/components/feedback/ExternalNavToast.vue";
 import { useAppThemeSync } from "@/composables/useAppThemeSync";
 
 useAppThemeSync();
@@ -11,6 +12,7 @@ useAppThemeSync();
       <RouterView />
     </main>
     <AppNotificationContainer />
+    <ExternalNavToast />
   </div>
 </template>
 

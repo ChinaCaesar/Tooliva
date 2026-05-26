@@ -68,7 +68,7 @@ function handleChipClick(item: RecentUsageItemViewModel): void {
         :disabled="item.isEmpty || !item.actionCode"
         @click="handleChipClick(item)"
       >
-        <div class="recent-chip__swatch" :style="{ background: item.iconBackground }">
+        <div class="recent-chip__swatch">
           <img :src="item.iconUrl" alt="" class="recent-chip__icon" />
         </div>
         <div class="recent-chip__body">
@@ -237,22 +237,19 @@ function handleChipClick(item: RecentUsageItemViewModel): void {
     transition: none;
   }
 }
+/* 工具 logo 保留原图：不加底色/描边/裁剪/投影，避免任何形式的滤镜叠加。 */
 .recent-chip__swatch {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 .recent-chip__icon {
   width: 32px;
   height: 32px;
   object-fit: contain;
-  border-radius: 8px;
 }
 .recent-chip__body {
   flex: 1;

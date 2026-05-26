@@ -23,7 +23,7 @@ export interface AppToolDef {
 const TOOLS_REGISTRY_RAW: AppToolDef[] = [
   {
     key: "image-compress",
-    iconKey: "pubIconImageCompress",
+    iconKey: "pubToolImageCompress",
     titleKey: "pages.home.tools.imageCompress.title",
     shortTitleKey: "pages.home.tools.imageCompress.shortTitle",
     descriptionKey: "pages.home.tools.imageCompress.description",
@@ -34,7 +34,7 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
   },
   {
     key: "gif-compress",
-    iconKey: "pubIconVideoConvert",
+    iconKey: "pubToolGifCompress",
     titleKey: "pages.home.tools.gifCompress.title",
     shortTitleKey: "pages.home.tools.gifCompress.shortTitle",
     descriptionKey: "pages.home.tools.gifCompress.description",
@@ -45,7 +45,7 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
   },
   {
     key: "video-to-gif",
-    iconKey: "pubIconVideoConvert",
+    iconKey: "pubToolVideoToGif",
     titleKey: "pages.home.tools.videoToGif.title",
     shortTitleKey: "pages.home.tools.videoToGif.shortTitle",
     descriptionKey: "pages.home.tools.videoToGif.description",
@@ -56,7 +56,7 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
   },
   {
     key: "image-upscale",
-    iconKey: "pubIconScreenRecord",
+    iconKey: "pubToolImageUpscale",
     titleKey: "pages.home.tools.imageUpscale.title",
     shortTitleKey: "pages.home.tools.imageUpscale.shortTitle",
     descriptionKey: "pages.home.tools.imageUpscale.description",
@@ -67,7 +67,7 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
   },
   {
     key: "image-watermark",
-    iconKey: "pubIconImageWatermark",
+    iconKey: "pubToolImageWatermark",
     titleKey: "pages.home.tools.imageWatermark.title",
     shortTitleKey: "pages.home.tools.imageWatermark.shortTitle",
     descriptionKey: "pages.home.tools.imageWatermark.description",
@@ -78,7 +78,7 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
   },
   {
     key: "image-watermark-removal",
-    iconKey: "pubIconImageWatermark",
+    iconKey: "pubToolImageWatermarkRemoval",
     titleKey: "pages.home.tools.imageWatermarkRemoval.title",
     shortTitleKey: "pages.home.tools.imageWatermarkRemoval.shortTitle",
     descriptionKey: "pages.home.tools.imageWatermarkRemoval.description",
@@ -89,7 +89,7 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
   },
   {
     key: "video-watermark-removal",
-    iconKey: "pubIconVideoConvert",
+    iconKey: "pubToolVideoWatermarkRemoval",
     titleKey: "pages.home.tools.videoWatermarkRemoval.title",
     shortTitleKey: "pages.home.tools.videoWatermarkRemoval.shortTitle",
     descriptionKey: "pages.home.tools.videoWatermarkRemoval.description",

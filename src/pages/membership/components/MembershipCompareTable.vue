@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
 import { MEMBERSHIP_COMPARE_ROWS, type CompareCell } from "@/pages/membership/config/membershipPage.config";
+import { useExternalNavigate } from "@/composables/useExternalNavigate";
 
 const { t } = useI18n();
+const { navigate } = useExternalNavigate();
 
 function cellText(cell: CompareCell): string {
   if (cell.kind === "text") return t(cell.key);
   if (cell.kind === "dash") return t("pages.membership.compare.dash");
   return "";
+}
+
+async function onViewFullCompare(): Promise<void> {
+  await navigate({
+    entryId: "membership-compare-view-full",
+    logicalPath: "/pricing#compare"
+  });
 }
 </script>
 
@@ -63,6 +72,16 @@ function cellText(cell: CompareCell): string {
           </tr>
         </tbody>
       </table>
+    </div>
+    <div class="m-compare__footer">
+      <button
+        type="button"
+        class="m-compare__view-full"
+        :aria-label="t('pages.membership.compare.viewFullAria')"
+        @click="onViewFullCompare"
+      >
+        {{ t("pages.membership.compare.viewFull") }}
+      </button>
     </div>
   </section>
 </template>
@@ -141,5 +160,28 @@ function cellText(cell: CompareCell): string {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+.m-compare__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.m-compare__view-full {
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  font-size: 13px;
+  color: #f97316;
+  cursor: pointer;
+  text-decoration: underline;
+  letter-spacing: 0;
+}
+.m-compare__view-full:hover {
+  color: #ea580c;
+}
+.m-compare__view-full:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 </style>

@@ -1,0 +1,93 @@
+---
+description: 桌面端（Tauri Vue 应用） ⇄ 官网（ToolsWebsite） 的内容职责分层与外跳入口规范，新增/改动入口、路由、侧栏项、底栏链接、CTA、外链工具时遵循
+globs:
+  - src/router/**/*.ts
+  - src/layouts/**/*.{ts,vue}
+  - src/pages/**/*.vue
+  - src/utils/websiteLinks.ts
+  - src/utils/openExternalUrl.ts
+  - openspec/changes/**/proposal.md
+  - openspec/changes/**/design.md
+alwaysApply: false
+---
+
+## 适用范围
+
+新增或修改桌面端可被用户感知的入口（侧栏项、首页/会员页/设置页内的卡片按钮、底栏链接、菜单项、CTA 等）时**必须**先对照本规则。完整规范位于：
+
+- `openspec/specs/app-content-boundary/spec.md`
+- `openspec/specs/desktop-website-bridge/spec.md`
+
+本规则是上述规范的速查版；遇冲突以 spec 为准。
+
+---
+
+## 四档分层（判定时按用途归类，而非按页面归类）
+
+| 档 | 用途 | 承载位置 | 示例 |
+|---|---|---|---|
+| ① 工具操作 | 桌面工具的实现链路 | **壳内（必须）** | 图压、视频转 GIF、加水印、去水印、放大、批量任务 |
+| ② 用户态摘要 | 信息展示（不重复官网详情） | **壳内 Lite** | 会员价值摘要、版本提示、最近使用、安全说明 |
+| ③ 营销/转化 | 购买、详细对比、长文、博客 | **外跳官网** | 立即开通、完整套餐对比、详细 Features、教程 |
+| ④ 服务/合规 | 客服、法律、账户详情 | **外跳官网** | 联系我们、隐私协议、服务条款、退款、详细 FAQ |
+
+不允许的：
+
+- 分层 ① 中途打开浏览器
+- 分层 ② 硬编码价格/折扣/活动文案（应通过动态源或纯官网承载）
+- 分层 ②/③/④ 缺少对应"查看详情"外跳入口（会形成死胡同）
+- 分层 ③/④ 在桌面侧复刻可与官网平行迭代的页面
+
+---
+
+## 新增外跳入口的最小步骤
+
+1. **判分层**：在 change 的 `proposal.md` 或 `design.md` 显式写明属于 ①/②/③/④ 哪一档。
+2. **登记 entry-id**：在 `openspec/specs/desktop-website-bridge/spec.md` 对照表新增一行：
+   - entry-id（kebab-case，如 `home-banner-promo`、`settings-account-billing`）
+   - 分层（③/④）
+   - 桌面承载形态（如「侧栏次要导航」「卡片 CTA」「底栏文字链」）
+   - 官网逻辑路径（如 `/pricing#plan-month`、`/contact`）
+3. **使用集中化外跳工具**：调用 `src/utils/websiteLinks.ts` + `src/utils/openExternalUrl.ts`（或后续 change 落地的 `buildWebsiteUrlWithSource` / `useExternalNavigate`）。
+4. **URL 必须携带分析参数**：`source=desktop&v=<version>&locale=<zh-CN|en-US>`；已登记 entry-id 的入口附加 `&entry=<entry-id>`。锚点片段（`#xxx`）位于所有 query 之后。
+5. **跳前过渡反馈**：100–300ms 内提供可感知反馈（Toast「正在打开浏览器…」或同等可见提示），i18n 化，建议命名空间 `layout.appShell.externalNav.*`。
+6. **失败兜底**：`openExternalUrl` 已自带 i18n 错误提示；不得静默失败。
+7. **未就绪占位**：对照表中标注「官网未就绪」的入口，展示「即将上线」i18n 提示而非真跳转。
+
+> **注**：桌面应用本身要求在线 + 登录才能使用，因此**不**做外跳前的 `navigator.onLine` 离线降级；`openExternalUrl` 自带失败 fallback 足以覆盖网络抖动。
+
+---
+
+## 反例（违反规则）
+
+```ts
+// ❌ 不走集中化工具
+window.open(`${import.meta.env.VITE_WEBSITE_URL}/pricing`, '_blank')
+
+// ❌ URL 不带分析参数
+await openExternalUrl(buildWebsiteUrl(locale, '/pricing'))
+
+// ❌ 桌面 i18n 字典硬编码价格
+"membership.plan.month.price": "月度 ¥9.9"
+
+// ❌ 新增侧栏外跳项但未登记 entry-id 到对照表
+APP_NAV_SECONDARY_ITEMS.push({ id: 'contact', kind: 'external', url: '/contact' })
+```
+
+正例：
+
+```ts
+// ✓ 统一外跳工具 + 分析参数 + 过渡反馈 + 失败兜底
+await navigateExternal({
+  entryId: 'home-sidebar-membership-learn-more',
+  logicalPath: '/pricing',
+})
+```
+
+---
+
+## 与既有 `desktop-app-ui-from-homepage` 规则的分工
+
+- 本规则：**WHERE**——某项内容应该放在桌面壳内还是官网，以及外跳的合规细节。
+- `desktop-app-ui-from-homepage.mdc`：**HOW**——桌面壳内页面的视觉与排版规范（字号、灰阶、间距、阴影、focus）。
+- 新增桌面入口时通常**两个都要遵循**：先按本规则确认它应该在桌面，再按 UI 规则把它做对样。

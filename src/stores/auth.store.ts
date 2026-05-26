@@ -112,6 +112,10 @@ export const useAuthStore = defineStore('auth', {
       this.pendingPkce = session;
       this.persistPendingPkce();
 
+      // OAuth 协议级 URL 例外：authorizeUrl 由 auth.service 按 OAuth/PKCE 协议构造，
+      // 已包含 client_id/redirect_uri/PKCE challenge 等参数，不经 useExternalNavigate
+      // 走"分析参数 + Toast"通道，避免污染 OAuth 请求 query。
+      // 见 openspec/specs/desktop-website-bridge/spec.md「统一外跳 composable 与过渡 Toast 契约」。
       await openExternalUrl(authorizeUrl);
     },
 

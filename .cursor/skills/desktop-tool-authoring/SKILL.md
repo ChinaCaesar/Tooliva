@@ -92,6 +92,33 @@ description: 在桌面工具箱（Vue+Tauri）中新增或扩展壳内工具的�
 
 ---
 
+## 阶段 7：外跳入口必读（桌面 ⇄ 官网边界）
+
+任何**新增**或**改动**桌面端入口（侧栏项、卡片按钮、底栏链接、菜单项、CTA 等）在动手前 MUST 先读以下两份规范：
+
+- `openspec/specs/app-content-boundary/spec.md` — 四档分层（① 工具操作 / ② 用户态摘要 / ③ 营销转化 / ④ 服务合规）的判定规则、壳内 Lite 边界、外跳过渡反馈、离线降级、跨 change 引用要求。
+- `openspec/specs/desktop-website-bridge/spec.md` — 桌面入口 → 官网逻辑路径**对照表**（entry-id → 分层 → 桌面承载形态 → 官网路径），以及外链 URL 必须携带的分析参数（`source=desktop&v=&locale=&entry=`）与「官网未就绪入口」的占位行为。
+
+落地新外跳入口的最小步骤：
+
+1. **判分层**：在 change 的 `proposal.md` 或 `design.md` 明确该入口属于 ①/②/③/④ 哪一档；分层 ① 不应外跳，分层 ③/④ 不应在桌面侧复刻官网内容。
+2. **登记 entry-id**：在 `openspec/specs/desktop-website-bridge/spec.md` 对照表新增一行（kebab-case 命名，如 `home-banner-promo`、`settings-account-billing`）。
+3. **使用统一外跳工具**：调用 `src/utils/websiteLinks.ts` 与 `src/utils/openExternalUrl.ts`（或后续 change 落地的 `buildWebsiteUrlWithSource` / `useExternalNavigate`）；MUST NOT 自行拼接 URL 或直接 `window.open` 跳 `WEBSITE_URL`。
+4. **过渡反馈**：跳前 100–300ms 提供可感知反馈（Toast / 状态文案），MUST 通过 i18n 键管理；MUST NOT 静默打开浏览器。
+5. **未就绪占位**：若官网路径尚未上线（在对照表中标注「官网未就绪」），MUST 展示「即将上线」i18n 提示而非真跳转。
+
+> 桌面应用本身要求在线 + 登录才能使用，因此不做外跳前的离线判断；`openExternalUrl` 自带失败 Toast 足够覆盖偶发抖动。
+
+PR 自检（除工具页清单外，新增外跳入口还需）：
+
+- [ ] 该入口在 `desktop-website-bridge` 对照表中有 entry-id 登记
+- [ ] 调用方使用集中化外跳工具，未硬编码 `WEBSITE_URL`
+- [ ] URL 携带 `source=desktop&v=&locale=`，已登记 entry-id 的入口附带 `&entry=<id>`
+- [ ] 跳前有过渡反馈、跳失败有 i18n 错误提示
+- [ ] 桌面侧未硬编码可与官网平行迭代的字段（价格、活动文案等）
+
+---
+
 ## UI/UX 协作
 
 - 涉及布局、表单、空状态、密度与动效时：**必须**读取并遵循工作区 `.cursor/skills/ui-ux-pro-max/SKILL.md`。

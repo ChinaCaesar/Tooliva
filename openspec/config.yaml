@@ -1,20 +1,13 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Tech stack: Vue 3 + Tauri 2 桌面应用（仓库 `Tools`），姊妹仓库 `ToolsWebsite`（Astro 营销官网，双语）。
+  桌面端 ⇄ 官网的内容职责分层规范见 `openspec/specs/app-content-boundary/spec.md`；
+  外跳入口对照表见 `openspec/specs/desktop-website-bridge/spec.md`。
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - 若本 change 新增/修改/移除任何桌面端可被用户感知的入口（侧栏项、卡片按钮、底栏链接、菜单项、CTA 等），MUST 在「Impact」或「What Changes」中显式说明该入口所属分层（① 工具操作 / ② 用户态摘要 / ③ 营销转化 / ④ 服务合规），并在「Capabilities」的 Modified Capabilities 中包含 `desktop-website-bridge`（用于登记对照表）。若本 change 不涉及任何此类入口变动，可省略本条。
+  tasks:
+    - 若本 change 新增/修改外跳入口，tasks 内 MUST 至少包含一项：「在 `openspec/specs/desktop-website-bridge/spec.md` 对照表新增/更新 entry-id 行」；调用方使用集中化外跳工具且 URL 携带 `source=desktop&v=&locale=&entry=` 分析参数。
+

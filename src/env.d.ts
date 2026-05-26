@@ -2,6 +2,11 @@
 
 import "vue-router";
 
+declare global {
+  /** App 版本号；由 `vite.config.ts` 的 `define` 在构建期静态注入。 */
+  const __APP_VERSION__: string;
+}
+
 declare module "vue-router" {
   interface RouteMeta {
     /**

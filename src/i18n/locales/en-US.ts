@@ -103,6 +103,9 @@ export const enUS = {
         file: "File utilities are not available yet.",
         efficiency: "Productivity tools are not available yet.",
         moreTools: "More tools will be available in a future release."
+      },
+      externalNav: {
+        opening: "Opening browser…"
       }
     }
   },
@@ -506,9 +509,7 @@ export const enUS = {
         quarterlySecondary: "¥16.63 / month equivalent",
         annualSecondary: "¥10.83 / month equivalent",
         lifetimeSecondary: "No renewals — one-time purchase",
-        cta: "Subscribe",
-        subscribePlaceholderTitle: "Notice",
-        subscribePlaceholder: "Plan: {plan}. Payments are not connected yet—no charge will be made."
+        cta: "Subscribe"
       },
       compare: {
         title: "Compare benefits",
@@ -534,7 +535,9 @@ export const enUS = {
           partialExclusive: "Partial access"
         },
         dash: "—",
-        included: "Included"
+        included: "Included",
+        viewFull: "View full comparison",
+        viewFullAria: "Open full membership comparison in browser"
       },
       aside: {
         ariaLabel: "Membership supplements",

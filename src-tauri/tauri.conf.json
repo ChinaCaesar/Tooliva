@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Desktop Toolbox",
+        "title": "Tooliva",
         "width": 1100,
         "height": 900,
         "resizable": true,

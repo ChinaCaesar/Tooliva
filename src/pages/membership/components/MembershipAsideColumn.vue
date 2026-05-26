@@ -1,29 +1,16 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { message } from "@tauri-apps/plugin-dialog";
-import { isTauri } from "@tauri-apps/api/core";
 import { MEMBERSHIP_FAQ_ORDER, type MembershipFaqId } from "@/pages/membership/config/membershipPage.config";
-import { openExternalUrl } from "@/utils/openExternalUrl";
-import { buildWebsiteUrl, type AppLocale } from "@/utils/websiteLinks";
+import { useExternalNavigate } from "@/composables/useExternalNavigate";
 
-const { t, locale } = useI18n();
-
-async function openWebsitePage(logicalPath: string): Promise<void> {
-  try {
-    await openExternalUrl(buildWebsiteUrl(locale.value as AppLocale, logicalPath));
-  } catch {
-    const title = t("auth.websiteOpenFailedTitle");
-    const body = t("auth.websiteOpenFailedMessage");
-    if (isTauri()) {
-      await message(body, { title });
-    } else {
-      globalThis.alert(`${title}\n\n${body}`);
-    }
-  }
-}
+const { t } = useI18n();
+const { navigate } = useExternalNavigate();
 
 async function onViewAllFaq(): Promise<void> {
-  await openWebsitePage("/pricing#faq");
+  await navigate({
+    entryId: "membership-faq-view-all",
+    logicalPath: "/pricing#faq"
+  });
 }
 
 function faqQKey(id: MembershipFaqId): string {

@@ -103,6 +103,9 @@ export const zhCN = {
         file: "文件工具尚未接入，敬请期待。",
         efficiency: "效率工具尚未接入，敬请期待。",
         moreTools: "更多工具入口将在后续版本开放。"
+      },
+      externalNav: {
+        opening: "正在为您打开浏览器…"
       }
     }
   },
@@ -506,9 +509,7 @@ export const zhCN = {
         quarterlySecondary: "¥16.63 / 月",
         annualSecondary: "¥10.83 / 月",
         lifetimeSecondary: "无需续费，一次买断",
-        cta: "立即开通",
-        subscribePlaceholderTitle: "提示",
-        subscribePlaceholder: "您选择的「{plan}」：支付与订单尚未接入，当前不会扣款。后续版本将支持安全支付。"
+        cta: "立即开通"
       },
       compare: {
         title: "会员权益对比",
@@ -534,7 +535,9 @@ export const zhCN = {
           partialExclusive: "部分开放"
         },
         dash: "—",
-        included: "包含该项权益"
+        included: "包含该项权益",
+        viewFull: "查看完整对比",
+        viewFullAria: "在浏览器中查看完整会员权益对比"
       },
       aside: {
         ariaLabel: "会员中心补充说明",

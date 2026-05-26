@@ -80,7 +80,7 @@ function resolveRecentItemMeta(toolKey: string): { titleKey: string; iconUrl: st
   if (!def) {
     return {
       titleKey: "pages.home.tools.removedTool.shortTitle",
-      iconUrl: HOME_ASSETS.pubIconImageCompress,
+      iconUrl: HOME_ASSETS.pubToolImageCompress,
       iconBackground: "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
     };
   }

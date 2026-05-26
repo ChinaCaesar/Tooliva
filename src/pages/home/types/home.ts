@@ -95,16 +95,21 @@ export interface HomeMembershipInfo {
  * 首页资源键，统一由资源索引文件提供真实地址。
  *
  * 与设计稿配套切图一一对应。小型 UI 图标改为内联 SVG，已不在此处登记。
+ * 工具图标键命名遵循 `pubTool<ToolKeyPascalCase>`，与 `tools.registry.ts` 中的 `key` 一一对应，
+ * 资源文件位于 `public/resources/logo/` 下（文件名规则见 `homeAssets.ts` 注释）。
  */
 export type HomeAssetKey =
   | "pubAppLogo"
   | "pubCrown"
   | "pubHeroToolbox"
   | "pubShield"
-  | "pubIconImageCompress"
-  | "pubIconVideoConvert"
-  | "pubIconScreenRecord"
-  | "pubIconImageWatermark"
+  | "pubToolImageCompress"
+  | "pubToolGifCompress"
+  | "pubToolVideoToGif"
+  | "pubToolImageUpscale"
+  | "pubToolImageWatermark"
+  | "pubToolImageWatermarkRemoval"
+  | "pubToolVideoWatermarkRemoval"
   | "pubBottomLocal"
   | "pubBottomPrivacy"
   | "pubBottomOffline"

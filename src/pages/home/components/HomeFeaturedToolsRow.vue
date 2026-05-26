@@ -239,7 +239,7 @@ onUnmounted(() => {
         class="feat-card"
         @click="handleCardClick(card.actionCode)"
       >
-        <div class="feat-card__icon-wrap" :style="{ background: card.gradient }">
+        <div class="feat-card__icon-wrap">
           <img :src="card.iconUrl" alt="" class="feat-card__icon-img" />
         </div>
         <h3 class="feat-card__title">{{ t(card.titleKey) }}</h3>
@@ -327,22 +327,19 @@ onUnmounted(() => {
   }
 }
 
+/* 工具 logo 保留原图：不加底色/描边/裁剪/投影，避免任何形式的滤镜叠加。 */
 .feat-card__icon-wrap {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
 }
 .feat-card__icon-img {
   width: 44px;
   height: 44px;
   object-fit: contain;
-  border-radius: 12px;
 }
 .feat-card__title {
   margin: 14px 0 0;
