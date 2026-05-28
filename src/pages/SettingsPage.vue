@@ -5,7 +5,6 @@ import { storeToRefs } from "pinia";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { WINDOW_SIZE_OPTIONS } from "@/config/constants";
-import { HOME_PAGE_CONFIG } from "@/pages/home/config/home.config";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { useExternalNavigate } from "@/composables/useExternalNavigate";
 import { LANGUAGES, type AppLanguage, type AppWindowSize, type ThemeMode, type UserSettings } from "@/types/settings";
@@ -14,6 +13,7 @@ import SettingsSectionCard from "@/pages/settings/components/SettingsSectionCard
 import SettingsRow from "@/pages/settings/components/SettingsRow.vue";
 import SettingsThemeSegment from "@/pages/settings/components/SettingsThemeSegment.vue";
 import SettingsPathRow from "@/pages/settings/components/SettingsPathRow.vue";
+import { checkDesktopAppUpdate, type AppUpdateCheckResult } from "@/modules/app-updates/api";
 
 const { t } = useI18n();
 const settingsStore = useSettingsStore();
@@ -37,12 +37,21 @@ const {
   errorReportingEnabled
 } = storeToRefs(settingsStore);
 
-const appVersion = computed(() => HOME_PAGE_CONFIG.footer.version);
+const appVersion = computed(() => `v${__APP_VERSION__}`);
 
 const clearDataModalOpen = ref(false);
 const clearDataAcknowledged = ref(false);
 const clearDataClearing = ref(false);
 const clearDataModalPanelRef = ref<HTMLElement | null>(null);
+const updateProgressModalOpen = ref(false);
+const updateResultModalOpen = ref(false);
+const updateProgressValue = ref(0);
+const updateProgressLabel = ref("");
+const updateChecking = ref(false);
+const updateInstalling = ref(false);
+const updateResult = ref<AppUpdateCheckResult | null>(null);
+const updateResultStatus = ref<"success" | "error">("success");
+const updateResultMessage = ref("");
 
 watch(clearDataModalOpen, (open) => {
   if (open) {
@@ -148,11 +157,97 @@ async function onClearCache(): Promise<void> {
   else window.alert(body);
 }
 
-
 async function onCheckUpdates(): Promise<void> {
-  const body = t("pages.settings.dashboard.checkUpdatesHint");
-  if (isTauri()) await message(body, { title: t("pages.settings.checkUpdates") });
-  else window.alert(body);
+  if (updateChecking.value || updateInstalling.value) return;
+
+  updateChecking.value = true;
+  updateResultModalOpen.value = false;
+  updateProgressModalOpen.value = true;
+  updateProgressValue.value = 0;
+  updateProgressLabel.value = t("pages.settings.dashboard.updateCheckProgressStart");
+
+  let progressTimer: number | undefined;
+
+  try {
+    progressTimer = window.setInterval(() => {
+      if (updateProgressValue.value < 84) {
+        updateProgressValue.value = Math.min(84, updateProgressValue.value + 7);
+      }
+    }, 140);
+
+    window.setTimeout(() => {
+      if (updateChecking.value && updateProgressValue.value < 28) {
+        updateProgressValue.value = 28;
+        updateProgressLabel.value = t("pages.settings.dashboard.updateCheckProgressNetwork");
+      }
+    }, 220);
+
+    window.setTimeout(() => {
+      if (updateChecking.value && updateProgressValue.value < 58) {
+        updateProgressValue.value = 58;
+        updateProgressLabel.value = t("pages.settings.dashboard.updateCheckProgressCompare");
+      }
+    }, 620);
+
+    const result = await checkDesktopAppUpdate({
+      currentVersion: __APP_VERSION__,
+      channel: updateMethod.value,
+      locale: language.value
+    });
+
+    updateResult.value = result;
+    updateResultStatus.value = "success";
+    updateResultMessage.value = result.available
+      ? t("pages.settings.dashboard.updateAvailableMessage", { version: result.latestVersion })
+      : t("pages.settings.dashboard.updateUpToDateMessage", { version: result.currentVersion });
+  } catch {
+    updateResult.value = null;
+    updateResultStatus.value = "error";
+    updateResultMessage.value = t("pages.settings.dashboard.updateCheckFailedMessage");
+  } finally {
+    if (progressTimer) {
+      window.clearInterval(progressTimer);
+    }
+    updateProgressValue.value = 100;
+    updateProgressLabel.value = t("pages.settings.dashboard.updateCheckProgressDone");
+    await new Promise((resolve) => window.setTimeout(resolve, 260));
+    updateProgressModalOpen.value = false;
+    updateResultModalOpen.value = true;
+    updateChecking.value = false;
+  }
+}
+
+function closeUpdateResultModal(): void {
+  if (updateInstalling.value) return;
+  updateResultModalOpen.value = false;
+}
+
+async function onMockUpdateInstall(): Promise<void> {
+  if (!updateResult.value?.available || updateInstalling.value) return;
+
+  updateInstalling.value = true;
+  updateResultModalOpen.value = false;
+  updateProgressModalOpen.value = true;
+  updateProgressValue.value = 0;
+
+  const stages = [
+    { percent: 18, label: t("pages.settings.dashboard.updateInstallProgressPrepare") },
+    { percent: 52, label: t("pages.settings.dashboard.updateInstallProgressDownload") },
+    { percent: 82, label: t("pages.settings.dashboard.updateInstallProgressApply") },
+    { percent: 100, label: t("pages.settings.dashboard.updateInstallProgressDone") }
+  ];
+
+  for (const stage of stages) {
+    updateProgressLabel.value = stage.label;
+    updateProgressValue.value = stage.percent;
+    await new Promise((resolve) => window.setTimeout(resolve, 420));
+  }
+
+  updateProgressModalOpen.value = false;
+  updateInstalling.value = false;
+  updateResultStatus.value = "success";
+  updateResultMessage.value = t("pages.settings.dashboard.updateInstallMockDone");
+  updateResultModalOpen.value = true;
 }
 
 async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
@@ -397,6 +492,58 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
         </div>
       </div>
     </Teleport>
+
+    <Teleport to="body">
+      <div v-if="updateProgressModalOpen" class="dialog-backdrop" aria-hidden="false">
+        <div class="dialog-panel" role="alertdialog" aria-modal="true" aria-labelledby="update-progress-title">
+          <h2 id="update-progress-title" class="dialog-title">
+            {{ $t("pages.settings.dashboard.updateProgressTitle") }}
+          </h2>
+          <p class="dialog-body">{{ updateProgressLabel }}</p>
+          <div class="update-progress-bar" aria-hidden="true">
+            <span class="update-progress-bar__fill" :style="{ width: `${updateProgressValue}%` }" />
+          </div>
+          <p class="dialog-meta">{{ updateProgressValue }}%</p>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="updateResultModalOpen" class="dialog-backdrop" aria-hidden="false" @click.self="closeUpdateResultModal">
+        <div class="dialog-panel" role="alertdialog" aria-modal="true" aria-labelledby="update-result-title">
+          <h2 id="update-result-title" class="dialog-title">
+            {{
+              updateResultStatus === "error"
+                ? $t("pages.settings.dashboard.updateCheckFailedTitle")
+                : updateResult?.available
+                  ? $t("pages.settings.dashboard.updateAvailableTitle")
+                  : $t("pages.settings.dashboard.updateUpToDateTitle")
+            }}
+          </h2>
+          <p class="dialog-body">{{ updateResultMessage }}</p>
+          <div v-if="updateResult" class="dialog-meta-block">
+            <p class="dialog-meta">{{ $t("pages.settings.currentVersion") }}: {{ `v${updateResult.currentVersion.replace(/^v/i, "")}` }}</p>
+            <p class="dialog-meta">{{ $t("pages.settings.dashboard.latestVersionLabel") }}: {{ `v${updateResult.latestVersion.replace(/^v/i, "")}` }}</p>
+            <p v-if="updateResult.publishedAt" class="dialog-meta">{{ $t("pages.settings.dashboard.releaseDateLabel") }}: {{ updateResult.publishedAt }}</p>
+            <p v-if="updateResult.notes" class="dialog-body dialog-body--notes">{{ updateResult.notes }}</p>
+          </div>
+          <div class="dialog-actions">
+            <button
+              v-if="updateResult?.available && updateResultStatus !== 'error'"
+              type="button"
+              class="btn-primary"
+              :disabled="updateInstalling"
+              @click="onMockUpdateInstall"
+            >
+              {{ $t("pages.settings.dashboard.updateNow") }}
+            </button>
+            <button type="button" class="btn-ghost" :disabled="updateInstalling" @click="closeUpdateResultModal">
+              {{ $t("pages.settings.dashboard.closeModal") }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -506,6 +653,19 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
   padding: 6px 12px;
   cursor: pointer;
 }
+.btn-primary {
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.btn-primary:hover {
+  background: #1d4ed8;
+}
 .btn-danger {
   border: none;
   border-radius: 8px;
@@ -568,6 +728,7 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
   color: #94a3b8;
 }
 
+.dialog-backdrop,
 .clear-data-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -579,6 +740,7 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
   background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(2px);
 }
+.dialog-panel,
 .clear-data-modal-panel {
   width: 100%;
   max-width: 420px;
@@ -588,6 +750,7 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
   padding: 22px 22px 18px;
   outline: none;
 }
+.dialog-title,
 .clear-data-modal-title {
   margin: 0 0 12px;
   font-size: 18px;
@@ -595,11 +758,31 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
   font-weight: 700;
   color: #0f172a;
 }
+.dialog-body,
 .clear-data-modal-body {
   margin: 0 0 16px;
   font-size: 13px;
   line-height: 1.55;
   color: #475569;
+}
+.dialog-body--notes {
+  margin-top: 10px;
+  margin-bottom: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.dialog-meta-block {
+  margin-bottom: 18px;
+}
+.dialog-meta {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #64748b;
+}
+.dialog-meta + .dialog-meta {
+  margin-top: 4px;
 }
 .clear-data-modal-ack {
   display: flex;
@@ -618,16 +801,32 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
   height: 16px;
   accent-color: #dc2626;
 }
+.dialog-actions,
 .clear-data-modal-actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 10px;
 }
+.update-progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.update-progress-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb 0%, #60a5fa 100%);
+  transition: width 0.2s ease;
+}
 .btn-danger:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
+.btn-primary:disabled,
 .btn-ghost:disabled {
   opacity: 0.45;
   cursor: not-allowed;

@@ -175,10 +175,10 @@ export const enUS = {
             title: "Local processing, safe and efficient",
             points: {
               local: "All tools run locally on your device",
-              files: "Files never leave your machine",
-              privacy: "Your privacy is fully protected",
-              offline: "Offline usage is supported",
-              fast: "Lightning-fast and stable processing"
+              files: "Files and data are never uploaded",
+              privacy: "Processing and export stay on your computer",
+              offline: "Sign-in is required, with no offline mode",
+              fast: "Local processing keeps it simple and safe"
             }
           },
           membership: {
@@ -186,11 +186,11 @@ export const enUS = {
             learnMore: "Learn more",
             cta: "Go premium",
             points: {
-              unlimited: "Unlimited use of every tool",
-              batch: "More efficient batch processing",
-              noAds: "Ad-free across all tools",
-              support: "Dedicated customer support",
-              futureFree: "Free access to future features"
+              unlimited: "Unlimited access to core tools and premium features",
+              batch: "Monthly, yearly, and lifetime plans share core rights",
+              noAds: "Higher quotas for frequent tools",
+              support: "Batch workflows and AI features keep improving",
+              futureFree: "Sign in to sync membership rights"
             }
           },
           changelog: {
@@ -292,24 +292,24 @@ export const enUS = {
       },
       valueProps: {
         local: {
-          title: "Local processing",
-          description: "Files never leave your device"
+          title: "Runs locally",
+          description: "Files and data are never uploaded"
         },
         privacy: {
-          title: "Privacy protection",
-          description: "Your data stays local"
+          title: "Privacy first",
+          description: "Processing and export stay on your computer"
         },
         offline: {
-          title: "Offline friendly",
-          description: "Works without a network"
+          title: "Secure authorization",
+          description: "Sign-in is required, with no offline mode"
         },
         speed: {
-          title: "Fast and stable",
-          description: "Powerful local performance"
+          title: "Local processing",
+          description: "No cloud transfer, safer by design"
         },
         updates: {
           title: "Continuous updates",
-          description: "More tools rolling out"
+          description: "Membership features and tools keep improving"
         }
       }
     },
@@ -469,7 +469,27 @@ export const enUS = {
         clearDataModalCancel: "Cancel",
         clearDataModalConfirm: "Clear data",
         cacheEmptyHint: "Choose a cache folder with “Change” first.",
-        checkUpdatesHint: "Online update checks are not connected yet.",
+        checkUpdatesHint: "Update checks compare your current version with the latest release before showing update actions.",
+        updateProgressTitle: "Checking for updates",
+        updateCheckProgressStart: "Preparing the current version information…",
+        updateCheckProgressNetwork: "Connecting to the update service…",
+        updateCheckProgressCompare: "Comparing your version with the latest release…",
+        updateCheckProgressDone: "Check finished. Preparing the result…",
+        updateAvailableTitle: "Update available",
+        updateAvailableMessage: "A newer version {version} is available.",
+        updateUpToDateTitle: "You're up to date",
+        updateUpToDateMessage: "Current version {version} is already the latest release.",
+        updateCheckFailedTitle: "Update check failed",
+        updateCheckFailedMessage: "Unable to load update information right now. Try again later.",
+        latestVersionLabel: "Latest version",
+        releaseDateLabel: "Release date",
+        updateNow: "Update",
+        closeModal: "Close",
+        updateInstallProgressPrepare: "Preparing the mock update task…",
+        updateInstallProgressDownload: "Simulating update package download…",
+        updateInstallProgressApply: "Simulating installation and apply steps…",
+        updateInstallProgressDone: "Mock update completed.",
+        updateInstallMockDone: "The mock update flow finished. Real download and install events can be wired later.",
         terms: "Terms of use",
         privacyPolicy: "Privacy policy",
         termsPlaceholder: "Terms content will be linked or embedded in a future release.",

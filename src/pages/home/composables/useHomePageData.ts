@@ -1,4 +1,5 @@
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { HomeRecentUsagePayload } from "@/bridge/tauriClient";
 import { LOCAL_DATA_CLEARED_EVENT } from "@/config/constants";
 import { getAllToolsSorted, getHomeFeaturedToolsSorted, getSearchToolEntriesSorted, getToolByActionCode, normalizeRegistryActionCode } from "@/config/tools.registry";
@@ -6,6 +7,7 @@ import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { HOME_PAGE_CONFIG } from "@/pages/home/config/home.config";
 import { isTauri } from "@tauri-apps/api/core";
 import { tauriClient } from "@/bridge/tauriClient";
+import { fetchChangelogEntries } from "@/modules/changelog/api";
 import {
   HOME_CHANGELOG_MOCK,
   HOME_MEMBERSHIP_BULLETS_MOCK,
@@ -50,8 +52,10 @@ interface HomeSidebarBulletViewModel {
 interface HomeChangelogEntryViewModel {
   id: string;
   version: string;
-  dateKey: string;
-  summaryKey: string;
+  dateKey?: string;
+  summaryKey?: string;
+  dateText?: string;
+  summaryText?: string;
 }
 
 /** 与后端「每工具最近一次」语义对齐的防御性去重（兼容旧版返回多条同工具事件）。 */
@@ -136,7 +140,9 @@ function greetingTitleKeyFromHour(): string {
  * 首页数据装配层，后续可切换为 API 数据源。
  */
 export function useHomePageData() {
+  const { locale } = useI18n();
   const recentItems = ref<HomeRecentItemViewModel[]>(mapMockRecentToViewModels());
+  const changelogEntries = ref<HomeChangelogEntryViewModel[]>(HOME_CHANGELOG_MOCK);
 
   const greetingTitleKey = computed(() => greetingTitleKeyFromHour());
 
@@ -182,8 +188,6 @@ export function useHomePageData() {
     }))
   );
 
-  const changelogEntries = computed<HomeChangelogEntryViewModel[]>(() => HOME_CHANGELOG_MOCK);
-
   const searchToolEntries = computed(() => getSearchToolEntriesSorted());
 
   const pageConfig = computed(() => HOME_PAGE_CONFIG);
@@ -219,6 +223,25 @@ export function useHomePageData() {
     }
   }
 
+  async function hydrateChangelog(): Promise<void> {
+    try {
+      const entries = await fetchChangelogEntries(2, locale.value);
+      if (entries.length === 0) {
+        changelogEntries.value = HOME_CHANGELOG_MOCK;
+        return;
+      }
+
+      changelogEntries.value = entries.map((item) => ({
+        id: item.id,
+        version: item.version,
+        dateText: item.date,
+        summaryText: item.summary
+      }));
+    } catch {
+      changelogEntries.value = HOME_CHANGELOG_MOCK;
+    }
+  }
+
   function onLocalDataCleared(): void {
     if (!isTauri()) {
       recentItems.value = [];
@@ -229,7 +252,12 @@ export function useHomePageData() {
 
   onMounted(() => {
     void hydrateDashboardFromSqlite();
+    void hydrateChangelog();
     globalThis.addEventListener(LOCAL_DATA_CLEARED_EVENT, onLocalDataCleared);
+  });
+
+  watch(locale, () => {
+    void hydrateChangelog();
   });
 
   onUnmounted(() => {

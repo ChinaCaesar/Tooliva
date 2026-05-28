@@ -159,7 +159,9 @@ onUnmounted(() => {
 
     <div class="home-top-bar__actions" data-tauri-drag-region="false">
       <button type="button" class="home-top-bar__member" @click="emit('memberCta')">
-        <img :src="crownIconUrl" alt="" class="home-top-bar__crown" />
+        <svg class="home-top-bar__crown" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M3 8.5 7 12l5-7 5 7 4-3.5L19 18H5L3 8.5Z"></path>
+        </svg>
         <span>{{ memberCtaLabel }}</span>
       </button>
       <button

@@ -29,8 +29,10 @@ export interface HomeSidebarBulletDef {
 export interface HomeChangelogEntryDef {
   id: string;
   version: string;
-  dateKey: string;
-  summaryKey: string;
+  dateKey?: string;
+  summaryKey?: string;
+  dateText?: string;
+  summaryText?: string;
 }
 
 /**

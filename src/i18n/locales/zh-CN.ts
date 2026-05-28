@@ -175,10 +175,10 @@ export const zhCN = {
             title: "本地处理，安全高效",
             points: {
               local: "所有工具均在本地运行",
-              files: "文件不上传服务器",
-              privacy: "保护你的隐私安全",
-              offline: "支持离线使用",
-              fast: "极速处理，高效稳定"
+              files: "文件与数据不上传服务器",
+              privacy: "处理与导出全程本地完成",
+              offline: "需登录授权，不支持离线使用",
+              fast: "本地处理更安心"
             }
           },
           membership: {
@@ -186,11 +186,11 @@ export const zhCN = {
             learnMore: "了解更多",
             cta: "开通会员",
             points: {
-              unlimited: "全部工具无限制使用",
-              batch: "批量处理更高效率",
-              noAds: "去除所有工具广告",
-              support: "专属客服支持",
-              futureFree: "后续新功能免费用"
+              unlimited: "核心工具与高级功能不限次使用",
+              batch: "月付、年付及终身会员共享核心权益",
+              noAds: "高频工具支持更高配额",
+              support: "批量处理与 AI 功能持续增强",
+              futureFree: "登录后自动同步会员权益"
             }
           },
           changelog: {
@@ -292,24 +292,24 @@ export const zhCN = {
       },
       valueProps: {
         local: {
-          title: "本地处理",
-          description: "文件不上传服务器"
+          title: "本地运行",
+          description: "文件与数据不上传服务器"
         },
         privacy: {
-          title: "保护隐私",
-          description: "您的数据只在本地"
+          title: "隐私优先",
+          description: "处理与导出全程本地完成"
         },
         offline: {
-          title: "离线可用",
-          description: "无网络环境也能使用"
+          title: "安全授权",
+          description: "需登录授权，不支持离线使用"
         },
         speed: {
-          title: "高速稳定",
-          description: "极速处理，性能强劲"
+          title: "本地处理",
+          description: "不经云端，使用更安心"
         },
         updates: {
           title: "持续更新",
-          description: "更多工具持续更新中"
+          description: "会员能力与工具功能持续增强"
         }
       }
     },
@@ -469,7 +469,27 @@ export const zhCN = {
         clearDataModalCancel: "取消",
         clearDataModalConfirm: "确认清除",
         cacheEmptyHint: "请先在上方点击「更改」选择缓存目录。",
-        checkUpdatesHint: "更新服务尚未接入，后续版本将支持在线检查。",
+        checkUpdatesHint: "检查更新会先校验最新版本，再决定是否展示更新入口。",
+        updateProgressTitle: "检查更新中",
+        updateCheckProgressStart: "正在准备检查当前版本信息…",
+        updateCheckProgressNetwork: "正在连接更新服务并获取最新版本…",
+        updateCheckProgressCompare: "正在比对当前版本与最新版本…",
+        updateCheckProgressDone: "检查完成，正在整理结果…",
+        updateAvailableTitle: "发现新版本",
+        updateAvailableMessage: "检测到新版本 {version}，可以开始更新。",
+        updateUpToDateTitle: "已是最新版本",
+        updateUpToDateMessage: "当前版本 {version} 已是最新，无需更新。",
+        updateCheckFailedTitle: "检查更新失败",
+        updateCheckFailedMessage: "暂时无法获取更新信息，请稍后重试。",
+        latestVersionLabel: "最新版本",
+        releaseDateLabel: "发布日期",
+        updateNow: "更新",
+        closeModal: "关闭",
+        updateInstallProgressPrepare: "正在准备模拟更新任务…",
+        updateInstallProgressDownload: "正在模拟下载更新包…",
+        updateInstallProgressApply: "正在模拟安装并应用更新…",
+        updateInstallProgressDone: "模拟更新完成。",
+        updateInstallMockDone: "已完成模拟更新流程，正式下载安装事件后续再接入。",
         terms: "用户协议",
         privacyPolicy: "隐私政策",
         termsPlaceholder: "用户协议正文将在后续版本提供链接或内嵌页面。",

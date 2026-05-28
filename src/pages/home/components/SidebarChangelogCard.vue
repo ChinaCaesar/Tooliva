@@ -4,8 +4,10 @@ import { useI18n } from "vue-i18n";
 interface EntryVm {
   id: string;
   version: string;
-  dateKey: string;
-  summaryKey: string;
+  dateKey?: string;
+  summaryKey?: string;
+  dateText?: string;
+  summaryText?: string;
 }
 
 defineProps<{
@@ -19,6 +21,13 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+function resolveText(text?: string, key?: string): string {
+  if (text && text.trim().length > 0) {
+    return text;
+  }
+  return key ? t(key) : "";
+}
 </script>
 
 <template>
@@ -37,9 +46,9 @@ const { t } = useI18n();
       <li v-for="e in entries" :key="e.id" class="changelog-card__item">
         <div class="changelog-card__row">
           <span class="changelog-card__ver">{{ e.version }}</span>
-          <span class="changelog-card__date">{{ t(e.dateKey) }}</span>
+          <span class="changelog-card__date">{{ resolveText(e.dateText, e.dateKey) }}</span>
         </div>
-        <p class="changelog-card__summary">{{ t(e.summaryKey) }}</p>
+        <p class="changelog-card__summary">{{ resolveText(e.summaryText, e.summaryKey) }}</p>
       </li>
     </ul>
   </section>
