@@ -8,7 +8,18 @@ export const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "desktop-toolbox:app-sidebar-co
 export const LOCAL_DATA_CLEARED_EVENT = "desktop-toolbox:local-data-cleared";
 
 /** 官网地址（开发环境默认 localhost:4322） */
-export const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL ?? "http://localhost:4322";
+export const WEBSITE_URL =
+  import.meta.env.VITE_WEBSITE_URL
+  ?? import.meta.env.PUBLIC_SITE_URL
+  ?? "http://localhost:4322";
+
+const API_ORIGIN = import.meta.env.PUBLIC_API_ORIGIN as string | undefined;
+const API_BASE_PATH = import.meta.env.PUBLIC_API_BASE_PATH as string | undefined;
+
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL
+  ?? (API_ORIGIN && API_BASE_PATH ? `${API_ORIGIN.replace(/\/$/, "")}${API_BASE_PATH.startsWith("/") ? API_BASE_PATH : `/${API_BASE_PATH}`}` : undefined)
+  ?? `${WEBSITE_URL.replace(/\/$/, "")}/api`;
 export const AUTH_DESKTOP_CLIENT = "desktop";
 export const AUTH_REDIRECT_URI = "tooliva://auth/callback";
 export const AUTH_SESSION_STORAGE_KEY = "desktop-toolbox:auth-session";

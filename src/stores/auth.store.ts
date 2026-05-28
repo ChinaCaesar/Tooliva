@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { authService } from '@/auth/auth.service';
+import { AuthApiError, authService, isAuthInvalidError } from '@/auth/auth.service';
 import { parseAuthCallbackUrl } from '@/auth/deep-link';
 import type { AuthSession, AuthUser, MembershipInfo, PendingPkceSession, TokenPair } from '@/auth/types';
 import {
@@ -78,6 +78,38 @@ export const useAuthStore = defineStore('auth', {
       }
       this.pendingPkce = readJson<PendingPkceSession>(AUTH_PKCE_STORAGE_KEY);
       this.hydrated = true;
+    },
+
+    async validateStoredSession(): Promise<void> {
+      if (!this.user || !this.tokens || !this.loggedInAt) {
+        return;
+      }
+
+      if (this.tokens.expiresAt && new Date(this.tokens.expiresAt).getTime() <= Date.now()) {
+        this.logout();
+        return;
+      }
+
+      const session: AuthSession = {
+        user: this.user,
+        membership: this.membership ?? {
+          tier: 'free',
+          tierLabel: 'Free',
+          isActive: false,
+          expiresAt: null,
+        },
+        tokens: this.tokens,
+        loggedInAt: this.loggedInAt,
+      };
+
+      try {
+        this.user = await authService.validateSession(session);
+        this.persistSession();
+      } catch (error) {
+        if (isAuthInvalidError(error)) {
+          this.logout();
+        }
+      }
     },
 
     persistSession(): void {
@@ -194,10 +226,11 @@ export const useAuthStore = defineStore('auth', {
           code_expired: '授权码已过期，请重新登录。',
           state_mismatch: 'state 校验失败。',
           pkce_mismatch: 'PKCE 校验失败。',
+          invalid_token_response: '账号服务未返回有效登录凭证，请重新登录。',
         };
         notificationStore.showNotification({
           title: '登录失败',
-          message: messages[code] ?? '无法完成登录，请重试。',
+          message: error instanceof AuthApiError ? error.message : (messages[code] ?? '无法完成登录，请重试。'),
           tone: 'error',
           durationMs: 5000,
         });

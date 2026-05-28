@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local-api": "vite --mode development --host 127.0.0.1 --strictPort",
     "dev:desktop": "vite --host 127.0.0.1 --strictPort",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",

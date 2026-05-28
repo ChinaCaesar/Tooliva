@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -11,6 +11,15 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const authStore = useAuthStore();
+const avatarLoadFailed = ref(false);
+const avatarUrl = computed(() => (avatarLoadFailed.value ? '' : (authStore.user?.avatar ?? '')));
+
+watch(
+  () => authStore.user?.avatar,
+  () => {
+    avatarLoadFailed.value = false;
+  },
+);
 
 const providerLabel = computed(() => {
   const provider = authStore.user?.provider;
@@ -37,7 +46,14 @@ const expiryText = computed(() => {
     <template v-if="authStore.isLoggedIn && authStore.user">
       <button type="button" class="m-user__row m-user__row--clickable" @click="emit('openProfile')">
         <div class="m-user__avatar m-user__avatar--logged-in" aria-hidden="true">
-          {{ authStore.user.nickname.slice(0, 1) }}
+          <img
+            v-if="avatarUrl"
+            class="m-user__avatar-img"
+            :src="avatarUrl"
+            :alt="authStore.user.nickname"
+            @error="avatarLoadFailed = true"
+          />
+          <span v-else>{{ authStore.user.nickname.slice(0, 1) }}</span>
         </div>
         <div class="m-user__copy">
           <p class="m-user__title">{{ authStore.user.nickname }}</p>
@@ -110,6 +126,7 @@ const expiryText = computed(() => {
   background: linear-gradient(145deg, #eef2ff 0%, #e0e7ff 55%, #c7d2fe 100%);
   border: 1px solid #e0e7ff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  overflow: hidden;
 }
 .m-user__avatar--logged-in {
   display: flex;
@@ -118,6 +135,12 @@ const expiryText = computed(() => {
   font-size: 18px;
   font-weight: 700;
   color: #4338ca;
+}
+.m-user__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .m-user__copy {
   min-width: 0;

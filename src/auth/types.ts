@@ -5,6 +5,7 @@ export interface AuthUser {
   nickname: string;
   provider: AuthProvider;
   email?: string;
+  avatar?: string;
 }
 
 export type MembershipTier = 'free' | 'pro' | 'lifetime';
@@ -41,6 +42,23 @@ export interface AuthExchangeResult {
   user: AuthUser;
   membership: MembershipInfo;
   tokens: TokenPair;
+}
+
+export interface BackendUserInfo {
+  id?: number | string;
+  username?: string;
+  nickname?: string;
+  email?: string;
+  avatar?: string;
+  token?: string;
+  refresh_token?: string;
+  provider?: string;
+}
+
+export interface BackendMembershipSnapshot {
+  tier?: string;
+  is_active?: boolean;
+  expires_at?: number | string | null;
 }
 
 export interface PendingPkceSession {

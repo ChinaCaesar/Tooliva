@@ -41,6 +41,17 @@ const expiryText = computed(() => {
 });
 
 const nicknameInitial = computed(() => authStore.user?.nickname.slice(0, 1) ?? "");
+const avatarLoadFailed = ref(false);
+const avatarUrl = computed(() => (avatarLoadFailed.value ? "" : (authStore.user?.avatar ?? "")));
+const accountEmail = computed(() => authStore.user?.email || t("auth.userProfile.notProvided"));
+const accountId = computed(() => authStore.user?.id || "-");
+
+watch(
+  () => authStore.user?.avatar,
+  () => {
+    avatarLoadFailed.value = false;
+  }
+);
 
 function onOverlayClick(event: MouseEvent): void {
   if (event.target === event.currentTarget) {
@@ -118,17 +129,36 @@ onUnmounted(() => {
           <div v-if="authStore.user" class="profile-modal__body">
             <div class="profile-modal__user">
               <div class="profile-modal__avatar" aria-hidden="true">
-                {{ nicknameInitial }}
+                <img
+                  v-if="avatarUrl"
+                  class="profile-modal__avatar-img"
+                  :src="avatarUrl"
+                  :alt="authStore.user.nickname"
+                  @error="avatarLoadFailed = true"
+                />
+                <span v-else>{{ nicknameInitial }}</span>
               </div>
               <div class="profile-modal__info">
                 <p class="profile-modal__name">{{ authStore.user.nickname }}</p>
                 <p class="profile-modal__hint">
-                  {{ t("auth.loggedInVia", { provider: providerLabel }) }}
+                  {{ authStore.user.email || t("auth.loggedInVia", { provider: providerLabel }) }}
                 </p>
               </div>
             </div>
 
             <dl class="profile-modal__meta">
+              <div class="profile-modal__meta-row">
+                <dt>{{ t("auth.userProfile.accountIdLabel") }}</dt>
+                <dd>{{ accountId }}</dd>
+              </div>
+              <div class="profile-modal__meta-row">
+                <dt>{{ t("auth.userProfile.emailLabel") }}</dt>
+                <dd>{{ accountEmail }}</dd>
+              </div>
+              <div class="profile-modal__meta-row">
+                <dt>{{ t("auth.userProfile.providerLabel") }}</dt>
+                <dd>{{ providerLabel }}</dd>
+              </div>
               <div class="profile-modal__meta-row">
                 <dt>{{ t("auth.userProfile.membershipLabel") }}</dt>
                 <dd>{{ membershipLabel }}</dd>
@@ -139,7 +169,6 @@ onUnmounted(() => {
               </div>
             </dl>
 
-            <p class="profile-modal__placeholder">{{ t("auth.userProfile.comingSoon") }}</p>
           </div>
 
           <footer class="profile-modal__footer">
@@ -253,10 +282,19 @@ onUnmounted(() => {
   font-weight: 700;
   color: #4338ca;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.profile-modal__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .profile-modal__info {
   min-width: 0;
+  flex: 1;
 }
 
 .profile-modal__name {
@@ -264,6 +302,9 @@ onUnmounted(() => {
   font-size: 15px;
   font-weight: 600;
   color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-modal__hint {
@@ -271,6 +312,7 @@ onUnmounted(() => {
   font-size: 12px;
   color: #6b7280;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .profile-modal__meta {
@@ -295,6 +337,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 12px;
   color: #6b7280;
+  flex-shrink: 0;
 }
 
 .profile-modal__meta-row dd {
@@ -303,13 +346,8 @@ onUnmounted(() => {
   font-weight: 500;
   color: #1f2937;
   text-align: right;
-}
-
-.profile-modal__placeholder {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #9ca3af;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .profile-modal__footer {

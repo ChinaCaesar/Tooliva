@@ -35,12 +35,15 @@ export const enUS = {
       signInAria: "Sign in",
       viewAccountAria: "View account",
       close: "Close",
+      accountIdLabel: "Account ID",
+      emailLabel: "Email",
+      providerLabel: "Sign-in",
       membershipLabel: "Membership",
       expiryLabel: "Expires",
       noMembership: "No membership",
+      notProvided: "Not provided",
       unknownProvider: "Unknown",
-      manageAccount: "Manage account",
-      comingSoon: "More account features are coming soon."
+      manageAccount: "Manage account"
     }
   },
   common: {
@@ -562,6 +565,112 @@ export const enUS = {
           q: "Can I get a refund?",
           a: "Refunds follow processor and platform policies shown on the order page."
         }
+      }
+    },
+    membershipDesktop: {
+      eyebrow: "Desktop membership",
+      title: "Current membership information",
+      subtitle: "Review your current membership status, available packages, and benefit comparison.",
+      refresh: "Refresh",
+      statusLabel: "Current status",
+      expiryLabel: "Expires on",
+      purchaseLabel: "Purchase",
+      buyNow: "Buy",
+      loginHint: "Sign in to load your current membership status from the account service.",
+      loginCta: "Sign in",
+      benefitsTitle: "How membership works",
+      planSectionTitle: "Membership packages",
+      planSectionSubtitle: "All paid packages unlock the same core paid-member rights. The difference is mainly billing mode.",
+      viewFullPricing: "View full pricing",
+      compareTitle: "Membership benefit comparison",
+      compareSubtitle: "Free membership includes daily limits. Paid membership unlocks unlimited core tool usage.",
+      compareHeaders: {
+        feature: "Feature",
+        free: "Free membership",
+        paid: "Paid membership",
+        cycle: "Billing cycles"
+      },
+      compareRows: {
+        imageCompress: { name: "Image compression", free: "true", cycle: "Monthly / Yearly / Lifetime" },
+        gifCompress: { name: "GIF compression", free: "Limited", cycle: "Monthly / Yearly / Lifetime" },
+        videoToGif: { name: "Video to GIF", free: "false", cycle: "Monthly / Yearly / Lifetime" },
+        imageWatermarkRemoval: { name: "Image watermark removal", free: "false", cycle: "Monthly / Yearly / Lifetime" },
+        videoWatermarkRemoval: { name: "Video watermark removal", free: "false", cycle: "Monthly / Yearly / Lifetime" },
+        imageUpscale: { name: "Image upscale", free: "false", cycle: "Monthly / Yearly / Lifetime" },
+        unlimitedBatch: { name: "Unlimited batch tasks", free: "false", cycle: "Monthly / Yearly / Lifetime" },
+        aiEnhanced: { name: "AI-enhanced processing", free: "true", cycle: "Monthly / Yearly / Lifetime" },
+        paidRights: { name: "Paid rights consistency", free: "N/A", cycle: "Same rights across paid cycles" }
+      },
+      summary: {
+        guestTitle: "Not signed in",
+        guestDescription: "Sign in to sync your membership status. You can also choose a package and purchase directly.",
+        freeTitle: "Free membership",
+        freeDescription: "Free members can use the product with daily limits. Upgrade to paid membership when you need unlimited usage.",
+        paidTitle: "Paid membership active",
+        paidDescription: "Your account currently has active paid-member rights and can use core tools without daily limits.",
+        lifetimeTitle: "Lifetime membership active",
+        lifetimeDescription: "Your account already has lifetime paid-member rights."
+      },
+      status: {
+        guest: "Guest",
+        free: "Free member",
+        paid: "Paid member",
+        lifetime: "Lifetime member"
+      },
+      plans: {
+        currentPlan: "Current plan"
+      },
+      planNames: {
+        trial_monthly: "Trial package",
+        monthly: "Monthly paid membership",
+        yearly: "Yearly paid membership",
+        lifetime: "Lifetime membership"
+      },
+      planSubtitles: {
+        trial_monthly: "Try paid features and the full desktop workflow first.",
+        monthly: "Best for users who want flexible monthly billing.",
+        yearly: "Best for long-term creators who want a lower yearly cost.",
+        lifetime: "One purchase for long-term paid-member access."
+      },
+      planFeatures: {
+        trial_monthly: {
+          feature1: "Try core paid features",
+          feature2: "Evaluate the full workflow first",
+          feature3: "Upgrade after the trial when needed"
+        },
+        monthly: {
+          feature1: "Unlimited core usage",
+          feature2: "Great for frequent monthly workflows",
+          feature3: "Flexible recurring billing"
+        },
+        yearly: {
+          feature1: "Unlimited core usage",
+          feature2: "Better value for long-term work",
+          feature3: "Ideal for stable yearly production"
+        },
+        lifetime: {
+          feature1: "Unlimited core usage",
+          feature2: "No recurring renewal needed",
+          feature3: "Best for long-term ownership"
+        }
+      },
+      purchaseReasons: {
+        already_lifetime: "Lifetime membership is already active on this account.",
+        trial_already_used: "The trial package has already been used.",
+        subscription_active_only_lifetime: "An active subscription already exists. Manage the current subscription before switching packages.",
+        current_plan: "This package is already active on your account.",
+        plan_not_purchasable: "This package is temporarily unavailable."
+      },
+      period: {
+        monthly: "Monthly",
+        yearly: "Yearly",
+        lifetime: "Lifetime",
+        trial_monthly: "Trial",
+        one_time: "One-time"
+      },
+      errors: {
+        planFetchFailed: "Unable to load package information right now.",
+        membershipFetchFailed: "Unable to load current membership status right now."
       }
     },
     imageCompress: {

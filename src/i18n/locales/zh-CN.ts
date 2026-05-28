@@ -35,12 +35,15 @@ export const zhCN = {
       signInAria: "登录",
       viewAccountAria: "查看账号",
       close: "关闭",
+      accountIdLabel: "账号 ID",
+      emailLabel: "邮箱",
+      providerLabel: "登录方式",
       membershipLabel: "会员等级",
       expiryLabel: "到期时间",
       noMembership: "暂无会员",
+      notProvided: "未提供",
       unknownProvider: "未知方式",
-      manageAccount: "管理账号",
-      comingSoon: "更多账号功能即将推出。"
+      manageAccount: "管理账号"
     }
   },
   common: {
@@ -562,6 +565,112 @@ export const zhCN = {
           q: "购买后可以退款吗？",
           a: "退款规则将遵循支付渠道与平台政策，请以订单页说明为准。"
         }
+      }
+    },
+    membershipDesktop: {
+      eyebrow: "桌面端会员",
+      title: "当前会员信息",
+      subtitle: "查看当前会员状态、可购买套餐与会员权益对比。",
+      refresh: "刷新",
+      statusLabel: "当前状态",
+      expiryLabel: "到期时间",
+      purchaseLabel: "购买入口",
+      buyNow: "购买",
+      loginHint: "登录后可从账号服务同步当前会员状态。",
+      loginCta: "立即登录",
+      benefitsTitle: "会员说明",
+      planSectionTitle: "会员套餐",
+      planSectionSubtitle: "所有付费套餐共享同一套核心付费会员权益，主要区别在购买周期。",
+      viewFullPricing: "查看完整价格",
+      compareTitle: "会员权益对比",
+      compareSubtitle: "免费会员有每日额度限制，付费会员解锁核心工具的不限次使用能力。",
+      compareHeaders: {
+        feature: "功能",
+        free: "免费会员",
+        paid: "付费会员",
+        cycle: "购买周期"
+      },
+      compareRows: {
+        imageCompress: { name: "图片压缩", free: "true", cycle: "月付 / 年付 / 终身" },
+        gifCompress: { name: "GIF 压缩", free: "限额", cycle: "月付 / 年付 / 终身" },
+        videoToGif: { name: "视频转 GIF", free: "false", cycle: "月付 / 年付 / 终身" },
+        imageWatermarkRemoval: { name: "图片去水印", free: "false", cycle: "月付 / 年付 / 终身" },
+        videoWatermarkRemoval: { name: "视频去水印", free: "false", cycle: "月付 / 年付 / 终身" },
+        imageUpscale: { name: "图片高清放大", free: "false", cycle: "月付 / 年付 / 终身" },
+        unlimitedBatch: { name: "无限批量任务", free: "false", cycle: "月付 / 年付 / 终身" },
+        aiEnhanced: { name: "AI 增强处理能力", free: "true", cycle: "月付 / 年付 / 终身" },
+        paidRights: { name: "付费权益一致性", free: "不适用", cycle: "不同周期权益一致" }
+      },
+      summary: {
+        guestTitle: "未登录",
+        guestDescription: "登录后可同步你的会员状态；也可以直接选择套餐完成购买。",
+        freeTitle: "免费会员",
+        freeDescription: "免费会员可体验核心功能，但每天有使用限额；需要无限次使用时可升级为付费会员。",
+        paidTitle: "付费会员已生效",
+        paidDescription: "你的账号当前已拥有付费会员权益，核心工具可不限次使用。",
+        lifetimeTitle: "终身会员已生效",
+        lifetimeDescription: "你的账号当前已拥有终身付费会员权益。"
+      },
+      status: {
+        guest: "游客",
+        free: "免费会员",
+        paid: "付费会员",
+        lifetime: "终身会员"
+      },
+      plans: {
+        currentPlan: "当前套餐"
+      },
+      planNames: {
+        trial_monthly: "试用套餐",
+        monthly: "月付付费会员",
+        yearly: "年付付费会员",
+        lifetime: "终身会员"
+      },
+      planSubtitles: {
+        trial_monthly: "适合首次体验付费权益与完整工作流。",
+        monthly: "适合希望按月灵活订阅的用户。",
+        yearly: "适合长期使用、希望整体成本更优的创作者。",
+        lifetime: "一次购买，长期享受付费会员权益。"
+      },
+      planFeatures: {
+        trial_monthly: {
+          feature1: "体验核心付费功能",
+          feature2: "适合首次评估完整流程",
+          feature3: "试用后可升级为正式套餐"
+        },
+        monthly: {
+          feature1: "核心功能不限次使用",
+          feature2: "适合高频月度工作流",
+          feature3: "购买周期更灵活"
+        },
+        yearly: {
+          feature1: "核心功能不限次使用",
+          feature2: "长期使用整体更划算",
+          feature3: "适合稳定持续的年度工作"
+        },
+        lifetime: {
+          feature1: "核心功能不限次使用",
+          feature2: "无需持续续费",
+          feature3: "适合长期持有与重度使用"
+        }
+      },
+      purchaseReasons: {
+        already_lifetime: "当前账号已经是终身会员。",
+        trial_already_used: "试用套餐已使用。",
+        subscription_active_only_lifetime: "当前已有生效订阅，如需切换请先处理当前订阅。",
+        current_plan: "该套餐已在当前账号生效。",
+        plan_not_purchasable: "该套餐暂时不可购买。"
+      },
+      period: {
+        monthly: "月付",
+        yearly: "年付",
+        lifetime: "终身",
+        trial_monthly: "试用",
+        one_time: "一次性"
+      },
+      errors: {
+        planFetchFailed: "暂时无法加载套餐信息。",
+        membershipFetchFailed: "暂时无法加载当前会员状态。"
       }
     },
     imageCompress: {

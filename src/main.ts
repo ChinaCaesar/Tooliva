@@ -18,6 +18,7 @@ const authStore = useAuthStore();
 async function bootstrap(): Promise<void> {
   await settingsStore.hydrate();
   authStore.hydrate();
+  await authStore.validateStoredSession();
   await registerAuthDeepLinkListener();
   app.mount("#app");
 }
