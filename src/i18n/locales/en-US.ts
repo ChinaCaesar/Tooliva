@@ -70,6 +70,18 @@ export const enUS = {
       source: "Source folder",
       custom: "Custom folder",
       overwrite: "Overwrite original"
+    },
+    entitlement: {
+      needLogin: "Your free quota is exhausted. Upgrade membership to continue using this feature. Go to Membership now?",
+      noEntitlement: "Your free quota is exhausted. Upgrade membership to continue using this feature. Go to Membership now?",
+      serviceError: "Your free quota is exhausted. Upgrade membership to continue using this feature. Go to Membership now?",
+      loginDialogTitle: "Sign-in required",
+      loginDialogConfirm: "Sign in",
+      loginDialogCancel: "Close",
+      upgradeDialogTitle: "Export entitlement required",
+      upgradeDialogMessage: "Your free quota is exhausted. Upgrade membership to continue using this feature. Go to Membership now?",
+      upgradeConfirm: "Upgrade now",
+      upgradeCancel: "Later"
     }
   },
   layout: {

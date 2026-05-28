@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { useRouter } from "vue-router";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useTaskStore } from "@/stores/task.store";
 import {
@@ -13,6 +14,11 @@ import {
   type VideoGifSizePreset,
   type VideoToGifOptionsPayload
 } from "@/bridge/tauriClient";
+import {
+  checkExportEntitlement,
+  consumeExportEntitlement,
+  promptEntitlementUpgrade
+} from "@/modules/entitlement/exportEntitlementGuard";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
 type VideoGifStatus = "idle" | "running" | "completed" | "failed";
@@ -90,6 +96,7 @@ function formatSize(bytes: number): string {
 
 export function useVideoToGifActions() {
   const { t } = useI18n();
+  const router = useRouter();
   const settingsStore = useSettingsStore();
   const taskStore = useTaskStore();
   const { notifyTaskBatchCompleted } = useTaskBatchNotification();
@@ -415,6 +422,19 @@ export function useVideoToGifActions() {
     updateClipProgress(clip.id, { status: "running", progress: 0, error: undefined });
     taskStore.updateTaskProgress(task.id, 1, t("pages.videoToGif.taskRunning"));
     try {
+      const consume = await consumeExportEntitlement({
+        tool: "video-to-gif",
+        amount: 1,
+        sourceId: clip.id,
+        idempotencyKey: `video-to-gif:${clip.id}`
+      });
+      if (!consume.allowed) {
+        const consumeError = t("common.entitlement.noEntitlement");
+        updateClipProgress(clip.id, { status: "failed", progress: 100, error: consumeError });
+        taskStore.failTask(task.id, consumeError);
+        await promptEntitlementUpgrade(router, t, "video-to-gif");
+        return { success: 0, failed: 1 };
+      }
       const result = await tauriClient.startVideoToGif({
         taskId: clip.id,
         inputPath: currentVideoPath.value,
@@ -447,6 +467,14 @@ export function useVideoToGifActions() {
   async function startConversion(): Promise<void> {
     if (isProcessing.value) return;
     if (!hasVideo.value) return;
+    const entitlement = await checkExportEntitlement("video-to-gif");
+    if (!entitlement.allowed) {
+      if (entitlement.reason === "no_entitlement" || entitlement.reason === "service_error") {
+        hintMessage.value = t("common.entitlement.noEntitlement");
+        await promptEntitlementUpgrade(router, t, "video-to-gif");
+      }
+      return;
+    }
     const pending = clips.value.filter((c) => c.status === "idle" || c.status === "failed");
     if (pending.length === 0) {
       hintMessage.value = t("pages.videoToGif.hints.noClips");

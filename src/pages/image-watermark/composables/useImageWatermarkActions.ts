@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { useRouter } from "vue-router";
 import {
   tauriClient,
   type StartImageWatermarkResult,
@@ -12,6 +13,11 @@ import {
 } from "@/bridge/tauriClient";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useTaskStore } from "@/stores/task.store";
+import {
+  checkExportEntitlement,
+  consumeExportEntitlement,
+  promptEntitlementUpgrade
+} from "@/modules/entitlement/exportEntitlementGuard";
 import { importDirectoryItems } from "@/pages/shared/directoryImport";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
@@ -183,6 +189,7 @@ function resolvePresetRatios(
  */
 export function useImageWatermarkActions() {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const settingsStore = useSettingsStore();
   const taskStore = useTaskStore();
   const { notifyTaskBatchCompleted } = useTaskBatchNotification();
@@ -878,6 +885,14 @@ export function useImageWatermarkActions() {
    */
   async function startWatermark(): Promise<void> {
     if (!canStart.value) return;
+    const entitlement = await checkExportEntitlement("image-watermark");
+    if (!entitlement.allowed) {
+      if (entitlement.reason === "no_entitlement" || entitlement.reason === "service_error") {
+        hintMessage.value = t("common.entitlement.noEntitlement");
+        await promptEntitlementUpgrade(router, t, "image-watermark");
+      }
+      return;
+    }
     if (mode.value === "text" && text.value.trim().length === 0) {
       hintMessage.value = t("pages.imageWatermark.hints.enterWatermarkTextBeforeStart");
       globalThis.alert(t("pages.imageWatermark.alerts.watermarkTextRequired"));
@@ -902,6 +917,7 @@ export function useImageWatermarkActions() {
         const outcome = await processSingleWatermarkItem(current);
         success += outcome.successCount;
         failed += outcome.failedCount;
+        if (outcome.blockedByEntitlement) break;
       }
 
       resultSummary.value = {
@@ -937,11 +953,26 @@ export function useImageWatermarkActions() {
   /**
    * 执行单条图片水印任务，返回统计增量。
    */
-  async function processSingleWatermarkItem(current: WatermarkItem): Promise<{ successCount: number; failedCount: number }> {
+  async function processSingleWatermarkItem(
+    current: WatermarkItem
+  ): Promise<{ successCount: number; failedCount: number; blockedByEntitlement: boolean }> {
     const task = taskStore.createTask("image-watermark", "image-watermark");
     updateItem(current.id, { status: "running", progress: 0, error: undefined });
     taskStore.updateTaskProgress(task.id, 1, t("pages.imageWatermark.task.running"));
     try {
+      const consume = await consumeExportEntitlement({
+        tool: "image-watermark",
+        amount: 1,
+        sourceId: current.id,
+        idempotencyKey: `image-watermark:${current.id}`
+      });
+      if (!consume.allowed) {
+        const consumeError = t("common.entitlement.noEntitlement");
+        updateItem(current.id, { status: "failed", progress: 100, error: consumeError });
+        taskStore.failTask(task.id, consumeError);
+        await promptEntitlementUpgrade(router, t, "image-watermark");
+        return { successCount: 0, failedCount: 1, blockedByEntitlement: true };
+      }
       const result = await tauriClient.startImageWatermark(buildWatermarkPayload(current));
       applyResult(current.id, result);
       if (result.success) {
@@ -954,15 +985,15 @@ export function useImageWatermarkActions() {
         } catch {
           // 统计失败不影响主流程。
         }
-        return { successCount: 1, failedCount: 0 };
+        return { successCount: 1, failedCount: 0, blockedByEntitlement: false };
       }
       taskStore.failTask(task.id, result.error || t("pages.imageWatermark.errors.processFailed"));
-      return { successCount: 0, failedCount: 1 };
+      return { successCount: 0, failedCount: 1, blockedByEntitlement: false };
     } catch (error) {
       const message = error instanceof Error ? error.message : t("pages.imageWatermark.errors.processFailed");
       updateItem(current.id, { status: "failed", progress: 100, error: message });
       taskStore.failTask(task.id, message);
-      return { successCount: 0, failedCount: 1 };
+      return { successCount: 0, failedCount: 1, blockedByEntitlement: false };
     }
   }
 

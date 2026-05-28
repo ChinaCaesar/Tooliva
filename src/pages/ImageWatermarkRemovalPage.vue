@@ -5,6 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { useRouter } from "vue-router";
 import {
   Brush,
   Folder,
@@ -18,8 +19,14 @@ import {
 } from "@lucide/vue";
 import { tauriClient } from "@/bridge/tauriClient";
 import { useBatchTask } from "@/modules/batch";
+import {
+  checkExportEntitlement,
+  consumeExportEntitlement,
+  promptEntitlementUpgrade
+} from "@/modules/entitlement/exportEntitlementGuard";
 
 const { t } = useI18n();
+const router = useRouter();
 
 type RemovalStatus = "pending" | "processing" | "done" | "failed";
 type RemovalMode = "standard" | "quality";
@@ -333,6 +340,27 @@ async function startRemoval() {
       items.value.length === 0
         ? t("pages.imageWatermarkRemoval.hints.addImagesFirst")
         : t("pages.imageWatermarkRemoval.hints.selectRegionsFirst");
+    return;
+  }
+  const entitlement = await checkExportEntitlement("image-watermark-removal");
+  if (!entitlement.allowed) {
+    if (entitlement.reason === "no_entitlement" || entitlement.reason === "service_error") {
+      hintMessage.value = t("common.entitlement.noEntitlement");
+      await promptEntitlementUpgrade(router, t, "image-watermark-removal");
+    }
+    return;
+  }
+  const consume = await consumeExportEntitlement({
+    tool: "image-watermark-removal",
+    amount: Math.max(1, items.value.length),
+    sourceId: items.value[0]?.id ?? "batch",
+    idempotencyKey: `image-watermark-removal:batch:${items.value.length}:${items.value[0]?.id ?? "batch"}`
+  });
+  if (!consume.allowed) {
+    if (consume.reason === "no_entitlement" || consume.reason === "service_error") {
+      hintMessage.value = t("common.entitlement.noEntitlement");
+      await promptEntitlementUpgrade(router, t, "image-watermark-removal");
+    }
     return;
   }
   stopTimers();

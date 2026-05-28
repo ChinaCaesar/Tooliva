@@ -5,10 +5,17 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { useRouter } from "vue-router";
 import { Folder, Info, Maximize2, MoreVertical, PauseCircle, PlayCircle, Plus, Trash2, Video, Volume2, VolumeX, X } from "@lucide/vue";
 import { useBatchTask } from "@/modules/batch";
+import {
+  checkExportEntitlement,
+  consumeExportEntitlement,
+  promptEntitlementUpgrade
+} from "@/modules/entitlement/exportEntitlementGuard";
 
 const { t } = useI18n();
+const router = useRouter();
 
 type RemovalStatus = "pending" | "processing" | "done" | "failed";
 
@@ -423,6 +430,27 @@ async function startRemoval() {
       items.value.length === 0
         ? t("pages.videoWatermarkRemoval.hints.addVideoFirst")
         : t("pages.videoWatermarkRemoval.hints.selectRegionFirst");
+    return;
+  }
+  const entitlement = await checkExportEntitlement("video-watermark-removal");
+  if (!entitlement.allowed) {
+    if (entitlement.reason === "no_entitlement" || entitlement.reason === "service_error") {
+      hintMessage.value = t("common.entitlement.noEntitlement");
+      await promptEntitlementUpgrade(router, t, "video-watermark-removal");
+    }
+    return;
+  }
+  const consume = await consumeExportEntitlement({
+    tool: "video-watermark-removal",
+    amount: Math.max(1, items.value.length),
+    sourceId: items.value[0]?.id ?? "batch",
+    idempotencyKey: `video-watermark-removal:batch:${items.value.length}:${items.value[0]?.id ?? "batch"}`
+  });
+  if (!consume.allowed) {
+    if (consume.reason === "no_entitlement" || consume.reason === "service_error") {
+      hintMessage.value = t("common.entitlement.noEntitlement");
+      await promptEntitlementUpgrade(router, t, "video-watermark-removal");
+    }
     return;
   }
   stopTimers();

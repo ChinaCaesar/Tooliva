@@ -4,9 +4,15 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { useRouter } from "vue-router";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useTaskStore } from "@/stores/task.store";
 import { tauriClient, type StartImageCompressResult } from "@/bridge/tauriClient";
+import {
+  checkExportEntitlement,
+  consumeExportEntitlement,
+  promptEntitlementUpgrade
+} from "@/modules/entitlement/exportEntitlementGuard";
 import { importDirectoryItems } from "@/pages/shared/directoryImport";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
@@ -130,6 +136,7 @@ function computeMaxOutputPixels(
  */
 export function useImageCompressActions() {
   const { t } = useI18n();
+  const router = useRouter();
   const settingsStore = useSettingsStore();
   const taskStore = useTaskStore();
   const { notifyTaskBatchCompleted } = useTaskBatchNotification();
@@ -336,6 +343,14 @@ export function useImageCompressActions() {
    */
   async function startCompress(): Promise<void> {
     if (isProcessing.value) return;
+    const entitlement = await checkExportEntitlement("image-compress");
+    if (!entitlement.allowed) {
+      if (entitlement.reason === "no_entitlement" || entitlement.reason === "service_error") {
+        hintMessage.value = t("common.entitlement.noEntitlement");
+        await promptEntitlementUpgrade(router, t, "image-compress");
+      }
+      return;
+    }
     isProcessing.value = true;
     resultSummary.value = null;
     hintMessage.value = "";
@@ -369,6 +384,7 @@ export function useImageCompressActions() {
         totalOutputBytes += outcome.outputBytes;
         success += outcome.successCount;
         failed += outcome.failedCount;
+        if (outcome.blockedByEntitlement) break;
       }
 
       resultSummary.value = {
@@ -394,11 +410,25 @@ export function useImageCompressActions() {
     outputBytes: number;
     successCount: number;
     failedCount: number;
+    blockedByEntitlement: boolean;
   }> {
     const task = taskStore.createTask("image-compress", "image-compress");
     updateItem(current.id, { status: "running", progress: 0, error: undefined });
     taskStore.updateTaskProgress(task.id, 1, t("pages.imageCompress.taskRunning"));
     try {
+      const consume = await consumeExportEntitlement({
+        tool: "image-compress",
+        amount: 1,
+        sourceId: current.id,
+        idempotencyKey: `image-compress:${current.id}`
+      });
+      if (!consume.allowed) {
+        const consumeError = t("common.entitlement.noEntitlement");
+        updateItem(current.id, { status: "failed", progress: 100, error: consumeError });
+        taskStore.failTask(task.id, consumeError);
+        await promptEntitlementUpgrade(router, t, "image-compress");
+        return { inputBytes: 0, outputBytes: 0, successCount: 0, failedCount: 1, blockedByEntitlement: true };
+      }
       const maxPx = computeMaxOutputPixels(resolutionPreset.value, maxWidthBound.value, maxHeightBound.value);
       const result = await tauriClient.startImageCompress({
         taskId: current.id,
@@ -425,15 +455,15 @@ export function useImageCompressActions() {
         } catch {
           // 统计失败不影响主流程。
         }
-        return { inputBytes: result.inputBytes, outputBytes: result.outputBytes, successCount: 1, failedCount: 0 };
+        return { inputBytes: result.inputBytes, outputBytes: result.outputBytes, successCount: 1, failedCount: 0, blockedByEntitlement: false };
       }
       taskStore.failTask(task.id, result.error || t("pages.imageCompress.errors.genericFailed"));
-      return { inputBytes: result.inputBytes, outputBytes: result.outputBytes, successCount: 0, failedCount: 1 };
+      return { inputBytes: result.inputBytes, outputBytes: result.outputBytes, successCount: 0, failedCount: 1, blockedByEntitlement: false };
     } catch (error) {
       const message = error instanceof Error ? error.message : t("pages.imageCompress.errors.genericFailed");
       updateItem(current.id, { status: "failed", progress: 100, error: message });
       taskStore.failTask(task.id, message);
-      return { inputBytes: 0, outputBytes: 0, successCount: 0, failedCount: 1 };
+      return { inputBytes: 0, outputBytes: 0, successCount: 0, failedCount: 1, blockedByEntitlement: false };
     }
   }
 

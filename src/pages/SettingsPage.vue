@@ -7,6 +7,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { WINDOW_SIZE_OPTIONS } from "@/config/constants";
 import { HOME_PAGE_CONFIG } from "@/pages/home/config/home.config";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
+import { useExternalNavigate } from "@/composables/useExternalNavigate";
 import { LANGUAGES, type AppLanguage, type AppWindowSize, type ThemeMode, type UserSettings } from "@/types/settings";
 import { useSettingsStore } from "@/stores/settings.store";
 import SettingsSectionCard from "@/pages/settings/components/SettingsSectionCard.vue";
@@ -16,6 +17,7 @@ import SettingsPathRow from "@/pages/settings/components/SettingsPathRow.vue";
 
 const { t } = useI18n();
 const settingsStore = useSettingsStore();
+const { navigate } = useExternalNavigate();
 const {
   language,
   theme,
@@ -154,12 +156,10 @@ async function onCheckUpdates(): Promise<void> {
 }
 
 async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
-  const body =
-    kind === "terms"
-      ? t("pages.settings.dashboard.termsPlaceholder")
-      : t("pages.settings.dashboard.privacyPlaceholder");
-  if (isTauri()) await message(body, { title: t("pages.settings.menu.privacy") });
-  else window.alert(body);
+  await navigate({
+    entryId: kind === "terms" ? "settings-about-terms" : "settings-about-privacy",
+    logicalPath: kind === "terms" ? "/terms" : "/privacy",
+  });
 }
 </script>
 

@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { useRouter } from "vue-router";
 import {
   tauriClient,
   type ImageUpscaleAdjustmentLevel,
@@ -12,6 +13,11 @@ import {
   type StartImageUpscaleResult
 } from "@/bridge/tauriClient";
 import { useTaskStore } from "@/stores/task.store";
+import {
+  checkExportEntitlement,
+  consumeExportEntitlement,
+  promptEntitlementUpgrade
+} from "@/modules/entitlement/exportEntitlementGuard";
 import { importDirectoryItems } from "@/pages/shared/directoryImport";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
@@ -126,6 +132,7 @@ async function runWithConcurrency<T>(
  */
 export function useImageUpscaleActions() {
   const { t } = useI18n();
+  const router = useRouter();
   const taskStore = useTaskStore();
   const { notifyTaskBatchCompleted } = useTaskBatchNotification();
 
@@ -144,6 +151,7 @@ export function useImageUpscaleActions() {
   const preserveTransparentBackground = ref(true);
   const concurrency = ref<UpscaleConcurrency>("auto");
   const resultSummary = ref<UpscaleResultSummary | null>(null);
+  const entitlementDialogShown = ref(false);
   const selectedIds = shallowRef(new Set<string>());
   let disposeDropListener: UnlistenFn | null = null;
   let disposeUpscaleProgressListener: UnlistenFn | null = null;
@@ -336,6 +344,15 @@ export function useImageUpscaleActions() {
 
   async function startUpscale(): Promise<void> {
     if (isProcessing.value) return;
+    const entitlement = await checkExportEntitlement("image-upscale");
+    entitlementDialogShown.value = false;
+    if (!entitlement.allowed) {
+      if (entitlement.reason === "no_entitlement" || entitlement.reason === "service_error") {
+        hintMessage.value = t("common.entitlement.noEntitlement");
+        await promptEntitlementUpgrade(router, t, "image-upscale");
+      }
+      return;
+    }
     isProcessing.value = true;
     resultSummary.value = null;
     hintMessage.value = "";
@@ -384,6 +401,22 @@ export function useImageUpscaleActions() {
     updateItem(current.id, { status: "running", progress: 0, error: undefined });
     taskStore.updateTaskProgress(task.id, 1, t("pages.imageUpscale.taskRunning"));
     try {
+      const consume = await consumeExportEntitlement({
+        tool: "image-upscale",
+        amount: 1,
+        sourceId: current.id,
+        idempotencyKey: `image-upscale:${current.id}`
+      });
+      if (!consume.allowed) {
+        const consumeError = t("common.entitlement.noEntitlement");
+        updateItem(current.id, { status: "failed", progress: 100, error: consumeError });
+        taskStore.failTask(task.id, consumeError);
+        if (!entitlementDialogShown.value) {
+          entitlementDialogShown.value = true;
+          await promptEntitlementUpgrade(router, t, "image-upscale");
+        }
+        return { success: false };
+      }
       const result = await tauriClient.startImageUpscale({
         taskId: current.id,
         inputPath: current.inputPath,

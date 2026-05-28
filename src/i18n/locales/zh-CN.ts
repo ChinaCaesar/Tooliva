@@ -70,6 +70,18 @@ export const zhCN = {
       source: "源目录",
       custom: "自定义目录",
       overwrite: "覆盖原图"
+    },
+    entitlement: {
+      needLogin: "当前免费额度已用完，升级会员后可继续使用该功能。是否前往会员中心？",
+      noEntitlement: "当前免费额度已用完，升级会员后可继续使用该功能。是否前往会员中心？",
+      serviceError: "当前免费额度已用完，升级会员后可继续使用该功能。是否前往会员中心？",
+      loginDialogTitle: "需要登录",
+      loginDialogConfirm: "去登录",
+      loginDialogCancel: "关闭",
+      upgradeDialogTitle: "导出权益不足",
+      upgradeDialogMessage: "当前免费额度已用完，升级会员后可继续使用该功能。是否前往会员中心？",
+      upgradeConfirm: "去升级",
+      upgradeCancel: "稍后再说"
     }
   },
   layout: {

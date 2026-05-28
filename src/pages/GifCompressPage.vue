@@ -5,6 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { useRouter } from "vue-router";
 import {
   ChevronDown,
   ChevronUp,
@@ -21,11 +22,17 @@ import {
 import { useBatchTask } from "@/modules/batch";
 import type { BatchConcurrencyPreset } from "@/modules/batch/types";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
+import {
+  checkExportEntitlement,
+  consumeExportEntitlement,
+  promptEntitlementUpgrade
+} from "@/modules/entitlement/exportEntitlementGuard";
 
 const gifListImageUrl = "/resources/gifCompress/listImage.png";
 const gifPreviewImageUrl = "/resources/gifCompress/preImage.png";
 
 const { t } = useI18n();
+const router = useRouter();
 const { notifyTaskBatchCompleted } = useTaskBatchNotification();
 const {
   submit,
@@ -476,7 +483,28 @@ const canStart = computed(() => items.value.length > 0 && !isRunning.value);
 
 async function startCompression() {
   if (!canStart.value) return;
+  const entitlement = await checkExportEntitlement("gif-compress");
+  if (!entitlement.allowed) {
+    if (entitlement.reason === "no_entitlement" || entitlement.reason === "service_error") {
+      hintMessage.value = t("common.entitlement.noEntitlement");
+      await promptEntitlementUpgrade(router, t, "gif-compress");
+    }
+    return;
+  }
   const paths = items.value.map((i) => i.path);
+  const consume = await consumeExportEntitlement({
+    tool: "gif-compress",
+    amount: Math.max(1, paths.length),
+    sourceId: paths[0] ?? "batch",
+    idempotencyKey: `gif-compress:batch:${pathKey(paths[0] ?? "batch")}:${paths.length}`
+  });
+  if (!consume.allowed) {
+    if (consume.reason === "no_entitlement" || consume.reason === "service_error") {
+      hintMessage.value = t("common.entitlement.noEntitlement");
+      await promptEntitlementUpgrade(router, t, "gif-compress");
+    }
+    return;
+  }
   const outDir = resolveSubmitOutputDir(paths);
   const { preset, custom } = mapConcurrency();
   const payload = {
