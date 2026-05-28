@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { isTauri } from "@tauri-apps/api/core";
@@ -27,6 +27,7 @@ const props = withDefaults(
     showWindowControls?: boolean;
     isLoggedIn?: boolean;
     nicknameInitial?: string;
+    userAvatarUrl?: string;
     userAvatarAriaLabel?: string;
     loginInProgress?: boolean;
   }>(),
@@ -34,6 +35,7 @@ const props = withDefaults(
     showWindowControls: false,
     isLoggedIn: false,
     nicknameInitial: "",
+    userAvatarUrl: "",
     userAvatarAriaLabel: "",
     loginInProgress: false,
   }
@@ -50,6 +52,19 @@ const router = useRouter();
 const searchKeyword = ref("");
 const isSearchFocused = ref(false);
 const searchInputRef = ref<HTMLInputElement | null>(null);
+const avatarLoadFailed = ref(false);
+
+const resolvedAvatarUrl = computed(() => {
+  if (!props.isLoggedIn || avatarLoadFailed.value) return "";
+  return props.userAvatarUrl.trim();
+});
+
+watch(
+  () => [props.userAvatarUrl, props.isLoggedIn],
+  () => {
+    avatarLoadFailed.value = false;
+  }
+);
 
 const filteredTools = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase();
@@ -159,6 +174,14 @@ onUnmounted(() => {
         @click="emit('userClick')"
       >
         <span v-if="props.loginInProgress" class="home-top-bar__avatar-spinner" aria-hidden="true" />
+        <img
+          v-else-if="resolvedAvatarUrl"
+          :src="resolvedAvatarUrl"
+          alt=""
+          class="home-top-bar__avatar-image"
+          aria-hidden="true"
+          @error="avatarLoadFailed = true"
+        />
         <span
           v-else-if="props.isLoggedIn && props.nicknameInitial"
           class="home-top-bar__avatar-initial"
@@ -467,6 +490,14 @@ onUnmounted(() => {
 .home-top-bar__avatar-icon {
   width: 18px;
   height: 18px;
+}
+
+.home-top-bar__avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .home-top-bar__avatar-initial {

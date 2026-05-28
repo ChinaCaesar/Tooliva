@@ -69,6 +69,7 @@ function goMembership(): void {
 }
 
 const nicknameInitial = computed(() => authStore.user?.nickname.slice(0, 1) ?? "");
+const userAvatarUrl = computed(() => authStore.user?.avatar ?? "");
 
 const userAvatarAriaLabel = computed(() =>
   authStore.isLoggedIn
@@ -97,6 +98,7 @@ function onLogout(): void {
       :search-tools="searchableTools"
       :is-logged-in="authStore.isLoggedIn"
       :nickname-initial="nicknameInitial"
+      :user-avatar-url="userAvatarUrl"
       :user-avatar-aria-label="userAvatarAriaLabel"
       :login-in-progress="loginInProgress"
       @search-select="handleSearchSelect"
