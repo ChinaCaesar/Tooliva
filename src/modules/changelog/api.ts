@@ -17,11 +17,15 @@ type UnknownRecord = Record<string, unknown>;
 
 function getChangelogApiUrl(limit: number, locale?: string): string {
   const base = API_BASE_URL.replace(/\/$/, "");
-  const path = (import.meta.env.VITE_CHANGELOG_API_PATH as string | undefined)?.trim() || "/changelog";
-  const url = new URL(`${base}${path.startsWith("/") ? path : `/${path}`}`);
+  const path = (import.meta.env.VITE_CHANGELOG_API_PATH as string | undefined)?.trim() || "/app-version/changelog";
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const url = new URL(`${base}${normalizedPath}`);
   url.searchParams.set("limit", String(limit));
+  url.searchParams.set("app_code", "tooliva");
+  url.searchParams.set("channel", "stable");
   if (locale) {
-    url.searchParams.set("locale", locale);
+    const normalizedLocale = locale.toLowerCase().startsWith("en") ? "en" : "zh-CN";
+    url.searchParams.set("locale", normalizedLocale);
   }
   return url.toString();
 }
@@ -61,7 +65,9 @@ function normalizeEntry(item: unknown, index: number): ChangelogEntry | null {
 
   const source = item as UnknownRecord;
   const version = pickString(source, ["version", "tag", "release_version", "releaseVersion"]);
-  const summary = pickString(source, ["summary", "title", "description", "content"]);
+  const items = Array.isArray(source.items) ? source.items : [];
+  const firstItem = items.find((entry) => typeof entry === "string" && entry.trim().length > 0);
+  const summary = pickString(source, ["summary", "title", "description", "content"]) || (typeof firstItem === "string" ? firstItem.trim() : "");
   const date = pickString(source, ["date", "published_at", "publishedAt", "release_date", "releaseDate", "created_at", "createdAt"]);
 
   if (!version || !summary) {
