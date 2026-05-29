@@ -9,14 +9,21 @@ import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { useExternalNavigate } from "@/composables/useExternalNavigate";
 import { LANGUAGES, type AppLanguage, type AppWindowSize, type ThemeMode, type UserSettings } from "@/types/settings";
 import { useSettingsStore } from "@/stores/settings.store";
+import { useTaskStore } from "@/stores/task.store";
 import SettingsSectionCard from "@/pages/settings/components/SettingsSectionCard.vue";
 import SettingsRow from "@/pages/settings/components/SettingsRow.vue";
 import SettingsThemeSegment from "@/pages/settings/components/SettingsThemeSegment.vue";
 import SettingsPathRow from "@/pages/settings/components/SettingsPathRow.vue";
-import { checkDesktopAppUpdate, type AppUpdateCheckResult } from "@/modules/app-updates/api";
+import { type AppUpdateCheckResult } from "@/modules/app-updates/api";
+import {
+  installUpdateWithTauri,
+  mapUpdateInstallError,
+  runDesktopUpdateCheck,
+} from "@/modules/app-updates/orchestrator";
 
 const { t } = useI18n();
 const settingsStore = useSettingsStore();
+const taskStore = useTaskStore();
 const { navigate } = useExternalNavigate();
 const {
   language,
@@ -189,11 +196,20 @@ async function onCheckUpdates(): Promise<void> {
       }
     }, 620);
 
-    const result = await checkDesktopAppUpdate({
+    const checked = await runDesktopUpdateCheck({
+      trigger: "manual",
+      settings: {
+        autoCheckUpdates: autoCheckUpdates.value,
+        checkFrequency: checkFrequency.value,
+        updateMethod: updateMethod.value,
+      },
       currentVersion: __APP_VERSION__,
-      channel: updateMethod.value,
-      locale: language.value
+      locale: language.value,
     });
+    if (checked.status !== "ok" || !checked.result) {
+      throw new Error("manual_check_failed");
+    }
+    const result = checked.result;
 
     updateResult.value = result;
     updateResultStatus.value = "success";
@@ -222,32 +238,47 @@ function closeUpdateResultModal(): void {
   updateResultModalOpen.value = false;
 }
 
-async function onMockUpdateInstall(): Promise<void> {
+async function onInstallUpdate(): Promise<void> {
   if (!updateResult.value?.available || updateInstalling.value) return;
-
+  if (taskStore.activeTasks.length > 0) {
+    updateResultStatus.value = "error";
+    updateResultMessage.value = t("pages.settings.dashboard.updateInstallBlockedByActiveTasks");
+    return;
+  }
   updateInstalling.value = true;
   updateResultModalOpen.value = false;
   updateProgressModalOpen.value = true;
   updateProgressValue.value = 0;
-
-  const stages = [
-    { percent: 18, label: t("pages.settings.dashboard.updateInstallProgressPrepare") },
-    { percent: 52, label: t("pages.settings.dashboard.updateInstallProgressDownload") },
-    { percent: 82, label: t("pages.settings.dashboard.updateInstallProgressApply") },
-    { percent: 100, label: t("pages.settings.dashboard.updateInstallProgressDone") }
-  ];
-
-  for (const stage of stages) {
-    updateProgressLabel.value = stage.label;
-    updateProgressValue.value = stage.percent;
-    await new Promise((resolve) => window.setTimeout(resolve, 420));
+  updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressPrepare");
+  try {
+    await installUpdateWithTauri((payload) => {
+      switch (payload.phase) {
+        case "checking":
+          updateProgressValue.value = 10;
+          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressPrepare");
+          break;
+        case "downloading":
+          updateProgressValue.value = 15;
+          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressDownload");
+          break;
+        case "installing":
+          updateProgressValue.value = 80;
+          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressApply");
+          break;
+        case "restarting":
+          updateProgressValue.value = 100;
+          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressDone");
+          break;
+      }
+    });
+  } catch (error) {
+    updateProgressModalOpen.value = false;
+    updateResultStatus.value = "error";
+    updateResultMessage.value = t(`pages.settings.dashboard.updateInstallError.${mapUpdateInstallError(error)}`);
+    updateResultModalOpen.value = true;
+  } finally {
+    updateInstalling.value = false;
   }
-
-  updateProgressModalOpen.value = false;
-  updateInstalling.value = false;
-  updateResultStatus.value = "success";
-  updateResultMessage.value = t("pages.settings.dashboard.updateInstallMockDone");
-  updateResultModalOpen.value = true;
 }
 
 async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
@@ -533,7 +564,7 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
               type="button"
               class="btn-primary"
               :disabled="updateInstalling"
-              @click="onMockUpdateInstall"
+              @click="onInstallUpdate"
             >
               {{ $t("pages.settings.dashboard.updateNow") }}
             </button>

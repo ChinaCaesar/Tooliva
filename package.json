@@ -18,6 +18,8 @@
     "@tauri-apps/plugin-deep-link": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-opener": "^2.0.0",
+    "@tauri-apps/plugin-process": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.0",
     "vue-i18n": "^9.14.0",

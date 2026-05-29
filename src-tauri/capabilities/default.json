@@ -19,6 +19,7 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "opener:default",
-    "deep-link:default"
+    "deep-link:default",
+    "process:default"
   ]
 }
