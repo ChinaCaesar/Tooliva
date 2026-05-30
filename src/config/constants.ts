@@ -20,6 +20,27 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL
   ?? (API_ORIGIN && API_BASE_PATH ? `${API_ORIGIN.replace(/\/$/, "")}${API_BASE_PATH.startsWith("/") ? API_BASE_PATH : `/${API_BASE_PATH}`}` : undefined)
   ?? `${WEBSITE_URL.replace(/\/$/, "")}/api`;
+
+function normalizeAiRuntimeUrl(value: string | undefined): string {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.hostname === "example.com" || parsed.hostname.endsWith(".example.com")) {
+      return "";
+    }
+    return parsed.toString();
+  } catch {
+    return /(^|:\/\/)(?:www\.)?example\.com(?:[/:]|$)/i.test(trimmed) ? "" : trimmed;
+  }
+}
+
+export const AI_RUNTIME_MANIFEST_URL = normalizeAiRuntimeUrl(import.meta.env.VITE_AI_RUNTIME_MANIFEST_URL as string | undefined);
+export const AI_RUNTIME_BASE_URL = normalizeAiRuntimeUrl(import.meta.env.VITE_AI_RUNTIME_BASE_URL as string | undefined);
+export const AI_RUNTIME_ENABLED = `${import.meta.env.VITE_AI_RUNTIME_ENABLED ?? "true"}`.trim().toLowerCase() !== "false";
+export const AI_RUNTIME_MIN_FREE_DISK_GB = Number(import.meta.env.VITE_AI_RUNTIME_MIN_FREE_DISK_GB ?? "8");
+export const AI_RUNTIME_PACKAGE_CHANNEL = (import.meta.env.VITE_AI_RUNTIME_PACKAGE_CHANNEL as string | undefined)?.trim() || "stable";
 export const AUTH_DESKTOP_CLIENT = "desktop";
 export const AUTH_REDIRECT_URI = "tooliva://auth/callback";
 export const AUTH_SESSION_STORAGE_KEY = "desktop-toolbox:auth-session";

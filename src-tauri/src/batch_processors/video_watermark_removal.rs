@@ -27,6 +27,9 @@ use crate::batch::tempfile::{
 };
 use crate::batch::types::{BatchError, BatchTaskType};
 use crate::ffmpeg_gif::resolve_ffmpeg_ffprobe;
+use crate::local_inpaint::{
+    inpaint_image_basic, BasicInpaintAlgorithm, BasicInpaintRequest, InpaintRegion as BasicInpaintRegion,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,6 +44,12 @@ struct RemovalRegion {
 #[serde(rename_all = "camelCase")]
 struct VideoWatermarkRemovalOptions {
     regions_by_file: HashMap<String, Vec<RemovalRegion>>,
+    #[serde(default = "default_mode")]
+    mode: String,
+    #[serde(default = "default_algorithm")]
+    algorithm: String,
+    #[serde(default = "default_radius")]
+    radius: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -68,6 +77,9 @@ pub struct VideoWatermarkRemovalBatchProcessor;
 #[derive(Debug, Clone)]
 struct VideoWatermarkPrepared {
     lama_worker_count: usize,
+    mode: String,
+    algorithm: BasicInpaintAlgorithm,
+    radius: u32,
 }
 
 impl BatchPrepared for VideoWatermarkPrepared {
@@ -83,6 +95,9 @@ impl BatchProcessor for VideoWatermarkRemovalBatchProcessor {
 
     fn validate(&self, options: &Value, input_files: &[PathBuf]) -> Result<(), BatchError> {
         let parsed = parse_options(options)?;
+        normalize_mode(&parsed.mode)?;
+        normalize_algorithm(&parsed.algorithm)?;
+        normalize_radius(parsed.radius)?;
         for input in input_files {
             if !is_supported_video_ext(input) {
                 return Err(BatchError::invalid_input(format!(
@@ -110,11 +125,21 @@ impl BatchProcessor for VideoWatermarkRemovalBatchProcessor {
     }
 
     fn prepare(&self, _ctx: &BatchPrepareContext) -> Result<Arc<dyn BatchPrepared>, BatchError> {
-        let health = ensure_lama_worker_ready(true).map_err(BatchError::deterministic)?;
-        let worker_count = recommended_lama_worker_count(&health);
-        ensure_lama_worker_pool_ready(true, worker_count).map_err(BatchError::deterministic)?;
+        let options = parse_options(&_ctx.options)?;
+        let mode = normalize_mode(&options.mode)?;
+        let algorithm = normalize_algorithm(&options.algorithm)?;
+        let radius = normalize_radius(options.radius)?;
+        let mut worker_count = 1usize;
+        if mode == "ai" {
+            let health = ensure_lama_worker_ready(true).map_err(BatchError::deterministic)?;
+            worker_count = recommended_lama_worker_count(&health);
+            ensure_lama_worker_pool_ready(true, worker_count).map_err(BatchError::deterministic)?;
+        }
         Ok(Arc::new(VideoWatermarkPrepared {
             lama_worker_count: worker_count,
+            mode,
+            algorithm,
+            radius,
         }))
     }
 
@@ -175,6 +200,9 @@ impl BatchProcessor for VideoWatermarkRemovalBatchProcessor {
                 dimensions,
                 regions,
                 prepared.lama_worker_count,
+                prepared.algorithm,
+                prepared.radius,
+                &prepared.mode,
                 ctx,
             )?;
             compose_video(
@@ -259,6 +287,9 @@ fn inpaint_roi_frames(
     dimensions: VideoDimensions,
     regions: &[RemovalRegion],
     worker_count: usize,
+    algorithm: BasicInpaintAlgorithm,
+    radius: u32,
+    mode: &str,
     ctx: &BatchItemContext<'_>,
 ) -> Result<(), BatchError> {
     let mut frames = list_frames(raw_dir)?;
@@ -267,6 +298,7 @@ fn inpaint_roi_frames(
     }
     frames.sort();
     let roi_regions = regions_to_roi_sidecar(regions, crop, dimensions)?;
+    let roi_basic_regions = regions_to_roi_basic(regions, crop, dimensions)?;
     let total = frames.len().max(1);
     let worker_count = worker_count.clamp(1, total);
     let queue = Arc::new(Mutex::new(
@@ -282,8 +314,12 @@ fn inpaint_roi_frames(
         Some(ctx.item.input_path.display().to_string()),
         8.0,
         Some(format!(
-            "LaMA high-quality inpaint frames with {} workers",
-            worker_count
+            "{}",
+            if mode == "ai" {
+                format!("LaMA high-quality inpaint frames with {} workers", worker_count)
+            } else {
+                "Applying local fast inpaint to ROI frames".to_string()
+            }
         )),
     );
 
@@ -293,6 +329,7 @@ fn inpaint_roi_frames(
             let finished = finished.clone();
             let first_error = first_error.clone();
             let roi_regions = roi_regions.clone();
+            let roi_basic_regions = roi_basic_regions.clone();
             scope.spawn(move || loop {
                 if ctx.cancel.is_cancelled()
                     || first_error.lock().ok().and_then(|g| g.clone()).is_some()
@@ -309,17 +346,27 @@ fn inpaint_roi_frames(
                         return;
                     }
                 };
-                let result = inpaint_image_with_lama(InpaintImageRequest {
-                    input_path: frame,
-                    output_path: output,
-                    regions: roi_regions.clone(),
-                    output_format: "png".into(),
-                    mode: "quality".into(),
-                });
+                let result = if mode == "ai" {
+                    inpaint_image_with_lama(InpaintImageRequest {
+                        input_path: frame,
+                        output_path: output,
+                        regions: roi_regions.clone(),
+                        output_format: "png".into(),
+                        mode: "quality".into(),
+                    })
+                } else {
+                    inpaint_image_basic(&BasicInpaintRequest {
+                        input_path: frame,
+                        output_path: output,
+                        regions: roi_basic_regions.clone(),
+                        algorithm,
+                        radius,
+                    })
+                };
                 if let Err(err) = result {
                     set_first_error(
                         &first_error,
-                        format!("LaMA video ROI inpaint failed: {err}"),
+                        format!("Video ROI inpaint failed: {err}"),
                     );
                     return;
                 }
@@ -329,7 +376,8 @@ fn inpaint_roi_frames(
                     Some(ctx.item.input_path.display().to_string()),
                     progress,
                     Some(format!(
-                        "LaMA high-quality inpaint frame {} / {}",
+                        "{} frame {} / {}",
+                        if mode == "ai" { "AI" } else { "Fast" },
                         done, total
                     )),
                 );
@@ -464,6 +512,48 @@ fn parse_options(options: &Value) -> Result<VideoWatermarkRemovalOptions, BatchE
     })
 }
 
+fn default_mode() -> String {
+    "fast".to_string()
+}
+
+fn default_algorithm() -> String {
+    "telea".to_string()
+}
+
+fn default_radius() -> u32 {
+    3
+}
+
+fn normalize_mode(value: &str) -> Result<String, BatchError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "standard" | "fast" => Ok("fast".to_string()),
+        "quality" | "ai" => Ok("ai".to_string()),
+        _ => Err(BatchError::invalid_input(
+            "Video watermark removal mode must be fast or ai",
+        )),
+    }
+}
+
+fn normalize_algorithm(value: &str) -> Result<BasicInpaintAlgorithm, BatchError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "telea" => Ok(BasicInpaintAlgorithm::Telea),
+        "ns" => Ok(BasicInpaintAlgorithm::Ns),
+        _ => Err(BatchError::invalid_input(
+            "Video watermark removal algorithm must be TELEA or NS",
+        )),
+    }
+}
+
+fn normalize_radius(value: u32) -> Result<u32, BatchError> {
+    if (1..=10).contains(&value) {
+        Ok(value)
+    } else {
+        Err(BatchError::invalid_input(
+            "Video watermark removal radius must be within 1..10",
+        ))
+    }
+}
+
 fn regions_for_path<'a>(
     options: &'a VideoWatermarkRemovalOptions,
     path: &Path,
@@ -555,6 +645,28 @@ fn regions_to_roi_sidecar(
             "width": (w / crop.width as f32).clamp(0.0, 1.0),
             "height": (h / crop.height as f32).clamp(0.0, 1.0),
         }));
+    }
+    Ok(out)
+}
+
+fn regions_to_roi_basic(
+    regions: &[RemovalRegion],
+    crop: CropBox,
+    dimensions: VideoDimensions,
+) -> Result<Vec<BasicInpaintRegion>, BatchError> {
+    let mut out = Vec::with_capacity(regions.len());
+    for region in regions {
+        validate_region(region)?;
+        let x = ((region.x / 100.0) * dimensions.width as f32) - crop.x as f32;
+        let y = ((region.y / 100.0) * dimensions.height as f32) - crop.y as f32;
+        let w = (region.width / 100.0) * dimensions.width as f32;
+        let h = (region.height / 100.0) * dimensions.height as f32;
+        out.push(BasicInpaintRegion {
+            x: ((x / crop.width as f32) * 100.0).clamp(0.0, 100.0),
+            y: ((y / crop.height as f32) * 100.0).clamp(0.0, 100.0),
+            width: ((w / crop.width as f32) * 100.0).clamp(0.0, 100.0),
+            height: ((h / crop.height as f32) * 100.0).clamp(0.0, 100.0),
+        });
     }
     Ok(out)
 }

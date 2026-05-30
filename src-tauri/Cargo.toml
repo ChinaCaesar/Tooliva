@@ -33,4 +33,3 @@ ab_glyph = "0.2"
 [profile.dev]
 debug = 0
 incremental = false
-

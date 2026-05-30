@@ -19,6 +19,7 @@ import {
 } from "@lucide/vue";
 import { tauriClient } from "@/bridge/tauriClient";
 import { useBatchTask } from "@/modules/batch";
+import { useAiRuntime } from "@/modules/ai-runtime/useAiRuntime";
 import {
   checkExportEntitlement,
   consumeExportEntitlement,
@@ -29,7 +30,8 @@ const { t } = useI18n();
 const router = useRouter();
 
 type RemovalStatus = "pending" | "processing" | "done" | "failed";
-type RemovalMode = "standard" | "quality";
+type RemovalMode = "fast" | "ai";
+type InpaintAlgorithm = "telea" | "ns";
 type OutputFormat = "auto" | "png" | "jpg";
 
 interface WatermarkRegion {
@@ -58,7 +60,9 @@ const supportedExtensions = ["jpg", "jpeg", "png", "bmp", "webp"];
 const items = ref<RemovalItem[]>([]);
 const selectedId = ref<string | null>(null);
 const isDropActive = ref(false);
-const removalMode = ref<RemovalMode>("standard");
+const removalMode = ref<RemovalMode>("fast");
+const basicAlgorithm = ref<InpaintAlgorithm>("telea");
+const basicRadius = ref(3);
 const batchApply = ref(true);
 const outputFormat = ref<OutputFormat>("auto");
 const outputDir = ref(t("pages.imageWatermarkRemoval.output.defaultDirectory"));
@@ -66,20 +70,25 @@ const elapsedSeconds = ref(0);
 const hintMessage = ref("");
 const showProcessed = ref(false);
 const draftRegion = ref<WatermarkRegion | null>(null);
-const modelLoading = ref(false);
-const modelPercent = ref(0);
-const modelStage = ref("");
 const modelError = ref("");
+const runtimeActionError = ref("");
 const modelStorePath = ref("");
 const runtimeDevice = ref("");
 const torchVersion = ref("");
+const aiRuntime = useAiRuntime();
+const aiRuntimeStatus = aiRuntime.status;
+const aiRuntimeEnvironment = aiRuntime.environment;
+const aiRuntimeManifest = aiRuntime.manifest;
+const aiRuntimeProgress = aiRuntime.progress;
+const aiRuntimeError = aiRuntime.error;
+const aiRuntimeHasManifestSource = aiRuntime.hasManifestSource;
 
 const { submit, cancel, openOutputDirectory: openBatchOutputDirectory, progress, isRunning, result, failures } = useBatchTask();
 
 let disposeDrop: UnlistenFn | null = null;
-let disposeModelProgress: UnlistenFn | null = null;
 let elapsedTimer: number | null = null;
 let dragStart: { x: number; y: number } | null = null;
+let hasManualModeSelection = false;
 
 const selectedItem = computed(() => items.value.find((item) => item.id === selectedId.value) ?? null);
 const canShowProcessed = computed(() => Boolean(selectedItem.value?.processedPreviewUrl && selectedItem.value.status === "done"));
@@ -101,12 +110,55 @@ const currentIndex = computed(() => {
   return Math.min(Math.max(0, (progress.value?.finished ?? 0) - 1), Math.max(0, items.value.length - 1));
 });
 const currentDisplayIndex = computed(() => (items.value.length === 0 ? 0 : Math.min(currentIndex.value + 1, items.value.length)));
-const canStart = computed(() => items.value.length > 0 && hasRegions.value && !isRunning.value && !modelLoading.value);
+const canStart = computed(() => {
+  if (isRunning.value) return false;
+  if (items.value.length === 0 || !hasRegions.value) return false;
+  if (removalMode.value === "ai") {
+    return aiRuntime.status.value === "INSTALLED" || aiRuntime.status.value === "UPDATE_AVAILABLE";
+  }
+  return true;
+});
 const currentProgressItem = computed(() => items.value[Math.min(currentIndex.value, Math.max(0, items.value.length - 1))] ?? selectedItem.value);
 const selectedPreviewFit = computed<"landscape" | "portrait">(() => {
   const item = selectedItem.value;
   if (!item || item.width <= 0 || item.height <= 0) return "landscape";
   return item.height > item.width ? "portrait" : "landscape";
+});
+const aiProgressPercent = computed(() => aiRuntime.progress.value?.percent ?? 0);
+const aiDownloadSpeedLabel = computed(() => formatBytes(aiRuntime.progress.value?.bytesPerSecond ?? 0));
+const aiProgressSummaryLabel = computed(() => {
+  const payload = aiRuntime.progress.value;
+  if (!payload) return "--";
+  return `${formatBytes(payload.downloadedBytes)} / ${formatBytes(payload.totalBytes)}`;
+});
+const hasInstalledAiRuntime = computed(() =>
+  aiRuntimeStatus.value === "INSTALLED" || aiRuntimeStatus.value === "UPDATE_AVAILABLE"
+);
+const aiRuntimeStatusText = computed(() => {
+  switch (aiRuntime.status.value) {
+    case "DISABLED":
+      return "AI 增强组件未启用";
+    case "NOT_INSTALLED":
+      return "AI 增强组件未安装";
+    case "CHECKING":
+      return "正在检查 AI 环境";
+    case "ENV_NOT_SUPPORTED":
+      return "当前设备不满足 AI 安装条件";
+    case "READY_TO_INSTALL":
+      return "可安装 AI 增强组件";
+    case "DOWNLOADING":
+      return "正在下载 AI 增强组件";
+    case "VERIFYING":
+      return "正在校验 AI 增强组件";
+    case "INSTALLING":
+      return "正在安装 AI 增强组件";
+    case "INSTALLED":
+      return "AI 增强组件已安装";
+    case "UPDATE_AVAILABLE":
+      return "AI 增强组件有可用更新";
+    case "FAILED":
+      return "AI 增强组件操作失败";
+  }
 });
 
 const progressTitle = computed(() => {
@@ -251,7 +303,20 @@ function removeRegion(regionId: string) {
 }
 
 function applyMode(mode: RemovalMode) {
+  hasManualModeSelection = true;
   removalMode.value = mode;
+}
+
+function syncRemovalModeWithAi(force = false) {
+  if (hasInstalledAiRuntime.value) {
+    if (force || !hasManualModeSelection) {
+      removalMode.value = "ai";
+    }
+    return;
+  }
+  if (force && removalMode.value === "ai") {
+    removalMode.value = "fast";
+  }
 }
 
 function handleDrop(event: DragEvent) {
@@ -373,15 +438,13 @@ async function startRemoval() {
     item.processedPreviewUrl = undefined;
   });
   try {
-    if (removalMode.value === "quality") {
+    if (removalMode.value === "ai") {
+      await aiRuntime.refresh(false);
+      if (aiRuntime.status.value !== "INSTALLED" && aiRuntime.status.value !== "UPDATE_AVAILABLE") {
+        hintMessage.value = aiRuntime.error.value || aiRuntime.environment.value?.reasons?.[0] || "AI 增强组件尚未就绪，请先安装或升级。";
+        return;
+      }
       await ensureLamaModelReady();
-      modelLoading.value = true;
-      modelPercent.value = 100;
-      modelStage.value = t("pages.imageWatermarkRemoval.model.startingWorker", {
-        device: runtimeDevice.value ? runtimeDevice.value.toUpperCase() : "CPU"
-      });
-    } else {
-      await refreshAiRuntimeStatus();
     }
     const startedAt = Date.now();
     elapsedTimer = window.setInterval(() => {
@@ -394,14 +457,14 @@ async function startRemoval() {
       options: {
         outputFormat: outputFormat.value,
         mode: removalMode.value,
+        algorithm: basicAlgorithm.value,
+        radius: basicRadius.value,
         regionsByFile: buildRegionsByFile()
       },
       concurrencyPreset: "lowUsage"
     });
-    modelLoading.value = false;
   } catch (error) {
     stopTimers();
-    modelLoading.value = false;
     const message = error instanceof Error ? error.message : String(error);
     hintMessage.value = message || t("pages.imageWatermarkRemoval.hints.startTaskFailed");
     modelError.value = hintMessage.value;
@@ -441,35 +504,50 @@ function buildRegionsByFile(): Record<string, Array<{ x: number; y: number; widt
 }
 
 async function ensureLamaModelReady(): Promise<void> {
-  modelLoading.value = true;
-  modelPercent.value = 0;
-  modelStage.value = t("pages.imageWatermarkRemoval.model.detectingRuntime");
-  try {
-    const status = await tauriClient.getAiModelStatus();
-    modelStorePath.value = status.modelsRoot;
-    runtimeDevice.value = status.runtimeDevice || "";
-    torchVersion.value = status.torchVersion || "";
-    if (!status.downloaded) {
-      modelStage.value = t("pages.imageWatermarkRemoval.model.downloadingFirstUse");
-      const downloadedStatus = await tauriClient.downloadAiModel("lama");
-      modelStorePath.value = downloadedStatus.modelsRoot;
-      runtimeDevice.value = downloadedStatus.runtimeDevice || runtimeDevice.value;
-      torchVersion.value = downloadedStatus.torchVersion || torchVersion.value;
-    }
-  } finally {
-    modelLoading.value = false;
+  const status = await tauriClient.getAiModelStatus();
+  modelStorePath.value = status.modelsRoot;
+  runtimeDevice.value = status.runtimeDevice || "";
+  torchVersion.value = status.torchVersion || "";
+  if (!status.downloaded) {
+    const downloadedStatus = await tauriClient.downloadAiModel("lama");
+    modelStorePath.value = downloadedStatus.modelsRoot;
+    runtimeDevice.value = downloadedStatus.runtimeDevice || runtimeDevice.value;
+    torchVersion.value = downloadedStatus.torchVersion || torchVersion.value;
   }
 }
 
-async function refreshAiRuntimeStatus(): Promise<void> {
+async function refreshAiRuntimeStatus(forceModeSync = false): Promise<void> {
   try {
+    await aiRuntime.refresh(false);
     const status = await tauriClient.getAiModelStatus();
     modelStorePath.value = status.modelsRoot;
     runtimeDevice.value = status.runtimeDevice || "";
     torchVersion.value = status.torchVersion || "";
+    syncRemovalModeWithAi(forceModeSync);
   } catch {
     runtimeDevice.value = "";
     torchVersion.value = "";
+    syncRemovalModeWithAi(forceModeSync);
+  }
+}
+
+async function installAiRuntime() {
+  try {
+    runtimeActionError.value = "";
+    await aiRuntime.installOrUpdate();
+    await refreshAiRuntimeStatus(true);
+  } catch (error) {
+    runtimeActionError.value = error instanceof Error ? error.message : String(error);
+  }
+}
+
+async function removeAiRuntime() {
+  try {
+    runtimeActionError.value = "";
+    await aiRuntime.removeRuntime();
+    await refreshAiRuntimeStatus(true);
+  } catch (error) {
+    runtimeActionError.value = error instanceof Error ? error.message : String(error);
   }
 }
 
@@ -530,21 +608,10 @@ watch([result, failures], () => {
 onMounted(async () => {
   void setupNativeDrop();
   void refreshAiRuntimeStatus();
-  void tauriClient.warmAiInpaintWorker();
-  disposeModelProgress = await tauriClient.onAiModelProgress((payload) => {
-    if (payload.modelId !== "lama") return;
-    modelPercent.value = payload.percent;
-    modelStage.value =
-      payload.message ||
-      (payload.stage === "ready"
-        ? t("pages.imageWatermarkRemoval.model.lamaReady")
-        : t("pages.imageWatermarkRemoval.model.downloading"));
-  });
 });
 
 onBeforeUnmount(() => {
   disposeDrop?.();
-  disposeModelProgress?.();
   stopTimers();
 });
 </script>
@@ -673,32 +740,39 @@ onBeforeUnmount(() => {
         <div class="wm-separator" />
 
         <div class="wm-settings-section">
-          <h4>{{ t("pages.imageWatermarkRemoval.settings.basics") }}</h4>
-          <label class="wm-field-label">{{ t("pages.imageWatermarkRemoval.settings.removalMode") }}</label>
+          <h4>处理模式</h4>
           <div class="wm-segment wm-segment--two">
-            <button type="button" :class="{ on: removalMode === 'standard' }" @click="applyMode('standard')">{{ t("pages.imageWatermarkRemoval.settings.modeStandard") }}</button>
-            <button type="button" :class="{ on: removalMode === 'quality' }" @click="applyMode('quality')">{{ t("pages.imageWatermarkRemoval.settings.modeQuality") }}</button>
+            <button type="button" :class="{ on: removalMode === 'fast' }" @click="applyMode('fast')">极速模式</button>
+            <button type="button" :class="{ on: removalMode === 'ai' }" @click="applyMode('ai')">AI 增强模式</button>
           </div>
-          <p class="wm-muted">{{ t("pages.imageWatermarkRemoval.settings.removalModeHint") }}</p>
+          <p v-if="removalMode === 'fast'" class="wm-muted">极速模式无需下载 AI 组件，所有处理均在本地完成，适合简单背景、纯色背景、边角水印和小面积水印。</p>
+          <p v-else class="wm-muted">AI 增强模式需要安装本地 AI 组件，适合复杂背景和更自然的修复效果。组件体积较大，仅需安装一次，文件不会上传服务器。</p>
         </div>
 
-        <label class="wm-switch-row">
-          <span><strong>{{ t("pages.imageWatermarkRemoval.settings.batchApply") }}</strong><em>{{ t("pages.imageWatermarkRemoval.settings.batchApplyHint") }}</em></span>
-          <input v-model="batchApply" type="checkbox" />
-          <i />
-        </label>
-
-        <div class="wm-separator" />
-
         <div class="wm-settings-section">
-          <h4>{{ t("pages.imageWatermarkRemoval.settings.outputSection") }}</h4>
-          <label class="wm-field-label">{{ t("pages.imageWatermarkRemoval.settings.outputFormat") }}</label>
-          <div class="wm-segment">
-            <button type="button" :class="{ on: outputFormat === 'auto' }" @click="outputFormat = 'auto'">{{ t("pages.imageWatermarkRemoval.settings.formatAuto") }}</button>
-            <button type="button" :class="{ on: outputFormat === 'png' }" @click="outputFormat = 'png'">PNG</button>
-            <button type="button" :class="{ on: outputFormat === 'jpg' }" @click="outputFormat = 'jpg'">JPG</button>
+          <h4>AI 组件状态</h4>
+          <p class="wm-muted">{{ aiRuntimeStatusText }}</p>
+          <p v-if="aiRuntimeEnvironment?.reasons?.length" class="wm-warning"><Info :size="14" />{{ aiRuntimeEnvironment.reasons[0] }}</p>
+          <p v-if="aiRuntimeManifest && (aiRuntimeStatus === 'READY_TO_INSTALL' || aiRuntimeStatus === 'UPDATE_AVAILABLE')" class="wm-muted">
+            组件版本 {{ aiRuntimeManifest.runtimeVersion }}，大小 {{ formatBytes(aiRuntimeManifest.packageSize) }}，预计磁盘 {{ aiRuntimeManifest.requiredFreeDiskGb }} GB。
+          </p>
+          <p v-if="aiRuntimeProgress" class="wm-muted">{{ aiProgressSummaryLabel }}，{{ aiDownloadSpeedLabel }}/s</p>
+          <p v-if="aiRuntimeError" class="wm-warning"><Info :size="14" />{{ aiRuntimeError }}</p>
+          <p v-if="runtimeActionError" class="wm-warning"><Info :size="14" />{{ runtimeActionError }}</p>
+          <div class="wm-card-head__actions">
+            <button
+              v-if="aiRuntimeStatus === 'READY_TO_INSTALL' && aiRuntimeHasManifestSource"
+              type="button"
+              class="wm-btn wm-btn--small"
+              @click="installAiRuntime"
+            >
+              安装 AI 增强组件
+            </button>
+            <button v-else-if="aiRuntimeStatus === 'READY_TO_INSTALL'" type="button" class="wm-btn wm-btn--small" disabled>升级当前版本后可一键安装</button>
+            <button v-if="aiRuntimeStatus === 'UPDATE_AVAILABLE'" type="button" class="wm-btn wm-btn--small" @click="installAiRuntime">一键升级 AI 增强组件</button>
+            <button v-if="aiRuntimeStatus === 'FAILED'" type="button" class="wm-btn wm-btn--small" @click="installAiRuntime">重试</button>
+            <button v-if="!hasInstalledAiRuntime" type="button" class="wm-btn wm-btn--small" @click="applyMode('fast')">继续使用极速模式</button>
           </div>
-          <p class="wm-muted">{{ t("pages.imageWatermarkRemoval.settings.outputFormatHint") }}</p>
         </div>
       </section>
     </div>
@@ -714,8 +788,8 @@ onBeforeUnmount(() => {
               <dd>{{ isRunning ? progressTitle : t("pages.imageWatermarkRemoval.progress.noTask") }}</dd>
             </div>
             <div>
-              <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.aiEngine") }}</dt>
-              <dd>{{ runtimeDevice ? `${runtimeDevice.toUpperCase()}${torchVersion ? ` / Torch ${torchVersion}` : ""}` : "--" }}</dd>
+              <dt>AI 组件状态</dt>
+              <dd>{{ aiRuntimeStatusText }}</dd>
             </div>
             <div>
               <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.taskCount") }}</dt>
@@ -728,8 +802,8 @@ onBeforeUnmount(() => {
             <div class="wm-metrics-grid__progress">
               <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.overallProgressDetail") }}</dt>
               <dd>
-                <span>{{ isRunning || modelLoading ? `${modelLoading ? modelPercent : progressPercent}%` : "--" }}</span>
-                <div class="wm-progress-line"><i :style="{ width: `${modelLoading ? modelPercent : progressPercent}%` }" /></div>
+                <span>{{ isRunning ? `${progressPercent}%` : aiRuntime.progress ? `${aiProgressPercent}%` : "--" }}</span>
+                <div class="wm-progress-line"><i :style="{ width: `${isRunning ? progressPercent : aiProgressPercent}%` }" /></div>
               </dd>
             </div>
           </dl>
@@ -761,30 +835,27 @@ onBeforeUnmount(() => {
 
         <div class="wm-bottom__actions">
           <button type="button" class="wm-action wm-action--primary" :disabled="!canStart" @click="startRemoval">
-            <PlayCircle :size="18" />{{ modelLoading ? t("pages.imageWatermarkRemoval.bottomBar.preparingModel") : t("pages.imageWatermarkRemoval.bottomBar.start") }}
+            <PlayCircle :size="18" />{{ t("pages.imageWatermarkRemoval.bottomBar.start") }}
           </button>
           <button type="button" class="wm-action" :disabled="!isRunning" @click="stopTask"><PauseCircle :size="18" />{{ t("pages.imageWatermarkRemoval.bottomBar.stopTask") }}</button>
           <button type="button" class="wm-action" @click="openOutputDirectory"><Folder :size="18" />{{ t("pages.imageWatermarkRemoval.bottomBar.openOutput") }}</button>
         </div>
       </div>
     </footer>
-    <div v-if="modelLoading" class="wm-model-loading" role="status" aria-live="polite">
+    <div v-if="['DOWNLOADING', 'VERIFYING', 'INSTALLING'].includes(aiRuntimeStatus)" class="wm-model-loading" role="status" aria-live="polite">
       <div class="wm-model-loading__panel">
-        <strong>{{ t("pages.imageWatermarkRemoval.model.overlayTitle") }}</strong>
-        <span>{{ modelStage || t("pages.imageWatermarkRemoval.model.preparingFiles") }}</span>
-        <div class="wm-model-loading__bar"><i :style="{ width: `${modelPercent}%` }" /></div>
+        <strong>AI 增强组件处理中</strong>
+        <span>{{ aiRuntimeProgress?.message || aiRuntimeStatusText }}</span>
+        <div class="wm-model-loading__bar"><i :style="{ width: `${aiProgressPercent}%` }" /></div>
         <div class="wm-model-loading__meta">
-          <span>{{
-            runtimeDevice
-              ? t("pages.imageWatermarkRemoval.model.currentDevice", { device: runtimeDevice.toUpperCase() })
-              : t("pages.imageWatermarkRemoval.model.detectingRuntime")
-          }}</span>
+          <span>{{ aiProgressSummaryLabel }}</span>
+          <span>{{ aiDownloadSpeedLabel }}/s</span>
           <span v-if="torchVersion">Torch {{ torchVersion }}</span>
         </div>
-        <p v-if="modelStorePath">{{ t("pages.imageWatermarkRemoval.model.storePathLabel", { path: modelStorePath }) }}</p>
+        <p v-if="modelStorePath">模型目录：{{ modelStorePath }}</p>
       </div>
     </div>
-    <div v-if="modelError && !modelLoading" class="wm-model-error" role="alert">
+    <div v-if="modelError && !['DOWNLOADING', 'VERIFYING', 'INSTALLING'].includes(aiRuntimeStatus)" class="wm-model-error" role="alert">
       <div>
         <strong>{{ t("pages.imageWatermarkRemoval.model.prepFailedTitle") }}</strong>
         <span>{{ modelError }}</span>

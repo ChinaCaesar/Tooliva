@@ -5,8 +5,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 
 use crate::ai_runtime::{
-    ensure_lama_torch_checkpoint, resolve_ai_runtime_paths, LAMA_MODEL_FILE, LAMA_MODEL_ID,
-    LAMA_MODEL_SIZE_BYTES, LAMA_MODEL_URL,
+    ensure_lama_torch_checkpoint, read_installed_runtime_state, resolve_ai_runtime_paths,
+    LAMA_MODEL_FILE, LAMA_MODEL_ID, LAMA_MODEL_SIZE_BYTES,
 };
 use crate::ai_worker::{
     check_lama_runtime_health, ensure_lama_worker_ready, inpaint_image_with_lama, AiRuntimeHealth,
@@ -109,6 +109,12 @@ fn warm_ai_inpaint_worker_blocking() -> Result<AiRuntimeHealth, String> {
 
 fn lama_status(_app: &AppHandle) -> Result<AiModelStatus, String> {
     let paths = resolve_ai_runtime_paths()?;
+    let manifest = read_installed_runtime_state()?;
+    let expected_size = manifest
+        .as_ref()
+        .and_then(|item| item.models.iter().find(|model| model.name == LAMA_MODEL_ID))
+        .map(|model| model.size)
+        .unwrap_or(LAMA_MODEL_SIZE_BYTES);
     let size = std::fs::metadata(&paths.lama_model_file)
         .map(|m| m.len())
         .unwrap_or(0);
@@ -118,7 +124,7 @@ fn lama_status(_app: &AppHandle) -> Result<AiModelStatus, String> {
         display_name: "LaMA Inpainting".to_string(),
         downloaded: paths.lama_model_file.exists() && size > 0,
         size_bytes: size,
-        expected_size_bytes: LAMA_MODEL_SIZE_BYTES,
+        expected_size_bytes: expected_size,
         model_path: paths.lama_model_file.display().to_string(),
         models_root: paths.models_root.display().to_string(),
         runtime_ready: runtime_health.as_ref().is_some_and(|health| health.ready),
@@ -131,6 +137,14 @@ fn lama_status(_app: &AppHandle) -> Result<AiModelStatus, String> {
 
 fn download_lama_model_blocking(app: AppHandle) -> Result<AiModelStatus, String> {
     let paths = resolve_ai_runtime_paths()?;
+    let manifest = read_installed_runtime_state()?
+        .ok_or_else(|| "本机未安装 AI 运行时，无法解析 LaMA 模型下载地址。".to_string())?;
+    let model = manifest
+        .models
+        .iter()
+        .find(|item| item.name == LAMA_MODEL_ID)
+        .cloned()
+        .ok_or_else(|| "当前 AI 运行时清单未包含 LaMA 模型下载信息。".to_string())?;
     append_download_log(
         &paths,
         &format!(
@@ -172,12 +186,12 @@ fn download_lama_model_blocking(app: AppHandle) -> Result<AiModelStatus, String>
     if let Some(parent) = paths.lama_model_file.parent() {
         std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
-    emit_progress(&app, "starting", 0, LAMA_MODEL_SIZE_BYTES, None);
+    emit_progress(&app, "starting", 0, model.size.max(1), None);
     let mut child = Command::new(&paths.python_exe)
         .arg(&paths.sidecar_script)
         .arg("download-model")
         .arg("--model-url")
-        .arg(LAMA_MODEL_URL)
+        .arg(&model.url)
         .arg("--model-path")
         .arg(&paths.lama_model_file)
         .arg("--torch-home")
@@ -214,7 +228,7 @@ fn download_lama_model_blocking(app: AppHandle) -> Result<AiModelStatus, String>
                         progress
                             .total_bytes
                             .filter(|total| *total > 0)
-                            .unwrap_or(LAMA_MODEL_SIZE_BYTES),
+                            .unwrap_or(model.size.max(1)),
                         progress.message,
                     );
                 }
@@ -240,8 +254,8 @@ fn download_lama_model_blocking(app: AppHandle) -> Result<AiModelStatus, String>
     emit_progress(
         &app,
         "ready",
-        LAMA_MODEL_SIZE_BYTES,
-        LAMA_MODEL_SIZE_BYTES,
+        model.size.max(1),
+        model.size.max(1),
         Some(format!("{LAMA_MODEL_FILE} is ready")),
     );
     lama_status(&app)

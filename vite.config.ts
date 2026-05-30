@@ -8,12 +8,10 @@ const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "ut
 };
 
 export default defineConfig({
+  root: __dirname,
   plugins: [vue()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version)
-  },
-  optimizeDeps: {
-    entries: ["index.html"]
   },
   server: {
     port: 5174

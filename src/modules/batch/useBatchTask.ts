@@ -185,6 +185,7 @@ export function useBatchTask(options: UseBatchTaskOptions = {}) {
     const id = overrideTaskId ?? taskId.value;
     if (!id) return null;
     const snapshot = await getBatchTaskResult(id);
+    if (id !== taskId.value) return snapshot;
     result.value = snapshot;
     failures.value = snapshot.failures ?? [];
     successOutputs.value = snapshot.successOutputPaths ?? [];

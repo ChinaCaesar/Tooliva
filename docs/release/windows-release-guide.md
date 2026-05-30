@@ -1,153 +1,85 @@
-# Windows 打包与上线操作文档（Tauri v2，暂不签名）
+# Windows Release Guide
 
-本文档用于当前 `Desktop Toolbox` 项目在 Windows 平台的发布流程。目标是先稳定完成可安装包发布与版本更新闭环（检查更新 + 浏览器下载），暂不涉及代码签名。
+## 目标
 
-## 1. 发布范围与约束
+- 标准 Windows NSIS 安装包只包含主程序、前端资源、`ffmpeg.exe`、`ffprobe.exe` 和基础本地去水印能力。
+- `resources/ai-runtime`、Python、PyTorch、`iopaint`、LAMA 等 AI 运行时内容禁止打入 NSIS 包。
+- 目标安装包体积控制在 50 MB 到 150 MB。
 
-- 平台范围：仅 Windows。
-- 安装形态：NSIS 安装包（当前配置）。
-- 更新策略：应用内检查新版本，发现新版本后跳转系统浏览器下载新安装包。
-- 暂不包含：自动静默安装、差分热更新、代码签名。
+## 为什么必须拆包
 
-## 2. 发布前准备
+- NSIS 在超大资源场景下存在明显体积与稳定性限制，超过 2 GB 时打包和安装都会变得不可控。
+- 现有 AI Python 运行时远大于桌面主程序体积，继续内置会直接放大安装包并拖慢发版。
+- 用户并非都需要 AI 增强修复，默认能力应先保证“基础去水印可用”。
 
-### 2.1 环境要求
+## 当前打包规则
 
-- Node.js（与项目当前开发环境一致）
-- Rust Toolchain（含 `cargo`）
-- Tauri CLI（项目已通过前端依赖集成）
-- Windows 10/11 x64
+`src-tauri/tauri.conf.json` 的 `bundle.resources` 现在只保留：
 
-### 2.2 关键配置检查
-
-发布前请确认以下文件内容正确：
-
-- `package.json`
-  - 存在 `tauri:build` 脚本。
-- `src-tauri/tauri.conf.json`
-  - `bundle.active = true`
-  - `bundle.targets` 包含 `nsis`
-  - `bundle.resources` 已包含运行期依赖资源：
-    - `resources/bin/ffmpeg.exe`
-    - `resources/bin/ffprobe.exe`
-    - `resources/ai-runtime`
-- `src-tauri/tauri.conf.json` 与 `package.json` 的版本号同步。
-
-### 2.3 版本号约定
-
-- 使用语义化版本：`x.y.z`（示例：`0.1.3`）。
-- 每次发版必须递增版本号，不允许回退。
-- 修改版本号后，必须重新打包，不可复用旧产物。
-
-## 3. 打包操作
-
-在项目根目录执行：
-
-```powershell
-pnpm install
-pnpm tauri:build
+```json
+[
+  "resources/bin/ffmpeg.exe",
+  "resources/bin/ffprobe.exe"
+]
 ```
 
-打包产物默认位于：
+禁止重新加入以下目录或同类大文件：
 
-- `src-tauri/target/release/bundle/nsis/`
+- `resources/ai-runtime`
+- `resources/ai-runtime/python`
+- `torch`
+- `torchvision`
+- `iopaint`
+- LAMA 模型权重
+- 任何远大于主程序的 AI 运行时目录
 
-典型产物包括：
+## 环境变量
 
-- `*.exe`（安装程序）
+标准包与 AI 远程组件的连接全部通过环境变量控制，不允许在前端或 Rust 里硬编码 CDN 地址：
 
-## 4. 发布验收清单（必须执行）
+```env
+VITE_AI_RUNTIME_MANIFEST_URL=https://example.com/ai-runtime/manifest.json
+VITE_AI_RUNTIME_BASE_URL=https://example.com/ai-runtime
+VITE_AI_RUNTIME_ENABLED=true
+VITE_AI_RUNTIME_MIN_FREE_DISK_GB=8
+VITE_AI_RUNTIME_PACKAGE_CHANNEL=stable
+```
 
-建议至少在一台“干净系统”机器上完整验证以下场景：
+## 运行时目录
 
-### 4.1 安装与启动
+AI 运行时安装到用户目录，不写入安装目录：
 
-- 安装程序可正常启动并完成安装。
-- 首次启动应用无崩溃、无明显缺失资源报错。
-- 主流程页面可正常进入。
+```text
+%LOCALAPPDATA%/DesktopToolbox/ai-runtime/
+  manifest.json
+  current/
+  versions/
+  downloads/
+  backup/
+```
 
-### 4.2 核心功能冒烟
+模型继续放在：
 
-- 图片压缩（含输出）
-- 视频转 GIF（含输出）
-- 与 `ffmpeg`/`ffprobe` 相关流程可正常执行
-- 与 `ai-runtime` 相关流程能进入可运行状态（按当前功能范围）
+```text
+%APPDATA%/DesktopToolbox/ai-models/
+  lama/
+    big-lama.pt
+```
 
-### 4.3 深链与浏览器拉起
+## 发布流程
 
-- `tooliva://auth/callback?...` 可拉起已安装应用。
-- 应用已运行时，再次触发 deep link 能正确路由到当前实例。
-- 应用内外跳链接可正常打开系统浏览器。
+1. 确认 `.env.production` 中 AI 运行时地址已指向线上 manifest。
+2. 运行 `pnpm tauri:build` 生成 NSIS 安装包。
+3. 检查安装包内资源，只应看到 FFmpeg 相关文件，不应包含 `resources/ai-runtime`。
+4. 上传主安装包。
+5. 单独上传 AI runtime 压缩包与远端 manifest。
+6. 在干净 Windows 机器验证：
+   - 不安装 AI 组件时，极速模式可用。
+   - 进入 AI 增强模式时，先做环境检查。
+   - 环境满足后可读取远端 manifest，并显示版本、体积、磁盘要求。
 
-### 4.4 更新检查闭环
+## 验收重点
 
-- 设置页点击“检查更新”可拿到接口结果。
-- 当有新版本时，弹窗按钮为“下载更新”。
-- 点击后可打开浏览器并跳转到下载地址。
-
-### 4.5 升级与卸载
-
-- 从上一版本覆盖安装到新版本可用。
-- 用户关键偏好数据不丢失（按当前产品策略）。
-- 卸载流程可完成，不出现卡死。
-
-## 5. 发布后端接口约定（最小可用）
-
-更新检查接口至少返回以下字段（兼容现有前端解析）：
-
-- `latestVersion`
-- `available`（可选，若缺失前端将按版本比较推断）
-- `notes`（可选）
-- `publishedAt`（可选）
-- `downloadUrl`（建议必填）
-
-当 `downloadUrl` 为空时，前端会提示“未获取到下载地址”。
-
-## 6. 标准发布流程（建议）
-
-1. 创建发版分支并更新版本号。
-2. 本地执行构建与打包。
-3. 按“发布验收清单”完成测试并记录结果。
-4. 将安装包上传到下载源（对象存储/CDN）。
-5. 发布更新元数据（确保 `downloadUrl` 指向新包）。
-6. 在团队内公告版本与回滚包位置。
-
-## 7. 回滚方案
-
-当新版本出现严重问题时：
-
-1. 立即将更新接口的最新版本指针回退到上一稳定版。
-2. 保留问题版本安装包用于排查，但不再对外推荐下载。
-3. 向用户提供上一稳定版下载链接，必要时引导覆盖安装。
-
-## 8. 常见问题排查
-
-### 8.1 打包成功但运行时报依赖缺失
-
-- 检查 `src-tauri/tauri.conf.json` 的 `bundle.resources` 是否包含所需目录和文件。
-- 检查资源路径大小写与实际文件是否一致。
-
-### 8.2 点击“下载更新”没有反应
-
-- 检查更新接口返回中是否包含 `downloadUrl`。
-- 检查系统默认浏览器是否可用。
-
-### 8.3 Deep Link 无法拉起
-
-- 确认应用是通过安装包安装，不是仅开发模式运行。
-- 确认系统中 `tooliva://` 协议关联到当前版本应用。
-
-## 9. 当前策略说明（重要）
-
-当前阶段已支持“自动检查（可配置）+ 每日最多提示一次 + 手动检查 + 客户端内安装重启”能力。发布端需要配套维护元数据规范与测试清单，详见：
-
-- `docs/release/update-metadata-spec.md`
-- `docs/release/update-test-checklist.md`
-
-如需回退到“手动下载新包”策略，可临时关闭自动安装入口。原先采用“检查更新 + 浏览器下载新包”策略的目的如下：
-
-- 降低上线风险
-- 避免未签名条件下接入复杂安装链路
-- 先保证发布节奏与问题可回滚能力
-
-后续若引入签名体系，可再升级为“应用内下载 + 安装 + 重启”的完整自动更新方案。
+- 主安装包内不包含 AI runtime。
+- AI 失败安装不会破坏旧版本目录。
+- 标准安装包仍能正常使用图片/视频基础去水印和 FFmpeg 相关功能。

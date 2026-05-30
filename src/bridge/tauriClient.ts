@@ -7,6 +7,7 @@ export const IMAGE_WATERMARK_PROGRESS_EVENT = "image-watermark-progress";
 export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
 export const VIDEO_TO_GIF_PROGRESS_EVENT = "video-to-gif-progress";
 export const AI_MODEL_PROGRESS_EVENT = "ai-model-progress";
+export const AI_RUNTIME_PROGRESS_EVENT = "ai-runtime-progress";
 
 export interface RecordToolUsagePayload {
   toolKey: string;
@@ -92,6 +93,99 @@ export interface AiModelProgressPayload {
   totalBytes: number;
   percent: number;
   message?: string;
+}
+
+export type AiRuntimeStatus =
+  | "DISABLED"
+  | "NOT_INSTALLED"
+  | "CHECKING"
+  | "ENV_NOT_SUPPORTED"
+  | "READY_TO_INSTALL"
+  | "DOWNLOADING"
+  | "VERIFYING"
+  | "INSTALLING"
+  | "INSTALLED"
+  | "UPDATE_AVAILABLE"
+  | "FAILED";
+
+export interface AiRuntimeRequirementsPayload {
+  os: string;
+  minMemoryGb: number;
+  recommendedMemoryGb: number;
+  cpu: string;
+  avxRequired: boolean;
+  avx2Recommended: boolean;
+}
+
+export interface AiRuntimeModelPayload {
+  name: string;
+  version: string;
+  fileName: string;
+  size: number;
+  sha256: string;
+  url: string;
+}
+
+export interface AiRuntimeManifestPayload {
+  channel: string;
+  runtimeVersion: string;
+  minAppVersion: string;
+  platform: string;
+  packageSize: number;
+  packageSha256: string;
+  packageUrl: string;
+  requiredFreeDiskGb: number;
+  requirements: AiRuntimeRequirementsPayload;
+  models: AiRuntimeModelPayload[];
+  releaseNotes: string[];
+}
+
+export interface AiRuntimeEnvironmentPayload {
+  allowed: boolean;
+  osVersion: string;
+  is64Bit: boolean;
+  availableMemoryGb: number;
+  availableDiskGb: number;
+  cpuArch: string;
+  avx: string;
+  avx2: string;
+  reasons: string[];
+}
+
+export interface AiRuntimeLocalStatusPayload {
+  installed: boolean;
+  available: boolean;
+  currentVersion: string | null;
+  installPath: string;
+  currentPath: string;
+  versionsPath: string;
+  downloadsPath: string;
+  manifestPath: string;
+  missingReason: string | null;
+  packageChannel: string | null;
+}
+
+export interface AiRuntimeProgressPayload {
+  stage: string;
+  downloadedBytes: number;
+  totalBytes: number;
+  percent: number;
+  bytesPerSecond: number;
+  message?: string;
+}
+
+export interface RuntimeDownloadResultPayload {
+  packagePath: string;
+  downloadedBytes: number;
+  totalBytes: number;
+  resumed: boolean;
+}
+
+export interface RuntimeInstallResultPayload {
+  version: string;
+  installPath: string;
+  currentPath: string;
+  manifestPath: string;
 }
 
 export type ImageUpscaleQualityMode = "fast" | "standard" | "balanced" | "quality" | "high";
@@ -412,6 +506,32 @@ export class TauriClient {
 
   public async getAiModelStatus(): Promise<AiModelStatusPayload> {
     return this.call<AiModelStatusPayload>("get_ai_model_status");
+  }
+
+  public async checkAiRuntimeStatus(): Promise<AiRuntimeLocalStatusPayload> {
+    return this.call<AiRuntimeLocalStatusPayload>("check_ai_runtime_status");
+  }
+
+  public async fetchAiRuntimeManifest(manifestUrl: string): Promise<AiRuntimeManifestPayload> {
+    return this.call<AiRuntimeManifestPayload>("fetch_ai_runtime_manifest", { payload: { manifestUrl } });
+  }
+
+  public async checkAiEnvironment(requiredFreeDiskGb: number): Promise<AiRuntimeEnvironmentPayload> {
+    return this.call<AiRuntimeEnvironmentPayload>("check_ai_environment", { payload: { requiredFreeDiskGb } });
+  }
+
+  public async updateAiRuntime(manifest: AiRuntimeManifestPayload): Promise<RuntimeInstallResultPayload> {
+    return this.call<RuntimeInstallResultPayload>("update_ai_runtime", { payload: { manifest } });
+  }
+
+  public async removeAiRuntime(): Promise<void> {
+    await this.call("remove_ai_runtime");
+  }
+
+  public async onAiRuntimeProgress(handler: (payload: AiRuntimeProgressPayload) => void): Promise<UnlistenFn> {
+    return listen<AiRuntimeProgressPayload>(AI_RUNTIME_PROGRESS_EVENT, (event) => {
+      handler(event.payload);
+    });
   }
 
   public async downloadAiModel(modelId = "lama"): Promise<AiModelStatusPayload> {

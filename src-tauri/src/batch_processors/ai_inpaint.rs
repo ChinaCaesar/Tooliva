@@ -16,6 +16,9 @@ use crate::batch::processor::{
 use crate::batch::tempfile::{allocate_unique_final_path, ensure_parent_dir};
 use crate::batch::types::{BatchError, BatchTaskType};
 use crate::debug_log::debug_log_to_stderr;
+use crate::local_inpaint::{
+    inpaint_image_basic, BasicInpaintAlgorithm, BasicInpaintRequest, InpaintRegion as BasicInpaintRegion,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +37,10 @@ struct AiInpaintOptions {
     output_format: String,
     #[serde(default = "default_mode")]
     mode: String,
+    #[serde(default = "default_algorithm")]
+    algorithm: String,
+    #[serde(default = "default_radius")]
+    radius: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +65,8 @@ impl BatchProcessor for AiInpaintBatchProcessor {
         let parsed = parse_options(options)?;
         normalize_format_option(&parsed.output_format)?;
         normalize_mode(&parsed.mode)?;
+        normalize_algorithm(&parsed.algorithm)?;
+        normalize_radius(parsed.radius)?;
         for input in input_files {
             if !is_supported_image_ext(input) {
                 return Err(BatchError::invalid_input(format!(
@@ -91,7 +100,9 @@ impl BatchProcessor for AiInpaintBatchProcessor {
         let started = Instant::now();
         let options = parse_options(&ctx.options)?;
         let mode = normalize_mode(&options.mode)?;
-        ensure_lama_worker_ready(mode == "quality").map_err(BatchError::deterministic)?;
+        if mode == "ai" {
+            ensure_lama_worker_ready(true).map_err(BatchError::deterministic)?;
+        }
         log_inpaint_perf(&format!(
             "[ai-inpaint-perf] stage=prepare mode={} duration_ms={}",
             mode,
@@ -122,6 +133,8 @@ impl BatchProcessor for AiInpaintBatchProcessor {
             })?;
         let format = resolve_output_format(&prepared.options.output_format, &ctx.item.input_path)?;
         let mode = normalize_mode(&prepared.options.mode)?;
+        let algorithm = normalize_algorithm(&prepared.options.algorithm)?;
+        let radius = normalize_radius(prepared.options.radius)?;
         let stem = ctx
             .item
             .input_path
@@ -132,6 +145,7 @@ impl BatchProcessor for AiInpaintBatchProcessor {
             allocate_unique_final_path(ctx.output_dir, stem, Some("no_watermark"), &format);
         ensure_parent_dir(&final_path)?;
 
+        let basic_regions = regions_for_basic(regions);
         let regions = regions_to_sidecar(regions);
         if ctx.cancel.is_cancelled() {
             let _ = std::fs::remove_file(&final_path);
@@ -139,16 +153,27 @@ impl BatchProcessor for AiInpaintBatchProcessor {
         }
 
         let worker_started = Instant::now();
-        if let Err(err) = inpaint_image_with_lama(InpaintImageRequest {
-            input_path: ctx.item.input_path.clone(),
-            output_path: final_path.clone(),
-            regions,
-            output_format: format,
-            mode,
-        }) {
+        let process_result = if mode == "ai" {
+            inpaint_image_with_lama(InpaintImageRequest {
+                input_path: ctx.item.input_path.clone(),
+                output_path: final_path.clone(),
+                regions,
+                output_format: format,
+                mode: "quality".to_string(),
+            })
+        } else {
+            inpaint_image_basic(&BasicInpaintRequest {
+                input_path: ctx.item.input_path.clone(),
+                output_path: final_path.clone(),
+                regions: basic_regions,
+                algorithm,
+                radius,
+            })
+        };
+        if let Err(err) = process_result {
             let _ = std::fs::remove_file(&final_path);
             return Err(BatchError::processor(format!(
-                "AI watermark removal failed: {err}"
+                "Watermark removal failed: {err}"
             )));
         }
         log_inpaint_perf(&format!(
@@ -184,7 +209,15 @@ fn default_output_format() -> String {
 }
 
 fn default_mode() -> String {
-    "standard".to_string()
+    "fast".to_string()
+}
+
+fn default_algorithm() -> String {
+    "telea".to_string()
+}
+
+fn default_radius() -> u32 {
+    3
 }
 
 fn normalize_format_option(value: &str) -> Result<String, BatchError> {
@@ -200,10 +233,31 @@ fn normalize_format_option(value: &str) -> Result<String, BatchError> {
 fn normalize_mode(value: &str) -> Result<String, BatchError> {
     let mode = value.trim().to_ascii_lowercase();
     match mode.as_str() {
-        "standard" | "quality" => Ok(mode),
+        "standard" | "fast" => Ok("fast".to_string()),
+        "quality" | "ai" => Ok("ai".to_string()),
         _ => Err(BatchError::invalid_input(
-            "AI watermark removal mode must be standard or quality",
+            "Watermark removal mode must be fast or ai",
         )),
+    }
+}
+
+fn normalize_algorithm(value: &str) -> Result<BasicInpaintAlgorithm, BatchError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "telea" => Ok(BasicInpaintAlgorithm::Telea),
+        "ns" => Ok(BasicInpaintAlgorithm::Ns),
+        _ => Err(BatchError::invalid_input(
+            "Basic watermark removal algorithm must be TELEA or NS",
+        )),
+    }
+}
+
+fn normalize_radius(value: u32) -> Result<u32, BatchError> {
+    if (1..=10).contains(&value) {
+        Ok(value)
+    } else {
+        Err(BatchError::invalid_input(
+            "Basic watermark removal radius must be within 1..10",
+        ))
     }
 }
 
@@ -262,6 +316,18 @@ fn validate_region(region: &InpaintRegion) -> Result<(), BatchError> {
         ));
     }
     Ok(())
+}
+
+fn regions_for_basic(regions: &[InpaintRegion]) -> Vec<BasicInpaintRegion> {
+    regions
+        .iter()
+        .map(|region| BasicInpaintRegion {
+            x: region.x,
+            y: region.y,
+            width: region.width,
+            height: region.height,
+        })
+        .collect()
 }
 
 fn regions_to_sidecar(regions: &[InpaintRegion]) -> Vec<serde_json::Value> {

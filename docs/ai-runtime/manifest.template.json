@@ -1,0 +1,32 @@
+{
+  "channel": "stable",
+  "runtimeVersion": "1.0.0",
+  "minAppVersion": "0.1.0",
+  "platform": "windows-x64",
+  "packageSize": 4210000000,
+  "packageSha256": "PLEASE_REPLACE_WITH_REAL_SHA256",
+  "packageUrl": "https://cdn.example.com/ai-runtime/windows-x64/1.0.0/ai-runtime.zip",
+  "requiredFreeDiskGb": 8,
+  "requirements": {
+    "os": "Windows 10/11 64-bit",
+    "minMemoryGb": 8,
+    "recommendedMemoryGb": 16,
+    "cpu": "x64",
+    "avxRequired": false,
+    "avx2Recommended": true
+  },
+  "models": [
+    {
+      "name": "lama",
+      "version": "1.0.0",
+      "fileName": "big-lama.pt",
+      "size": 196000000,
+      "sha256": "PLEASE_REPLACE_WITH_REAL_SHA256",
+      "url": "https://cdn.example.com/ai-models/lama/big-lama.pt"
+    }
+  ],
+  "releaseNotes": [
+    "Optimize local AI watermark removal quality",
+    "Improve recovery stability for complex backgrounds"
+  ]
+}

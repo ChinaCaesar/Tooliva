@@ -1,3 +1,4 @@
+mod ai_runtime_manager;
 mod ai_runtime;
 mod ai_worker;
 mod batch;
@@ -7,6 +8,7 @@ mod debug_log;
 mod ffmpeg_gif;
 mod image_core;
 mod image_processors;
+mod local_inpaint;
 mod runtime_bins;
 
 use std::sync::Arc;
@@ -46,6 +48,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::system::ping_host,
             commands::system::get_path_metadata,
+            commands::ai_runtime::check_ai_runtime_status,
+            commands::ai_runtime::fetch_ai_runtime_manifest,
+            commands::ai_runtime::check_ai_environment,
+            commands::ai_runtime::download_ai_runtime,
+            commands::ai_runtime::verify_ai_runtime_package,
+            commands::ai_runtime::install_ai_runtime_package,
+            commands::ai_runtime::update_ai_runtime,
+            commands::ai_runtime::remove_ai_runtime,
             commands::ai_models::get_ai_model_status,
             commands::ai_models::download_ai_model,
             commands::ai_models::warm_ai_inpaint_worker,
