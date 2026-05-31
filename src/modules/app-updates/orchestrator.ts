@@ -1,8 +1,9 @@
 import { isTauri } from "@tauri-apps/api/core";
+import { exit } from "@tauri-apps/plugin-process";
+import { tauriClient } from "@/bridge/tauriClient";
 import { localStorageService } from "@/storage/localStorage";
 import type { AppLanguage, UserSettings } from "@/types/settings";
 import { checkDesktopAppUpdate, type AppUpdateCheckResult } from "@/modules/app-updates/api";
-import { openExternalUrl } from "@/utils/openExternalUrl";
 
 const AUTO_UPDATE_META_KEY = "tooliva:auto-update-meta";
 
@@ -20,7 +21,7 @@ export interface UpdateOrchestratorResult {
 }
 
 export interface InstallProgressPayload {
-  phase: "checking" | "opening" | "done";
+  phase: "checking" | "downloading" | "launching" | "done";
   downloadedBytes?: number;
   totalBytes?: number;
 }
@@ -29,10 +30,10 @@ export type UpdateInstallAction =
   | { type: "no_update" }
   | { type: "dev_check_only" }
   | { type: "unsupported"; reason: "not_tauri" | "missing_download_url" }
-  | { type: "external_download"; downloadUrl: string };
+  | { type: "in_app_download_install"; downloadUrl: string };
 
 export interface UpdateInstallExecutionResult {
-  type: "external_download";
+  type: "in_app_download_install";
   downloadUrl: string;
 }
 
@@ -119,7 +120,7 @@ export function resolveUpdateInstallAction(result: AppUpdateCheckResult | null |
     return { type: "unsupported", reason: "missing_download_url" };
   }
   return {
-    type: "external_download",
+    type: "in_app_download_install",
     downloadUrl: result.downloadUrl,
   };
 }
@@ -134,6 +135,10 @@ function toUpdateErrorMessage(error: unknown): string {
   if (/missing_download_url/i.test(message)) return "missing_download_url";
   if (/not_tauri/i.test(message)) return "not_tauri";
   if (/dev_check_only|dev_environment/i.test(message)) return "dev_environment";
+  if (/installer_invalid|downloaded_file_is_not_a_windows_executable/i.test(message)) return "download_corrupt";
+  if (/installer_launch_failed|spawn/i.test(message)) return "install_failed";
+  if (/installer_invalid|downloaded_file_is_not/i.test(message)) return "download_corrupt";
+  if (/incomplete_download/i.test(message)) return "network_error";
   if (/permission|denied/i.test(message)) return "permission_denied";
   if (/plugin|command .* not found|not configured|unavailable/i.test(message)) return "permission_denied";
   if (/network|fetch|timeout/i.test(message)) return "network_error";
@@ -158,9 +163,23 @@ export async function executeUpdateInstall(
   }
 
   onProgress?.({ phase: "checking" });
-  onProgress?.({ phase: "opening" });
-  await openExternalUrl(action.downloadUrl);
+  await tauriClient.downloadAndPrepareUpdateInstaller(
+    {
+      downloadUrl: action.downloadUrl,
+      version: result.latestVersion,
+    },
+    (payload) => {
+      onProgress?.({
+        phase: "downloading",
+        downloadedBytes: payload.downloadedBytes,
+        totalBytes: payload.totalBytes,
+      });
+    },
+  );
+  onProgress?.({ phase: "launching" });
+  await tauriClient.launchPreparedUpdateInstaller();
   onProgress?.({ phase: "done" });
+  await exit(0);
   return action;
 }
 

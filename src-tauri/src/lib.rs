@@ -12,7 +12,7 @@ mod local_inpaint;
 mod process_utils;
 mod runtime_bins;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -44,12 +44,15 @@ pub fn run() {
         .manage(commands::image_jobs::ImageProcessorRegistryState(
             image_processors::registry::build_default_registry(),
         ))
+        .manage(commands::app_update::PreparedInstallerState(Mutex::new(None)))
         .manage(batch::BatchTaskManagerState(Arc::new(
             batch::BatchTaskManager::new(batch_processors::build_default_batch_registry()),
         )))
         .invoke_handler(tauri::generate_handler![
             commands::system::ping_host,
             commands::system::get_path_metadata,
+            commands::app_update::download_app_update_installer,
+            commands::app_update::launch_prepared_update_installer,
             commands::ai_runtime::check_ai_runtime_status,
             commands::ai_runtime::check_ai_environment,
             commands::ai_runtime::get_local_ai_runtime_paths,

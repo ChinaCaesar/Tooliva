@@ -21,6 +21,14 @@ export const API_BASE_URL =
   ?? (API_ORIGIN && API_BASE_PATH ? `${API_ORIGIN.replace(/\/$/, "")}${API_BASE_PATH.startsWith("/") ? API_BASE_PATH : `/${API_BASE_PATH}`}` : undefined)
   ?? `${WEBSITE_URL.replace(/\/$/, "")}/api`;
 
+export const ASSET_BASE_URL =
+  import.meta.env.VITE_ASSET_BASE_URL
+  ?? import.meta.env.PUBLIC_ASSET_BASE_URL
+  ?? API_ORIGIN
+  ?? WEBSITE_URL;
+
+export const APP_DEBUG = `${import.meta.env.VITE_APP_DEBUG ?? "false"}`.trim().toLowerCase() === "true";
+
 export const AI_RUNTIME_ENABLED = `${import.meta.env.VITE_AI_RUNTIME_ENABLED ?? "true"}`.trim().toLowerCase() !== "false";
 export const AI_RUNTIME_MIN_FREE_DISK_GB = Number(import.meta.env.VITE_AI_RUNTIME_MIN_FREE_DISK_GB ?? "8");
 export const AUTH_DESKTOP_CLIENT = "desktop";

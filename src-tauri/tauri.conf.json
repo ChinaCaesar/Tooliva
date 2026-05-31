@@ -17,6 +17,7 @@
         "width": 1100,
         "height": 900,
         "resizable": true,
+        "devtools": true,
         "decorations": false,
         "shadow": true
       }

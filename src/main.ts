@@ -4,6 +4,7 @@ import { registerAuthDeepLinkListener } from "@/auth/register-deep-link";
 import { registerAppPlugins } from "@/plugins";
 import { i18n } from "@/i18n";
 import { useAuthStore } from "@/stores/auth.store";
+import { useAppConfirmDialogStore } from "@/stores/appConfirmDialog.store";
 import { useSettingsStore } from "@/stores/settings.store";
 import {
   executeUpdateInstall,
@@ -20,6 +21,7 @@ registerAppPlugins(app);
 
 const settingsStore = useSettingsStore();
 const authStore = useAuthStore();
+const appConfirmDialogStore = useAppConfirmDialogStore();
 
 /**
  * 应用启动前先同步用户配置，避免首屏出现语言/设置闪动。
@@ -47,24 +49,23 @@ async function bootstrapAutoUpdateCheck(): Promise<void> {
   }).catch(() => ({ status: "skipped" as const }));
 
   if (checked.status !== "ok" || !checked.result?.available) return;
-  if (resolveUpdateInstallAction(checked.result).type !== "external_download") return;
+  if (resolveUpdateInstallAction(checked.result).type !== "in_app_download_install") return;
 
   markAutoUpdatePromptShown();
-  const { confirm, message } = await import("@tauri-apps/plugin-dialog");
-  const shouldInstall = await confirm(
-    i18n.global.t("pages.settings.dashboard.autoUpdatePromptBody", {
+  const shouldInstall = await appConfirmDialogStore.show({
+    title: i18n.global.t("pages.settings.dashboard.autoUpdatePromptTitle"),
+    message: i18n.global.t("pages.settings.dashboard.autoUpdatePromptBody", {
       version: checked.result.latestVersion,
     }),
-    { title: i18n.global.t("pages.settings.dashboard.autoUpdatePromptTitle") },
-  );
+    confirmLabel: i18n.global.t("pages.settings.dashboard.updateNow"),
+    cancelLabel: i18n.global.t("pages.settings.dashboard.closeModal"),
+  });
   if (!shouldInstall) return;
 
   try {
     await executeUpdateInstall(checked.result);
-    await message(i18n.global.t("pages.settings.dashboard.updateDownloadStartedMessage"), {
-      title: i18n.global.t("pages.settings.dashboard.updateDownloadStartedTitle"),
-    });
   } catch (error) {
+    const { message } = await import("@tauri-apps/plugin-dialog");
     await message(i18n.global.t(`pages.settings.dashboard.updateInstallError.${mapUpdateInstallError(error)}`), {
       title: i18n.global.t("pages.settings.dashboard.updateInstallFailedTitle"),
     });

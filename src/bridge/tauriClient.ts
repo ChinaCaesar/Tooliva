@@ -8,6 +8,7 @@ export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
 export const VIDEO_TO_GIF_PROGRESS_EVENT = "video-to-gif-progress";
 export const AI_MODEL_PROGRESS_EVENT = "ai-model-progress";
 export const AI_RUNTIME_PROGRESS_EVENT = "ai-runtime-progress";
+export const APP_UPDATE_INSTALL_PROGRESS_EVENT = "app-update-install-progress";
 
 export interface RecordToolUsagePayload {
   toolKey: string;
@@ -156,6 +157,17 @@ export interface AiRuntimeProgressPayload {
   percent: number;
   bytesPerSecond: number;
   message?: string;
+}
+
+export interface AppUpdateInstallProgressPayload {
+  phase: "downloading" | "finished";
+  downloadedBytes: number;
+  totalBytes: number;
+}
+
+export interface DownloadAppUpdatePayload {
+  downloadUrl: string;
+  version: string;
 }
 
 export interface RuntimeInstallResultPayload {
@@ -521,6 +533,29 @@ export class TauriClient {
     return listen<AiRuntimeProgressPayload>(AI_RUNTIME_PROGRESS_EVENT, (event) => {
       handler(event.payload);
     });
+  }
+
+  public async downloadAndPrepareUpdateInstaller(
+    payload: DownloadAppUpdatePayload,
+    handler?: (payload: AppUpdateInstallProgressPayload) => void,
+  ): Promise<{ installerPath: string }> {
+    let unlisten: UnlistenFn | null = null;
+    if (handler) {
+      unlisten = await listen<AppUpdateInstallProgressPayload>(APP_UPDATE_INSTALL_PROGRESS_EVENT, (event) => {
+        handler(event.payload);
+      });
+    }
+    try {
+      return await this.call<{ installerPath: string }>("download_app_update_installer", { payload });
+    } finally {
+      if (unlisten) {
+        await unlisten();
+      }
+    }
+  }
+
+  public async launchPreparedUpdateInstaller(): Promise<void> {
+    await this.call<void>("launch_prepared_update_installer");
   }
 
   public async warmAiInpaintWorker(): Promise<void> {

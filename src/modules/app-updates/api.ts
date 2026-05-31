@@ -1,5 +1,5 @@
 import { isTauri } from "@tauri-apps/api/core";
-import { API_BASE_URL } from "@/config/constants";
+import { API_BASE_URL, ASSET_BASE_URL } from "@/config/constants";
 
 export interface AppUpdateCheckResult {
   available: boolean;
@@ -131,6 +131,28 @@ function isVersionGreater(nextVersion: string, currentVersion: string): boolean 
   return false;
 }
 
+function resolveDownloadUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return "";
+
+  // API/CDN 常返回协议相对地址 //host/path；必须补全 scheme，否则会被错误拼到 asset base 上。
+  if (trimmed.startsWith("//")) {
+    const assetBase = `${ASSET_BASE_URL}`.trim();
+    const scheme = assetBase.startsWith("http://") ? "http:" : "https:";
+    return `${scheme}${trimmed}`;
+  }
+
+  try {
+    return new URL(trimmed).toString();
+  } catch {
+    const assetBase = `${ASSET_BASE_URL}`.trim();
+    if (!assetBase) return trimmed;
+    const base = assetBase.endsWith("/") ? assetBase : `${assetBase}/`;
+    const relative = trimmed.replace(/^\.?\//, "");
+    return new URL(relative, base).toString();
+  }
+}
+
 export async function checkDesktopAppUpdate(options: CheckUpdateOptions): Promise<AppUpdateCheckResult> {
   const requestUrl = getUpdateCheckUrl(options);
   const requestInit = {
@@ -162,6 +184,7 @@ export async function checkDesktopAppUpdate(options: CheckUpdateOptions): Promis
   const packageUrl =
     pickString(source, ["downloadUrl", "download_url", "url", "link"])
     || pickNestedString(source, ["package", "package_file"]);
+  const resolvedPackageUrl = packageUrl ? resolveDownloadUrl(packageUrl) : "";
 
   return {
     available: explicitAvailable ?? isVersionGreater(latestVersion, options.currentVersion),
@@ -171,7 +194,7 @@ export async function checkDesktopAppUpdate(options: CheckUpdateOptions): Promis
     publishedAt:
       pickString(source, ["publishedAt", "published_at", "releaseDate", "release_date", "date"])
       || pickNestedString(source, ["latest", "release_date"]),
-    downloadUrl: packageUrl || undefined,
+    downloadUrl: resolvedPackageUrl || undefined,
   };
 }
 

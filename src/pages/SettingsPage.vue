@@ -58,6 +58,7 @@ const updateProgressModalOpen = ref(false);
 const updateResultModalOpen = ref(false);
 const updateProgressValue = ref(0);
 const updateProgressLabel = ref("");
+const updateProgressBytesText = ref("");
 const updateChecking = ref(false);
 const updateInstalling = ref(false);
 const updateResult = ref<AppUpdateCheckResult | null>(null);
@@ -73,7 +74,7 @@ const updateResultTitle = computed(() => {
   return t("pages.settings.dashboard.updateUpToDateTitle");
 });
 const updateInstallAction = computed(() => resolveUpdateInstallAction(updateResult.value));
-const canExecuteRealUpdate = computed(() => updateInstallAction.value.type === "external_download");
+const canExecuteRealUpdate = computed(() => updateInstallAction.value.type === "in_app_download_install");
 
 const aiPanel = useAiEnhancementPanel();
 const {
@@ -215,6 +216,7 @@ async function onCheckUpdates(): Promise<void> {
   updateResultModalOpen.value = false;
   updateProgressModalOpen.value = true;
   updateProgressValue.value = 0;
+  updateProgressBytesText.value = "";
   updateProgressLabel.value = t("pages.settings.dashboard.updateCheckProgressStart");
 
   let progressTimer: number | undefined;
@@ -289,6 +291,18 @@ function closeUpdateResultModal(): void {
   updateResultModalOpen.value = false;
 }
 
+function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let size = value;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(size >= 100 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
 async function onInstallUpdate(): Promise<void> {
   if (!updateResult.value?.available || updateInstalling.value || !canExecuteRealUpdate.value) return;
   if (taskStore.activeTasks.length > 0) {
@@ -301,31 +315,41 @@ async function onInstallUpdate(): Promise<void> {
   updateResultModalOpen.value = false;
   updateProgressModalOpen.value = true;
   updateProgressValue.value = 0;
+  updateProgressBytesText.value = "";
   updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressPrepare");
   try {
     await executeUpdateInstall(updateResult.value, (payload) => {
       switch (payload.phase) {
         case "checking":
           updateProgressValue.value = 10;
+          updateProgressBytesText.value = "";
           updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressPrepare");
           break;
-        case "opening":
-          updateProgressValue.value = 72;
-          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressOpenLink");
+        case "downloading": {
+          const totalBytes = payload.totalBytes ?? 0;
+          const downloadedBytes = payload.downloadedBytes ?? 0;
+          const progress = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
+          updateProgressValue.value = Math.max(12, Math.min(96, progress));
+          updateProgressBytesText.value =
+            totalBytes > 0 ? `${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)}` : formatBytes(downloadedBytes);
+          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressDownload");
+          break;
+        }
+        case "launching":
+          updateProgressValue.value = 100;
+          updateProgressBytesText.value = "";
+          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressApply");
           break;
         case "done":
           updateProgressValue.value = 100;
+          updateProgressBytesText.value = "";
           updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressDone");
           break;
       }
     });
-    await new Promise((resolve) => window.setTimeout(resolve, 220));
-    updateProgressModalOpen.value = false;
-    updateResultStatus.value = "success";
-    updateResultMessage.value = t("pages.settings.dashboard.updateDownloadStartedMessage");
-    updateResultModalOpen.value = true;
   } catch (error) {
     updateProgressModalOpen.value = false;
+    updateProgressBytesText.value = "";
     updateResultStatus.value = "error";
     updateResultMessage.value = t(`pages.settings.dashboard.updateInstallError.${mapUpdateInstallError(error)}`);
     updateResultModalOpen.value = true;
@@ -663,6 +687,7 @@ onMounted(() => {
             <span class="update-progress-bar__fill" :style="{ width: `${updateProgressValue}%` }" />
           </div>
           <p class="dialog-meta">{{ updateProgressValue }}%</p>
+          <p v-if="updateProgressBytesText" class="dialog-meta">{{ updateProgressBytesText }}</p>
         </div>
       </div>
     </Teleport>
