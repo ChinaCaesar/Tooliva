@@ -6,10 +6,12 @@ import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useRouter } from "vue-router";
-import { Folder, Info, Maximize2, PauseCircle, PlayCircle, Plus, Trash2, Video, Volume2, VolumeX, X } from "@lucide/vue";
-import { tauriClient } from "@/bridge/tauriClient";
-import { useAiRuntime } from "@/modules/ai-runtime/useAiRuntime";
+import { Folder, Info, Maximize2, PauseCircle, PlayCircle, Trash2, Video, Volume2, VolumeX, X } from "@lucide/vue";
+import AiEnhancementStatusPanel from "@/components/ai-runtime/AiEnhancementStatusPanel.vue";
+import AiRuntimeInstallLoadingOverlay from "@/components/ai-runtime/AiRuntimeInstallLoadingOverlay.vue";
+import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
 import { useBatchTask } from "@/modules/batch";
+import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 import {
   checkExportEntitlement,
   consumeExportEntitlement,
@@ -65,15 +67,22 @@ const isPreviewPlaying = ref(false);
 const isPreviewMuted = ref(true);
 const previewCurrentTime = ref(0);
 const previewDuration = ref(0);
-const runtimeDevice = ref("");
-const torchVersion = ref("");
-const runtimeActionError = ref("");
-
-const aiRuntime = useAiRuntime();
-const aiRuntimeProgress = aiRuntime.progress;
-const aiRuntimeStatus = aiRuntime.status;
-const aiRuntimeHasManifestSource = aiRuntime.hasManifestSource;
+const aiPanel = useAiEnhancementPanel();
+const {
+  aiRuntime,
+  hasInstalledAiRuntime,
+  aiRuntimeProgress,
+  isRuntimeBusy,
+  aiRuntimeStatusText,
+  runtimeDevice,
+  torchVersion,
+  refreshStatus,
+  ensureRuntimeReady,
+  ensureModelReady
+} = aiPanel;
 const { submit, cancel, openOutputDirectory: openBatchOutputDirectory, progress, isRunning, result, failures } = useBatchTask();
+const { notifyTaskBatchCompleted } = useTaskBatchNotification();
+const lastNotifiedTaskId = ref<string | null>(null);
 
 let disposeDrop: UnlistenFn | null = null;
 let elapsedTimer: number | null = null;
@@ -98,7 +107,7 @@ const currentProgressItem = computed(() => items.value[Math.min(currentIndex.val
 const canStart = computed(() => {
   if (isRunning.value || isSubmittingRemoval.value || items.value.length === 0 || !hasRegions.value) return false;
   if (removalMode.value === "ai") {
-    return aiRuntime.status.value === "INSTALLED" || aiRuntime.status.value === "UPDATE_AVAILABLE";
+    return hasInstalledAiRuntime.value;
   }
   return true;
 });
@@ -116,47 +125,17 @@ const previewProgress = computed(() => {
   if (previewDuration.value <= 0) return 0;
   return Math.min(100, Math.max(0, (previewCurrentTime.value / previewDuration.value) * 100));
 });
-const aiProgressPercent = computed(() => aiRuntime.progress.value?.percent ?? 0);
-const aiDownloadSpeedLabel = computed(() => formatBytes(aiRuntime.progress.value?.bytesPerSecond ?? 0));
-const aiProgressSummaryLabel = computed(() => {
-  const payload = aiRuntime.progress.value;
-  if (!payload) return "--";
-  return `${formatBytes(payload.downloadedBytes)} / ${formatBytes(payload.totalBytes)}`;
-});
-const hasInstalledAiRuntime = computed(() =>
-  aiRuntimeStatus.value === "INSTALLED" || aiRuntimeStatus.value === "UPDATE_AVAILABLE"
-);
-const aiRuntimeStatusText = computed(() => {
-  switch (aiRuntime.status.value) {
-    case "DISABLED": return "AI 增强组件未启用";
-    case "NOT_INSTALLED": return "AI 增强组件未安装";
-    case "CHECKING": return "正在检查 AI 环境";
-    case "ENV_NOT_SUPPORTED": return "当前设备不满足 AI 安装条件";
-    case "READY_TO_INSTALL": return "可安装 AI 增强组件";
-    case "DOWNLOADING": return "正在下载 AI 增强组件";
-    case "VERIFYING": return "正在校验 AI 增强组件";
-    case "INSTALLING": return "正在安装 AI 增强组件";
-    case "INSTALLED": return "AI 增强组件已安装";
-    case "UPDATE_AVAILABLE": return "AI 增强组件有可用更新";
-    case "FAILED": return "AI 增强组件操作失败";
-  }
-});
 const processingEngineLabel = computed(() => {
-  if (removalMode.value === "fast") return "本地极速修复";
-  return runtimeDevice.value ? `${runtimeDevice.value.toUpperCase()}${torchVersion.value ? ` / Torch ${torchVersion.value}` : ""}` : "AI 增强修复";
-});
-const aiInstallHint = computed(() => {
-  if (aiRuntime.environment.value?.reasons?.length) return aiRuntime.environment.value.reasons[0];
-  if (aiRuntime.manifest.value && (aiRuntime.status.value === "READY_TO_INSTALL" || aiRuntime.status.value === "UPDATE_AVAILABLE")) {
-    return `组件版本 ${aiRuntime.manifest.value.runtimeVersion}，大小 ${formatBytes(aiRuntime.manifest.value.packageSize)}，预计磁盘 ${aiRuntime.manifest.value.requiredFreeDiskGb} GB。`;
-  }
-  if (aiRuntime.error.value) return aiRuntime.error.value;
-  return "";
+  if (removalMode.value === "fast") return t("pages.videoWatermarkRemoval.engine.fastLocal");
+  return runtimeDevice.value
+    ? `${runtimeDevice.value.toUpperCase()}${torchVersion.value ? ` / Torch ${torchVersion.value}` : ""}`
+    : t("pages.videoWatermarkRemoval.engine.aiEnhanced");
 });
 const progressTitle = computed(() => {
   if (progress.value?.message && isRunning.value) return progress.value.message;
-  if (!isRunning.value) return "暂无任务";
-  return `正在处理 ${Math.min((progress.value?.finished ?? 0) + 1, items.value.length)} / ${items.value.length}`;
+  if (!isRunning.value) return t("pages.videoWatermarkRemoval.progressPanel.idleTitle");
+  const current = Math.min((progress.value?.finished ?? 0) + 1, items.value.length);
+  return t("pages.videoWatermarkRemoval.progressPanel.processingTitle", { current, total: items.value.length });
 });
 const remainingTime = computed(() => {
   if (!isRunning.value) return "--";
@@ -194,12 +173,7 @@ function isSupportedVideo(path: string): boolean {
 }
 
 function statusLabel(status: RemovalStatus): string {
-  switch (status) {
-    case "pending": return "待处理";
-    case "processing": return "处理中";
-    case "done": return "已完成";
-    case "failed": return "失败";
-  }
+  return t(`pages.videoWatermarkRemoval.status.${status}`);
 }
 
 async function readMetadata(path: string): Promise<{ bytes: number; width: number; height: number; duration: number; previewUrl: string }> {
@@ -256,7 +230,7 @@ function loadVideoMetadata(src: string): Promise<{ width: number; height: number
 async function appendPaths(paths: string[]) {
   const unique = paths.filter(isSupportedVideo).filter((path) => !items.value.some((item) => item.path === path));
   if (unique.length === 0) {
-    hintMessage.value = "当前文件格式不支持";
+    hintMessage.value = t("pages.videoWatermarkRemoval.hints.unsupportedFormats");
     return;
   }
   hintMessage.value = "";
@@ -281,7 +255,7 @@ async function appendPaths(paths: string[]) {
 async function pickFiles() {
   const selected = await open({
     multiple: true,
-    filters: [{ name: "Video", extensions: supportedExtensions }]
+    filters: [{ name: t("pages.videoWatermarkRemoval.filePicker.videoFilter"), extensions: supportedExtensions }]
   });
   if (!selected) return;
   await appendPaths(Array.isArray(selected) ? selected : [selected]);
@@ -486,41 +460,29 @@ async function requestPreviewFullscreen() {
   await target.requestFullscreen().catch(() => undefined);
 }
 
-async function refreshAiRuntimeStatus(forceModeSync = false): Promise<void> {
-  try {
-    await aiRuntime.refresh(false);
-    const status = await tauriClient.getAiModelStatus();
-    runtimeDevice.value = status.runtimeDevice || "";
-    torchVersion.value = status.torchVersion || "";
-    syncRemovalModeWithAi(forceModeSync);
-  } catch {
-    runtimeDevice.value = "";
-    torchVersion.value = "";
-    syncRemovalModeWithAi(forceModeSync);
-  }
-}
-
 async function ensureAiReady(): Promise<boolean> {
-  await refreshAiRuntimeStatus();
-  if (aiRuntime.status.value !== "INSTALLED" && aiRuntime.status.value !== "UPDATE_AVAILABLE") {
-    hintMessage.value = aiRuntime.error.value || aiRuntime.environment.value?.reasons?.[0] || "AI 增强组件尚未就绪，请先安装或升级。";
+  const ready = await ensureRuntimeReady();
+  if (!ready) {
+    hintMessage.value =
+      aiRuntime.error.value || aiRuntime.environment.value?.reasons?.[0] || t("aiEnhancement.errors.notReady");
     return false;
   }
-  const status = await tauriClient.getAiModelStatus();
-  runtimeDevice.value = status.runtimeDevice || "";
-  torchVersion.value = status.torchVersion || "";
-  if (!status.downloaded) {
-    const downloadedStatus = await tauriClient.downloadAiModel("lama");
-    runtimeDevice.value = downloadedStatus.runtimeDevice || runtimeDevice.value;
-    torchVersion.value = downloadedStatus.torchVersion || torchVersion.value;
+  try {
+    await ensureModelReady();
+    return true;
+  } catch (error) {
+    hintMessage.value = error instanceof Error ? error.message : String(error);
+    return false;
   }
-  return true;
 }
 
 async function startRemoval() {
   if (isRunning.value || isSubmittingRemoval.value) return;
   if (!canStart.value) {
-    hintMessage.value = items.value.length === 0 ? "请先添加视频" : "请先框选需要去除的区域";
+    hintMessage.value =
+      items.value.length === 0
+        ? t("pages.videoWatermarkRemoval.hints.addVideoFirst")
+        : t("pages.videoWatermarkRemoval.hints.selectRegionFirst");
     return;
   }
 
@@ -549,6 +511,7 @@ async function startRemoval() {
 
   stopTimers();
   elapsedSeconds.value = 0;
+  lastNotifiedTaskId.value = null;
   items.value.forEach((item) => {
     item.status = "pending";
     item.outputPath = undefined;
@@ -580,7 +543,7 @@ async function startRemoval() {
   } catch (error) {
     stopTimers();
     const message = error instanceof Error ? error.message : String(error);
-    hintMessage.value = message || "启动任务失败";
+    hintMessage.value = message || t("pages.videoWatermarkRemoval.hints.startTaskFailed");
   } finally {
     isSubmittingRemoval.value = false;
   }
@@ -618,16 +581,6 @@ function buildRegionsByFile(): Record<string, Array<{ x: number; y: number; widt
   return result;
 }
 
-async function installAiRuntime() {
-  try {
-    runtimeActionError.value = "";
-    await aiRuntime.installOrUpdate();
-    await refreshAiRuntimeStatus(true);
-  } catch (error) {
-    runtimeActionError.value = error instanceof Error ? error.message : String(error);
-  }
-}
-
 watch(selectedId, () => {
   previewCurrentTime.value = 0;
   previewDuration.value = selectedItem.value?.duration || 0;
@@ -648,6 +601,15 @@ watch(
   },
   { deep: true }
 );
+
+function formatElapsed(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const remain = seconds % 60;
+  return `${mins}m ${remain}s`;
+}
 
 watch([result, failures], () => {
   const snapshot = result.value;
@@ -670,14 +632,33 @@ watch([result, failures], () => {
     item.outputPath = outputPaths.shift();
   });
   if (snapshot.status === "FAILED") {
-    hintMessage.value = failures.value[0]?.errorMessage || snapshot.message || "任务失败";
+    hintMessage.value = failures.value[0]?.errorMessage || snapshot.message || t("pages.videoWatermarkRemoval.hints.taskFailed");
+  }
+  if (snapshot.status === "FINISHED" || snapshot.status === "FAILED") {
+    if (lastNotifiedTaskId.value !== snapshot.taskId) {
+      lastNotifiedTaskId.value = snapshot.taskId;
+      const elapsedMs =
+        snapshot.finishedAtMs && snapshot.startedAtMs
+          ? snapshot.finishedAtMs - snapshot.startedAtMs
+          : elapsedSeconds.value * 1000;
+      notifyTaskBatchCompleted(
+        "pages.videoWatermarkRemoval.title",
+        {
+          total: snapshot.total,
+          success: snapshot.success,
+          failed: snapshot.failed,
+          elapsedMs
+        },
+        formatElapsed(elapsedMs)
+      );
+    }
   }
   stopTimers();
 });
 
 onMounted(() => {
   void setupNativeDrop();
-  void refreshAiRuntimeStatus();
+  void refreshStatus(() => syncRemovalModeWithAi());
   previewResizeObserver = new ResizeObserver(() => updateVideoLayerSize());
   if (previewShellRef.value) previewResizeObserver.observe(previewShellRef.value);
   window.addEventListener("resize", updateVideoLayerSize);
@@ -695,12 +676,13 @@ onBeforeUnmount(() => {
 <template>
   <div class="video-watermark-removal-page">
     <div class="vw-workspace">
-      <section class="vw-card vw-card--list">
+      <section class="vw-card vw-card--list" aria-labelledby="vw-list-title">
         <div class="vw-card-head">
-          <h3 class="vw-card-head__title">文件列表 ({{ items.length }})</h3>
+          <h3 id="vw-list-title" class="vw-card-head__title">{{ t("pages.videoWatermarkRemoval.list.title", { count: items.length }) }}</h3>
           <div class="vw-card-head__actions">
-            <button type="button" class="vw-btn vw-btn--small" @click="pickFiles"><Plus :size="15" />添加视频</button>
-            <button type="button" class="vw-btn vw-btn--small" :disabled="items.length === 0 || isRunning" @click="clearList"><Trash2 :size="15" />清空列表</button>
+            <button type="button" class="vw-btn vw-btn--small" :disabled="items.length === 0 || isRunning" @click="clearList">
+              <Trash2 :size="15" />{{ t("pages.videoWatermarkRemoval.list.clearList") }}
+            </button>
           </div>
         </div>
 
@@ -713,40 +695,66 @@ onBeforeUnmount(() => {
           @dragleave="onDragLeave"
         >
           <div class="vw-drop__art" aria-hidden="true">
-            <Video :size="items.length ? 32 : 68" :stroke-width="1.5" />
+            <Video :size="items.length ? 34 : 72" :stroke-width="1.6" />
             <span class="vw-drop__plus">+</span>
           </div>
-          <p class="vw-drop__title">拖拽视频到此处，或点击<span @click.stop="pickFiles">添加视频</span></p>
-          <p class="vw-drop__sub">支持 MP4 / MOV / WEBM / MKV / AVI / M4V / WMV</p>
+          <p class="vw-drop__title">
+            {{ t("pages.videoWatermarkRemoval.list.dropHint") }}<span @click.stop="pickFiles">{{ t("pages.videoWatermarkRemoval.list.dropAddLink") }}</span>
+          </p>
+          <p class="vw-drop__sub">{{ t("pages.videoWatermarkRemoval.list.formatsLine") }}</p>
+          <template v-if="items.length === 0">
+            <strong class="vw-drop__batch">{{ t("pages.videoWatermarkRemoval.list.batchImport") }}</strong>
+            <p class="vw-drop__sub">{{ t("pages.videoWatermarkRemoval.list.sharedRegionHint") }}</p>
+          </template>
         </div>
 
         <ul v-if="items.length" class="vw-file-list">
-          <li v-for="item in items" :key="item.id" class="vw-file" :class="{ 'vw-file--selected': item.id === selectedId }" @click="selectedId = item.id">
-            <div class="vw-file__thumb"><Video :size="22" /></div>
+          <li
+            v-for="item in items"
+            :key="item.id"
+            class="vw-file"
+            :class="{ 'vw-file--selected': item.id === selectedId }"
+            @click="selectedId = item.id"
+          >
+            <div v-if="item.previewUrl" class="vw-file__thumb-shell" aria-hidden="true">
+              <video class="vw-file__thumb" :src="item.previewUrl" muted playsinline preload="metadata" tabindex="-1" />
+            </div>
+            <div v-else class="vw-file__thumb--placeholder" aria-hidden="true">
+              <Video :size="22" />
+            </div>
             <div class="vw-file__meta">
               <strong>{{ item.name }}</strong>
               <span>{{ formatBytes(item.bytes) }} · {{ formatDuration(item.duration) }}</span>
               <span>{{ item.width || "--" }} × {{ item.height || "--" }}</span>
             </div>
             <span class="vw-file__status" :data-status="item.status">{{ statusLabel(item.status) }}</span>
-            <button type="button" class="vw-file__remove" :disabled="isRunning" @click.stop="removeItem(item.id)"><X :size="18" /></button>
+            <button
+              type="button"
+              class="vw-file__remove"
+              :disabled="isRunning"
+              :title="t('pages.videoWatermarkRemoval.list.removeItem')"
+              :aria-label="t('pages.videoWatermarkRemoval.list.removeItem')"
+              @click.stop="removeItem(item.id)"
+            >
+              <X :size="18" />
+            </button>
           </li>
         </ul>
 
         <p v-if="hintMessage" class="vw-hint">{{ hintMessage }}</p>
         <footer class="vw-list-foot">
-          <span>共 {{ items.length }} 个视频</span>
-          <span>总大小 {{ formatBytes(totalBytes) }}</span>
+          <span>{{ t("pages.videoWatermarkRemoval.list.totalVideos", { count: items.length }) }}</span>
+          <span>{{ t("pages.videoWatermarkRemoval.list.totalSize", { size: formatBytes(totalBytes) }) }}</span>
         </footer>
       </section>
 
       <section class="vw-card vw-card--preview">
         <header class="vw-preview-head">
           <div>
-            <h3 class="vw-card-head__title">{{ selectedItem?.name || "视频预览" }}</h3>
-            <p class="vw-warning"><Info :size="14" />请在画面上直接框选要去除的水印区域</p>
+            <h3 class="vw-card-head__title">{{ selectedItem?.name || t("pages.videoWatermarkRemoval.preview.titleFallback") }}</h3>
+            <p class="vw-warning"><Info :size="14" />{{ t("pages.videoWatermarkRemoval.preview.instruction") }}</p>
           </div>
-          <button type="button" class="vw-btn vw-btn--small" :disabled="!selectedItem || isRunning" @click="clearRegions">清除框选</button>
+          <button type="button" class="vw-btn vw-btn--small" :disabled="!selectedItem || isRunning" @click="clearRegions">{{ t("pages.videoWatermarkRemoval.preview.clearRegions") }}</button>
         </header>
 
         <div ref="previewShellRef" class="vw-canvas-shell">
@@ -780,8 +788,8 @@ onBeforeUnmount(() => {
           </div>
           <div v-else class="vw-empty-preview">
             <div class="vw-empty-preview__art"><Video :size="92" :stroke-width="1.2" /></div>
-            <strong>暂无视频</strong>
-            <span>请先从左侧添加视频再进行框选</span>
+            <strong>{{ t("pages.videoWatermarkRemoval.preview.emptyTitle") }}</strong>
+            <span>{{ t("pages.videoWatermarkRemoval.preview.emptyDesc") }}</span>
           </div>
         </div>
 
@@ -801,115 +809,109 @@ onBeforeUnmount(() => {
         </div>
 
         <footer class="vw-preview-foot">
-          <p><Info :size="14" />预览区已放大，建议先暂停视频再框选。</p>
-          <span v-if="selectedItem">已选择 {{ selectedItem.regions.length }} 个区域</span>
+          <p><Info :size="14" />{{ t("pages.videoWatermarkRemoval.preview.footTipPause") }}</p>
+          <span v-if="selectedItem">{{ t("pages.videoWatermarkRemoval.preview.regionsSelected", { count: selectedItem.regions.length }) }}</span>
         </footer>
       </section>
 
       <section class="vw-card vw-card--mode">
         <div class="vw-card-head">
-          <h3 class="vw-card-head__title">处理模式</h3>
+          <h3 class="vw-card-head__title">{{ t("pages.videoWatermarkRemoval.mode.title") }}</h3>
         </div>
-        <div class="vw-segment">
-          <button type="button" :class="{ on: removalMode === 'fast' }" @click="applyMode('fast')">极速模式</button>
-          <button type="button" :class="{ on: removalMode === 'ai' }" @click="applyMode('ai')">AI 增强模式</button>
+        <div class="mode-options" role="radiogroup" :aria-label="t('pages.videoWatermarkRemoval.mode.ariaLabel')">
+          <label class="mode-option" :class="{ 'mode-option--active': removalMode === 'fast' }">
+            <input type="radio" name="videoRemovalMode" value="fast" :checked="removalMode === 'fast'" @change="applyMode('fast')" />
+            <span>{{ t("pages.videoWatermarkRemoval.mode.fast") }}</span>
+          </label>
+          <label class="mode-option" :class="{ 'mode-option--active': removalMode === 'ai' }">
+            <input type="radio" name="videoRemovalMode" value="ai" :checked="removalMode === 'ai'" @change="applyMode('ai')" />
+            <span>{{ t("pages.videoWatermarkRemoval.mode.ai") }}</span>
+          </label>
         </div>
-        <p class="vw-muted" v-if="removalMode === 'fast'">无需下载 AI 组件，适合简单背景、纯色背景、边角水印和小面积水印。</p>
-        <p class="vw-muted" v-else>适合复杂背景和更自然的修复效果。组件仅安装一次，文件不会上传服务器。</p>
+        <p class="vw-muted" v-if="removalMode === 'fast'">{{ t("pages.videoWatermarkRemoval.mode.fastHint") }}</p>
+        <p class="vw-muted" v-else>{{ t("pages.videoWatermarkRemoval.mode.aiHint") }}</p>
 
-        <div class="vw-mode-box">
-          <strong>AI 组件状态</strong>
-          <span>{{ aiRuntimeStatusText }}</span>
-          <p v-if="aiInstallHint">{{ aiInstallHint }}</p>
-          <p v-if="aiRuntimeProgress" class="vw-muted">{{ aiProgressSummaryLabel }}，{{ aiDownloadSpeedLabel }}/s</p>
-          <p v-if="aiRuntimeProgress" class="vw-mode-progress">{{ aiProgressSummaryLabel }} | {{ aiDownloadSpeedLabel }}/s</p>
-          <p v-if="runtimeActionError" class="vw-warning"><Info :size="14" />{{ runtimeActionError }}</p>
-          <div class="vw-mode-actions">
-            <button
-              v-if="aiRuntimeStatus === 'READY_TO_INSTALL' && aiRuntimeHasManifestSource"
-              type="button"
-              class="vw-btn vw-btn--small"
-              @click="installAiRuntime"
-            >
-              安装 AI 增强组件
-            </button>
-            <button v-else-if="aiRuntimeStatus === 'READY_TO_INSTALL'" type="button" class="vw-btn vw-btn--small" disabled>升级当前版本后可一键安装</button>
-            <button v-if="aiRuntimeStatus === 'UPDATE_AVAILABLE'" type="button" class="vw-btn vw-btn--small" @click="installAiRuntime">一键升级 AI 组件</button>
-            <button v-if="aiRuntimeStatus === 'FAILED'" type="button" class="vw-btn vw-btn--small" @click="installAiRuntime">重试</button>
-          </div>
+        <div class="vw-engine">
+          <span class="vw-engine__label">{{ t("pages.videoWatermarkRemoval.mode.engineLabel") }}</span>
+          <span class="vw-engine__value">{{ processingEngineLabel }}</span>
         </div>
+
+        <AiEnhancementStatusPanel @synced="syncRemovalModeWithAi(true)" />
       </section>
     </div>
 
-    <section class="vw-bottom">
+    <footer class="vw-bottom">
       <div class="vw-bottom__summary">
         <div class="vw-ring" :style="{ '--p': progressPercent }"><span>{{ Math.round(progressPercent) }}%</span></div>
         <div class="vw-bottom__metrics">
-          <h3>{{ progressTitle }}</h3>
+          <h3>{{ t("pages.videoWatermarkRemoval.bottomBar.overallProgress") }}</h3>
           <dl class="vw-metrics-grid">
             <div>
-              <dt>当前文件</dt>
+              <dt>{{ t("pages.videoWatermarkRemoval.bottomBar.status") }}</dt>
+              <dd>{{ isRunning ? progressTitle : t("pages.videoWatermarkRemoval.progressPanel.idleTitle") }}</dd>
+            </div>
+            <div>
+              <dt>{{ t("pages.videoWatermarkRemoval.bottomBar.currentFile") }}</dt>
               <dd>{{ currentProgressItem?.name || "--" }}</dd>
             </div>
             <div>
-              <dt>预计剩余</dt>
+              <dt>{{ t("pages.videoWatermarkRemoval.bottomBar.estimatedRemaining") }}</dt>
               <dd>{{ remainingTime }}</dd>
             </div>
             <div>
-              <dt>已用时间</dt>
+              <dt>{{ t("pages.videoWatermarkRemoval.bottomBar.elapsed") }}</dt>
               <dd>{{ isRunning || elapsedSeconds > 0 ? formatDuration(elapsedSeconds) : "--:--:--" }}</dd>
             </div>
-            <div>
-              <dt>处理引擎</dt>
-              <dd>{{ processingEngineLabel }}</dd>
-            </div>
             <div class="vw-metrics-grid__progress">
-              <dt>总体进度</dt>
-              <dd><span>{{ Math.round(progressPercent) }}%</span><i class="vw-progress-line"><i :style="{ width: `${progressPercent}%` }" /></i></dd>
+              <dt>{{ t("pages.videoWatermarkRemoval.bottomBar.progressDetail") }}</dt>
+              <dd>
+                <span>{{ isRunning ? `${Math.round(progressPercent)}%` : "--" }}</span>
+                <div class="vw-progress-line"><i :style="{ width: `${progressPercent}%` }" /></div>
+              </dd>
             </div>
           </dl>
         </div>
       </div>
       <div class="vw-bottom__footer">
         <div class="vw-bottom__output">
-          <label>输出目录</label>
+          <label>{{ t("pages.videoWatermarkRemoval.bottomBar.outputDirLabel") }}</label>
           <div class="vw-bottom__output-row">
             <input v-model="outputDir" :disabled="isRunning" />
             <button type="button" :disabled="isRunning" @click="pickOutputDir"><Folder :size="18" /></button>
           </div>
         </div>
         <div class="vw-bottom__actions">
-          <button type="button" class="vw-action" :disabled="!result?.successOutputPaths?.length" @click="openOutputDirectory"><Folder :size="18" />打开目录</button>
-          <button v-if="isRunning" type="button" class="vw-action" @click="stopTask"><PauseCircle :size="18" />停止任务</button>
-          <button v-else type="button" class="vw-action vw-action--primary" :disabled="!canStart" @click="startRemoval"><PlayCircle :size="18" />开始去水印</button>
+          <button type="button" class="vw-action" :disabled="!result?.successOutputPaths?.length" @click="openOutputDirectory"><Folder :size="18" />{{ t("pages.videoWatermarkRemoval.bottomBar.openOutput") }}</button>
+          <button v-if="isRunning" type="button" class="vw-action" @click="stopTask"><PauseCircle :size="18" />{{ t("pages.videoWatermarkRemoval.bottomBar.stopTask") }}</button>
+          <button v-else type="button" class="vw-action vw-action--primary" :disabled="!canStart" @click="startRemoval"><PlayCircle :size="18" />{{ t("pages.videoWatermarkRemoval.bottomBar.start") }}</button>
         </div>
       </div>
-    </section>
-    <div v-if="['DOWNLOADING', 'VERIFYING', 'INSTALLING'].includes(aiRuntimeStatus)" class="vw-model-loading" role="status" aria-live="polite">
-      <div class="vw-model-loading__panel">
-        <strong>AI 增强组件处理中</strong>
-        <span>{{ aiRuntimeProgress?.message || aiRuntimeStatusText }}</span>
-        <div class="vw-model-loading__bar"><i :style="{ width: `${aiProgressPercent}%` }" /></div>
-        <div class="vw-model-loading__meta">
-          <span>{{ aiProgressSummaryLabel }}</span>
-          <span>{{ aiDownloadSpeedLabel }}/s</span>
-          <span v-if="torchVersion">Torch {{ torchVersion }}</span>
-        </div>
-      </div>
-    </div>
+    </footer>
+    <AiRuntimeInstallLoadingOverlay
+      v-if="isRuntimeBusy"
+      :title="t('aiEnhancement.overlay.processingTitle')"
+      :message="aiRuntimeProgress?.message || aiRuntimeStatusText"
+    />
   </div>
 </template>
 
 <style scoped>
 .video-watermark-removal-page {
   --surface: #ffffff;
-  --surface-muted: #f6f8fc;
-  --border: #e7ebf3;
-  --border-strong: #d8dfec;
-  --text: #101936;
-  --muted: #667292;
-  --primary: #1769f6;
-  --primary-soft: #eaf2ff;
+  --surface-muted: #f5f6fa;
+  --border: #eef0f4;
+  --border-weak: #e7e9ee;
+  --border-strong: #e7e9ee;
+  --text: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-hint: #9ca3af;
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --primary-soft: #f5f6fa;
+  --accent-link: #f97316;
+  --accent-link-hover: #ea580c;
+  --cta-shadow: 0 4px 12px rgba(243, 132, 30, 0.25);
   --warning: #f59e0b;
   display: flex;
   flex-direction: column;
@@ -917,16 +919,17 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 8px 18px 10px;
+  padding: 14px 18px 10px;
   overflow: hidden;
   color: var(--text);
   background: var(--surface-muted);
   box-sizing: border-box;
+  letter-spacing: 0;
 }
 
 .vw-workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 0.78fr) minmax(760px, 2.5fr) minmax(260px, 0.72fr);
+  grid-template-columns: minmax(240px, 0.72fr) minmax(420px, 1.55fr) minmax(240px, 0.78fr);
   gap: 12px;
   min-height: 0;
   flex: 1;
@@ -940,15 +943,19 @@ onBeforeUnmount(() => {
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(27, 46, 94, 0.04);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
   overflow: hidden;
 }
 
 .vw-card--list,
 .vw-card--preview,
 .vw-card--mode {
-  padding: 16px;
+  padding: clamp(12px, 1.5vh, 18px);
+}
+
+.vw-card--list {
+  overflow: hidden;
 }
 
 .vw-card--preview {
@@ -959,43 +966,58 @@ onBeforeUnmount(() => {
 .vw-preview-head,
 .vw-card-head__actions,
 .vw-preview-foot,
+.vw-bottom,
 .vw-bottom__summary,
 .vw-bottom__output,
-.vw-bottom__actions,
-.vw-mode-actions {
+.vw-bottom__actions {
   display: flex;
   align-items: center;
 }
 
 .vw-card-head,
 .vw-preview-head {
+  flex: 0 0 auto;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 14px;
+  margin-bottom: clamp(8px, 1.2vh, 14px);
 }
 
 .vw-card-head__title {
   margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  letter-spacing: 0;
 }
 
-.vw-card-head__actions,
-.vw-mode-actions {
-  gap: 8px;
+.vw-card-head__actions {
+  gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .vw-btn,
-.vw-action,
-.vw-segment button {
-  border: 1px solid var(--border-strong);
+.vw-action {
+  border: 1px solid var(--border-weak);
   background: #fff;
-  color: #18244a;
-  border-radius: 6px;
+  color: var(--text-secondary);
+  border-radius: 999px;
   font: inherit;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.vw-btn:focus-visible,
+.vw-action:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .vw-btn {
@@ -1003,13 +1025,20 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 12px;
+  gap: 7px;
+  padding: 0 14px;
+  white-space: nowrap;
 }
 
 .vw-btn--small {
   height: 34px;
-  font-size: 13px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.vw-btn:hover:not(:disabled) {
+  border-color: #dbeafe;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.06);
 }
 
 button:disabled {
@@ -1022,26 +1051,64 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 120px;
-  padding: 18px;
-  border: 1px dashed #cbd6ea;
-  border-radius: 8px;
-  background: #fbfdff;
+  min-height: 0;
+  flex: 1;
+  padding: 22px 18px;
+  border: 1px dashed #d6d9e0;
+  border-radius: 14px;
+  background: #fafbfd;
   text-align: center;
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .vw-drop--compact {
-  min-height: 72px;
+  flex: 0 1 auto;
+  min-height: 62px;
+  flex-direction: row;
+  gap: 12px;
+  justify-content: flex-start;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.vw-drop--compact .vw-drop__art {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.vw-drop--compact .vw-drop__plus {
+  right: -8px;
+  bottom: -5px;
+  width: 20px;
+  height: 20px;
+  font-size: 16px;
+}
+
+.vw-drop--compact .vw-drop__title {
+  margin: 0;
+  font-size: 13px;
+}
+
+.vw-drop--compact .vw-drop__sub,
+.vw-drop--compact .vw-drop__batch {
+  display: none;
 }
 
 .vw-drop--active {
-  border-color: var(--primary);
-  background: var(--primary-soft);
+  border-color: #c7d2fe;
+  background: var(--surface-muted);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 .vw-drop__art {
   position: relative;
-  color: #2d72f6;
+  color: var(--primary);
+  opacity: 0.85;
   margin-bottom: 10px;
 }
 
@@ -1049,20 +1116,30 @@ button:disabled {
   position: absolute;
   right: -6px;
   bottom: -4px;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   color: #fff;
   background: var(--primary);
-  font-size: 18px;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .vw-drop__title {
-  margin: 0 0 6px;
-  font-size: 14px;
-  font-weight: 700;
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.vw-drop__batch {
+  margin-top: clamp(12px, 5vh, 28px);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .vw-drop__title span {
@@ -1072,33 +1149,37 @@ button:disabled {
 
 .vw-drop__sub,
 .vw-muted,
-.vw-hint,
 .vw-list-foot,
-.vw-warning,
-.vw-preview-foot,
-.vw-mode-box span,
-.vw-mode-box p {
-  color: var(--muted);
+.vw-preview-foot {
+  color: var(--text-secondary);
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.vw-hint {
+  color: #ef4444;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .vw-file-list {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 96px;
+  min-height: 72px;
   overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 0;
-  margin: 12px 0 0;
+  margin: 0;
   list-style: none;
 }
 
 .vw-file {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) auto 28px;
+  grid-template-columns: 72px minmax(0, 1fr) auto 28px;
   align-items: center;
   gap: 10px;
+  min-height: 68px;
   padding: 8px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -1106,46 +1187,66 @@ button:disabled {
 }
 
 .vw-file--selected {
-  border-color: var(--primary);
-  background: #fbfdff;
+  border-color: #c7d2fe;
+  background: #fafbfd;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08);
+}
+
+.vw-file__thumb-shell {
+  width: 72px;
+  height: 52px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #eef2f8;
 }
 
 .vw-file__thumb {
-  width: 58px;
-  height: 44px;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.vw-file__thumb--placeholder {
+  width: 72px;
+  height: 52px;
   display: grid;
   place-items: center;
   border-radius: 6px;
-  color: #2d72f6;
-  background: #eef4ff;
+  color: var(--primary);
+  background: #f5f6fa;
 }
 
 .vw-file__meta {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .vw-file__meta strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .vw-file__meta span {
-  color: #5f6c8d;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
 .vw-file__status {
   padding: 6px 9px;
-  border-radius: 5px;
+  border-radius: 8px;
   color: var(--primary);
-  background: #eaf2ff;
+  background: #f5f6fa;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .vw-file__status[data-status="done"] {
@@ -1163,14 +1264,24 @@ button:disabled {
   height: 28px;
   border: 0;
   background: transparent;
-  color: #1f2a55;
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 
 .vw-list-foot,
 .vw-preview-foot {
+  display: flex;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 12px;
+}
+
+.vw-list-foot {
+  flex: 0 0 auto;
+  padding-top: 14px;
+  margin-top: auto;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .vw-warning,
@@ -1183,6 +1294,7 @@ button:disabled {
 
 .vw-warning {
   color: var(--warning);
+  font-size: 13px;
 }
 
 .vw-canvas-shell {
@@ -1194,8 +1306,8 @@ button:disabled {
   justify-content: center;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fbfcff;
+  border-radius: 14px;
+  background: #fafbfd;
   overflow: hidden;
 }
 
@@ -1317,7 +1429,17 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: #1d274c;
+  color: var(--text);
+}
+
+.vw-empty-preview strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vw-empty-preview span {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .vw-empty-preview__art {
@@ -1330,61 +1452,74 @@ button:disabled {
 
 .vw-card--mode {
   gap: 14px;
+  overflow: auto;
 }
 
-.vw-segment {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.vw-segment button {
-  height: 40px;
-}
-
-.vw-segment button.on,
-.vw-action--primary {
-  color: #fff;
-  border-color: var(--primary);
-  background: var(--primary);
-}
-
-.vw-mode-box {
+.mode-options {
   display: flex;
-  flex-direction: column;
   gap: 8px;
-  padding: 14px;
+  flex-wrap: wrap;
+}
+
+.mode-option {
+  position: relative;
+  flex: 1;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fbfcff;
-}
-
-.vw-mode-box strong {
-  font-size: 14px;
-}
-
-.vw-mode-box > p.vw-muted {
-  display: none;
-}
-
-.vw-mode-progress {
-  color: var(--muted);
+  padding: 10px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  background: var(--surface-muted);
   font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.mode-option:hover:not(.mode-option--active) {
+  border-color: #dbeafe;
+  background: #fafbfd;
+}
+
+.mode-option--active {
+  border-color: #c7d2fe;
+  background: #fafbfd;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.mode-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
 }
 
 .vw-bottom {
   flex: 0 0 auto;
-  min-height: 168px;
-  display: flex;
+  min-height: 176px;
   flex-direction: column;
   gap: 16px;
-  padding: 18px 24px 20px;
+  padding: 14px 18px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: #fff;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
 }
 
 .vw-bottom__summary {
+  width: 100%;
+  min-width: 0;
   gap: 18px;
 }
 
@@ -1396,7 +1531,7 @@ button:disabled {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: conic-gradient(#7aa3ff calc(var(--p) * 1%), #edf1f7 0);
+  background: conic-gradient(var(--primary) calc(var(--p) * 1%), #e7e9ee 0);
 }
 
 .vw-ring span {
@@ -1405,10 +1540,10 @@ button:disabled {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: #111936;
+  color: var(--text);
   background: #fff;
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .vw-bottom__metrics {
@@ -1418,44 +1553,86 @@ button:disabled {
 
 .vw-bottom__metrics h3 {
   margin: 0 0 12px;
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.vw-engine {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fafbfd;
+}
+
+.vw-engine__label {
+  color: var(--text-hint);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.vw-engine__value {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .vw-metrics-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(110px, 0.8fr) minmax(110px, 0.8fr) minmax(160px, 1fr) minmax(240px, 1.6fr);
+  grid-template-columns: minmax(92px, 0.8fr) minmax(180px, 1.25fr) minmax(110px, 0.9fr) minmax(110px, 0.9fr) minmax(280px, 1.9fr);
   gap: 18px;
   margin: 0;
 }
 
+.vw-metrics-grid > div {
+  min-width: 0;
+}
+
 .vw-metrics-grid dt {
-  margin: 0 0 8px;
-  font-size: 13px;
-  font-weight: 800;
+  margin: 0 0 6px;
+  color: var(--text-hint);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .vw-metrics-grid dd {
+  min-width: 0;
   margin: 0;
   overflow: hidden;
-  color: #5c698a;
+  color: var(--text);
   font-size: 13px;
+  line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .vw-metrics-grid__progress dd {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 36px;
   align-items: center;
+  gap: 10px;
+  white-space: normal;
+}
+
+.vw-metrics-grid__progress dd > span {
+  order: 2;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
 }
 
 .vw-progress-line {
   height: 8px;
+  min-width: 0;
   overflow: hidden;
   border-radius: 999px;
-  background: #edf1f7;
+  background: #e7e9ee;
 }
 
 .vw-progress-line i {
@@ -1466,23 +1643,27 @@ button:disabled {
 }
 
 .vw-bottom__footer {
+  width: 100%;
   display: grid;
   grid-template-columns: minmax(420px, 1fr) auto;
   align-items: center;
   gap: 18px;
   padding-top: 16px;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid var(--border);
 }
 
 .vw-bottom__output {
+  display: flex;
+  align-items: center;
   gap: 10px;
   min-width: 0;
 }
 
 .vw-bottom__output label {
   flex: 0 0 auto;
-  font-size: 15px;
-  font-weight: 700;
+  color: var(--text-hint);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .vw-bottom__output-row {
@@ -1504,21 +1685,31 @@ button:disabled {
   min-width: 0;
   padding: 0 12px;
   border-right: 0;
-  border-radius: 6px 0 0 6px;
-  color: #1f2a55;
+  border-radius: 12px 0 0 12px;
+  color: var(--text);
   font: inherit;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .vw-bottom__output-row button {
   display: grid;
   place-items: center;
-  border-radius: 0 6px 6px 0;
-  color: #1f2a55;
+  border-radius: 0 12px 12px 0;
+  color: var(--text-secondary);
+}
+
+.vw-bottom__output-row button:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: #c7d2fe;
+  background: #fafbfd;
 }
 
 .vw-bottom__actions {
   justify-content: flex-end;
   gap: 10px;
+  flex-wrap: nowrap;
 }
 
 .vw-action {
@@ -1527,92 +1718,61 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 15px;
-}
-
-.vw-model-loading {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(15, 23, 42, 0.28);
-  backdrop-filter: blur(6px);
-}
-
-.vw-model-loading__panel {
-  width: min(520px, calc(100vw - 48px));
-  display: grid;
-  gap: 12px;
-  padding: 22px 24px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 18px;
-  color: #0f172a;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 32px 80px rgba(15, 23, 42, 0.18);
-}
-
-.vw-model-loading__panel strong {
-  font-size: 18px;
-}
-
-.vw-model-loading__bar {
-  height: 10px;
-  overflow: hidden;
+  font-weight: 600;
   border-radius: 999px;
-  background: #e5edf9;
 }
 
-.vw-model-loading__bar i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #1769f6, #5ca5ff);
+.vw-action--primary {
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  background: linear-gradient(135deg, #fbb054 0%, #f78c2c 100%);
+  box-shadow: var(--cta-shadow);
 }
 
-.vw-model-loading__meta {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  color: #52617f;
-  font-size: 13px;
+.vw-action--primary:hover:not(:disabled) {
+  filter: brightness(1.03);
+  box-shadow: 0 6px 16px rgba(243, 132, 30, 0.32);
+}
+
+.vw-action--primary:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
 }
 
 .video-watermark-removal-page,
-.vw-file-list {
+.vw-card--list,
+.vw-file-list,
+.vw-card--mode {
   scrollbar-width: thin;
-  scrollbar-color: #c9d4e8 transparent;
+  scrollbar-color: #d6d9e0 transparent;
 }
 
-@media (max-width: 1480px) {
-  .vw-workspace {
-    grid-template-columns: minmax(260px, 0.82fr) minmax(620px, 2.15fr) minmax(240px, 0.7fr);
-  }
+.video-watermark-removal-page::-webkit-scrollbar,
+.vw-card--list::-webkit-scrollbar,
+.vw-file-list::-webkit-scrollbar,
+.vw-card--mode::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-@media (max-width: 1120px) {
-  .vw-workspace {
-    grid-template-columns: 1fr;
-    overflow: auto;
-  }
-
-  .vw-canvas-shell {
-    min-height: 0;
-  }
-
-  .vw-bottom__footer {
-    grid-template-columns: 1fr;
-  }
-
-  .vw-bottom__actions {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .vw-metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.video-watermark-removal-page::-webkit-scrollbar-track,
+.vw-card--list::-webkit-scrollbar-track,
+.vw-file-list::-webkit-scrollbar-track,
+.vw-card--mode::-webkit-scrollbar-track {
+  background: transparent;
 }
+
+.video-watermark-removal-page::-webkit-scrollbar-thumb,
+.vw-card--list::-webkit-scrollbar-thumb,
+.vw-file-list::-webkit-scrollbar-thumb,
+.vw-card--mode::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #d6d9e0;
+  background-clip: padding-box;
+}
+
 </style>

@@ -16,7 +16,7 @@ def emit(**payload):
 
 
 def debug_logs_enabled() -> bool:
-    return os.environ.get("DESKTOP_TOOLBOX_DEBUG_LOG", "").strip().lower() in {
+    return os.environ.get("TOOLIVA_DEBUG_LOG", "").strip().lower() in {
         "1",
         "true",
         "yes",
@@ -42,7 +42,7 @@ def download_model(args: argparse.Namespace) -> int:
     if tmp.exists():
         tmp.unlink()
 
-    request = urllib.request.Request(args.model_url, headers={"User-Agent": "DesktopToolbox/AIModelDownloader"})
+    request = urllib.request.Request(args.model_url, headers={"User-Agent": "Tooliva/AIModelDownloader"})
     with urllib.request.urlopen(request, timeout=30) as response:
         total = int(response.headers.get("Content-Length") or 0)
         done = 0

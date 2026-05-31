@@ -1,4 +1,4 @@
-# Desktop Updater Metadata Spec (Windows)
+# Tooliva Updater Metadata Spec (Windows)
 
 ## Purpose
 

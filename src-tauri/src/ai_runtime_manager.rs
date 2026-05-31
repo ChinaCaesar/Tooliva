@@ -1,65 +1,16 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fs;
-use std::io::{BufRead, BufReader, Read};
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::ai_runtime::{
     read_installed_runtime_state, resolve_ai_runtime_data_root, resolve_ai_runtime_paths,
     resolve_current_runtime_dir, resolve_runtime_version_dir, write_installed_runtime_state,
-    AiRuntimeModel, InstalledAiRuntimeState,
+    InstalledAiRuntimeState,
 };
-
-pub const AI_RUNTIME_PROGRESS_EVENT: &str = "ai-runtime-progress";
-
-const PLACEHOLDER_SHA256_VALUES: &[&str] = &[
-    "",
-    "REAL_SHA256",
-    "PLEASE_REPLACE_WITH_REAL_SHA256",
-    "SKIPPED",
-];
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AiRuntimeRequirements {
-    pub os: String,
-    #[serde(alias = "min_memory_gb")]
-    pub min_memory_gb: u64,
-    #[serde(alias = "recommended_memory_gb")]
-    pub recommended_memory_gb: u64,
-    pub cpu: String,
-    #[serde(alias = "avx_required")]
-    pub avx_required: bool,
-    #[serde(alias = "avx2_recommended")]
-    pub avx2_recommended: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RemoteAiRuntimeManifest {
-    pub channel: String,
-    #[serde(alias = "runtime_version")]
-    pub runtime_version: String,
-    #[serde(alias = "min_app_version")]
-    pub min_app_version: String,
-    pub platform: String,
-    #[serde(alias = "package_size")]
-    pub package_size: u64,
-    #[serde(alias = "package_sha256")]
-    pub package_sha256: String,
-    #[serde(alias = "package_url")]
-    pub package_url: String,
-    #[serde(alias = "required_free_disk_gb")]
-    pub required_free_disk_gb: u64,
-    pub requirements: AiRuntimeRequirements,
-    #[serde(default)]
-    pub models: Vec<AiRuntimeModel>,
-    #[serde(default)]
-    #[serde(alias = "release_notes")]
-    pub release_notes: Vec<String>,
-}
+use crate::process_utils::hide_process_window;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -93,15 +44,6 @@ pub struct AiEnvironmentStatus {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimePackageVerification {
-    pub success: bool,
-    pub sha256: String,
-    pub package_path: String,
-    pub expected_sha256: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct RuntimeInstallResult {
     pub version: String,
     pub install_path: String,
@@ -111,48 +53,30 @@ pub struct RuntimeInstallResult {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeDownloadResult {
-    pub package_path: String,
-    pub downloaded_bytes: u64,
-    pub total_bytes: u64,
-    pub resumed: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct RuntimeRemovalResult {
     pub removed: bool,
     pub runtime_root: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AiRuntimeProgressPayload {
-    pub stage: String,
-    pub downloaded_bytes: u64,
-    pub total_bytes: u64,
-    pub percent: u8,
-    pub bytes_per_second: u64,
-    pub message: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DownloadProgressLine {
-    event: String,
-    downloaded_bytes: Option<u64>,
-    total_bytes: Option<u64>,
-    bytes_per_second: Option<u64>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RuntimeSourceLayout {
+    Portable,
+    BaseBundle,
 }
 
 pub fn check_ai_runtime_status_impl() -> Result<AiRuntimeStatus, String> {
     let paths = resolve_ai_runtime_paths()?;
     let state = read_installed_runtime_state()?;
     let available = paths.python_exe.exists() && paths.sidecar_script.exists();
+    let installed = available
+        || state
+            .as_ref()
+            .and_then(|item| item.current_version.clone())
+            .is_some();
     let missing_reason = if available {
         None
     } else if !paths.runtime_root.exists() {
-        Some("未检测到 AI 运行时目录，请先安装 AI 增强组件。".to_string())
+        Some("未检测到 AI 运行时目录，请先导入本地 AI 组件包。".to_string())
     } else if !paths.python_exe.exists() {
         Some("AI 运行时缺少 Python 解释器。".to_string())
     } else if !paths.sidecar_script.exists() {
@@ -162,10 +86,7 @@ pub fn check_ai_runtime_status_impl() -> Result<AiRuntimeStatus, String> {
     };
 
     Ok(AiRuntimeStatus {
-        installed: state
-            .as_ref()
-            .and_then(|item| item.current_version.clone())
-            .is_some(),
+        installed,
         available,
         current_version: state.as_ref().and_then(|item| item.current_version.clone()),
         install_path: paths
@@ -181,17 +102,6 @@ pub fn check_ai_runtime_status_impl() -> Result<AiRuntimeStatus, String> {
         missing_reason,
         package_channel: state.and_then(|item| item.channel),
     })
-}
-
-pub fn fetch_ai_runtime_manifest_impl(manifest_url: &str) -> Result<RemoteAiRuntimeManifest, String> {
-    let content = run_powershell(&format!(
-        "$ProgressPreference='SilentlyContinue'; (Invoke-WebRequest -UseBasicParsing -Uri '{}').Content",
-        ps_escape(manifest_url)
-    ))?;
-    let manifest = serde_json::from_str::<RemoteAiRuntimeManifest>(content.trim())
-        .map_err(|err| format!("Failed to parse AI runtime manifest: {err}"))?;
-    validate_remote_manifest(&manifest)?;
-    Ok(manifest)
 }
 
 pub fn check_ai_environment_impl(required_free_disk_gb: u64) -> Result<AiEnvironmentStatus, String> {
@@ -237,178 +147,59 @@ pub fn check_ai_environment_impl(required_free_disk_gb: u64) -> Result<AiEnviron
     })
 }
 
-pub fn download_ai_runtime_impl<F>(
-    manifest: &RemoteAiRuntimeManifest,
-    mut emit: F,
-) -> Result<RuntimeDownloadResult, String>
-where
-    F: FnMut(AiRuntimeProgressPayload),
-{
-    validate_remote_manifest(manifest)?;
-
-    let paths = resolve_ai_runtime_paths()?;
-    fs::create_dir_all(&paths.downloads_root).map_err(|err| err.to_string())?;
-    let package_path = paths
-        .downloads_root
-        .join(format!("ai-runtime-{}-{}.zip", manifest.platform, manifest.runtime_version));
-    let temp_package_path = package_path.with_extension("zip.download");
-    if temp_package_path.exists() {
-        fs::remove_file(&temp_package_path).map_err(|err| {
-            format!(
-                "Failed to remove stale AI runtime package temp file {}: {err}",
-                temp_package_path.display()
-            )
-        })?;
-    }
-
-    emit(AiRuntimeProgressPayload {
-        stage: "downloading".to_string(),
-        downloaded_bytes: 0,
-        total_bytes: manifest.package_size,
-        percent: compute_percent(0, manifest.package_size),
-        bytes_per_second: 0,
-        message: Some("开始下载 AI 增强组件".to_string()),
-    });
-
-    let script = build_download_script(&manifest.package_url, &temp_package_path);
-    let mut child = Command::new("powershell")
-        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|err| format!("Failed to start PowerShell downloader: {err}"))?;
-
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| "Failed to capture downloader stdout".to_string())?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| "Failed to capture downloader stderr".to_string())?;
-
-    let mut resolved_total_bytes = manifest.package_size;
-    let mut resolved_downloaded_bytes = 0u64;
-    let mut resolved_speed = 0u64;
-
-    for line in BufReader::new(stdout).lines() {
-        let line = line.map_err(|err| format!("Failed to read downloader progress: {err}"))?;
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        let progress = serde_json::from_str::<DownloadProgressLine>(trimmed)
-            .map_err(|err| format!("Failed to parse downloader progress line: {err}. Raw: {trimmed}"))?;
-        resolved_downloaded_bytes = progress.downloaded_bytes.unwrap_or(resolved_downloaded_bytes);
-        resolved_total_bytes = progress
-            .total_bytes
-            .filter(|value| *value > 0)
-            .unwrap_or(resolved_total_bytes);
-        resolved_speed = progress.bytes_per_second.unwrap_or(resolved_speed);
-
-        emit(AiRuntimeProgressPayload {
-            stage: "downloading".to_string(),
-            downloaded_bytes: resolved_downloaded_bytes,
-            total_bytes: resolved_total_bytes,
-            percent: compute_percent(resolved_downloaded_bytes, resolved_total_bytes),
-            bytes_per_second: resolved_speed,
-            message: Some(if progress.event == "done" {
-                "AI 增强组件下载完成".to_string()
-            } else {
-                "正在下载 AI 增强组件".to_string()
-            }),
-        });
-    }
-
-    let status = child
-        .wait()
-        .map_err(|err| format!("Failed to wait for PowerShell downloader: {err}"))?;
-    let mut stderr_output = String::new();
-    BufReader::new(stderr)
-        .read_to_string(&mut stderr_output)
-        .map_err(|err| format!("Failed to read downloader stderr: {err}"))?;
-    if !status.success() {
-        let _ = fs::remove_file(&temp_package_path);
-        return Err(if stderr_output.trim().is_empty() {
-            format!("PowerShell downloader failed with status {status}")
-        } else {
-            stderr_output.trim().to_string()
-        });
-    }
-
-    let downloaded_bytes = fs::metadata(&temp_package_path)
-        .map(|meta| meta.len())
-        .map_err(|err| {
-            format!(
-                "Failed to read downloaded AI runtime package {}: {err}",
-                temp_package_path.display()
-            )
-        })?;
-    let total_bytes = resolved_total_bytes.max(downloaded_bytes);
-
-    if package_path.exists() {
-        fs::remove_file(&package_path).map_err(|err| {
-            format!(
-                "Failed to replace existing AI runtime package {}: {err}",
-                package_path.display()
-            )
-        })?;
-    }
-    fs::rename(&temp_package_path, &package_path).map_err(|err| {
-        format!(
-            "Failed to finalize AI runtime package {}: {err}",
-            package_path.display()
-        )
-    })?;
-
-    Ok(RuntimeDownloadResult {
-        package_path: package_path.display().to_string(),
-        downloaded_bytes,
-        total_bytes,
-        resumed: false,
-    })
-}
-
-pub fn verify_ai_runtime_package_impl(
+pub fn install_local_ai_runtime_package_impl(
     package_path: &Path,
-    expected_sha256: &str,
-) -> Result<RuntimePackageVerification, String> {
-    validate_sha256_field(
-        expected_sha256,
-        "packageSha256",
-        "请先替换为 ai-runtime.zip 的真实 SHA256。",
-    )?;
-
-    let actual = run_powershell(&format!(
-        "(Get-FileHash -Algorithm SHA256 -LiteralPath '{}').Hash",
-        ps_escape(&package_path.display().to_string())
-    ))?;
-    let actual = actual.trim().to_ascii_lowercase();
-    if !actual.eq_ignore_ascii_case(expected_sha256) {
-        let _ = fs::remove_file(package_path);
-        return Err(format!(
-            "AI runtime package SHA256 校验失败。期望 {}，实际 {}。",
-            expected_sha256, actual
-        ));
+) -> Result<RuntimeInstallResult, String> {
+    if !package_path.exists() {
+        return Err(format!("AI 组件包不存在：{}", package_path.display()));
     }
-    Ok(RuntimePackageVerification {
-        success: true,
-        sha256: actual,
-        package_path: package_path.display().to_string(),
-        expected_sha256: expected_sha256.to_string(),
+    if !package_path.is_file() {
+        return Err(format!("AI 组件包路径不是文件：{}", package_path.display()));
+    }
+
+    let package_size = fs::metadata(package_path)
+        .map(|meta| meta.len())
+        .unwrap_or_default();
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|item| item.as_secs())
+        .unwrap_or_default();
+    let file_stem = package_path
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .unwrap_or("ai-runtime");
+    let runtime_version = format!("manual-{}-{}", sanitize_version_segment(file_stem), timestamp);
+
+    install_ai_runtime_package_impl(&runtime_version, "manual", package_size, package_path)
+}
+
+pub fn remove_ai_runtime_impl() -> Result<RuntimeRemovalResult, String> {
+    let runtime_root = resolve_ai_runtime_data_root()?;
+    if runtime_root.exists() {
+        fs::remove_dir_all(&runtime_root).map_err(|err| {
+            format!(
+                "Failed to remove AI runtime directory {}: {err}",
+                runtime_root.display()
+            )
+        })?;
+    }
+    Ok(RuntimeRemovalResult {
+        removed: true,
+        runtime_root: runtime_root.display().to_string(),
     })
 }
 
-pub fn install_ai_runtime_package_impl(
-    manifest: &RemoteAiRuntimeManifest,
+fn install_ai_runtime_package_impl(
+    runtime_version: &str,
+    channel: &str,
+    _package_size: u64,
     package_path: &Path,
 ) -> Result<RuntimeInstallResult, String> {
     let paths = resolve_ai_runtime_paths()?;
     let runtime_data_root = resolve_ai_runtime_data_root()?;
     fs::create_dir_all(&paths.versions_root).map_err(|err| err.to_string())?;
     fs::create_dir_all(&paths.backup_root).map_err(|err| err.to_string())?;
-    let target_dir = resolve_runtime_version_dir(&manifest.runtime_version)?;
+    let target_dir = resolve_runtime_version_dir(runtime_version)?;
     let staging_dir = target_dir.with_extension("tmp");
     let current_dir = resolve_current_runtime_dir()?;
 
@@ -434,7 +225,7 @@ pub fn install_ai_runtime_package_impl(
     ))?;
 
     let runtime_root = normalize_extracted_runtime_root(&staging_dir)?;
-    validate_runtime_layout(&runtime_root)?;
+    let layout = detect_runtime_source_layout(&runtime_root)?;
 
     if target_dir.exists() {
         fs::remove_dir_all(&target_dir).map_err(|err| err.to_string())?;
@@ -446,6 +237,16 @@ pub fn install_ai_runtime_package_impl(
         )
     })?;
     let _ = fs::remove_dir_all(&staging_dir);
+
+    match layout {
+        RuntimeSourceLayout::Portable => {
+            validate_portable_python_runtime(&target_dir)?;
+        }
+        RuntimeSourceLayout::BaseBundle => {
+            materialize_runtime_from_bundle(&target_dir)?;
+        }
+    }
+    validate_runtime_layout(&target_dir)?;
 
     if !is_path_inside(&target_dir, &runtime_data_root) || !is_path_inside(&current_dir, &runtime_data_root) {
         return Err(format!(
@@ -462,73 +263,33 @@ pub fn install_ai_runtime_package_impl(
         .map(|item| item.as_millis() as u64)
         .unwrap_or_default();
     write_installed_runtime_state(&InstalledAiRuntimeState {
-        current_version: Some(manifest.runtime_version.clone()),
-        channel: Some(manifest.channel.clone()),
-        package_sha256: Some(manifest.package_sha256.clone()),
-        package_url: Some(manifest.package_url.clone()),
-        models: manifest.models.clone(),
+        current_version: Some(runtime_version.to_string()),
+        channel: Some(channel.to_string()),
+        package_sha256: None,
+        package_url: Some(package_path.display().to_string()),
+        models: Vec::new(),
         installed_at_ms: Some(installed_at_ms),
         current_path: Some(current_dir.display().to_string()),
     })?;
 
     Ok(RuntimeInstallResult {
-        version: manifest.runtime_version.clone(),
+        version: runtime_version.to_string(),
         install_path: target_dir.display().to_string(),
         current_path: current_dir.display().to_string(),
         manifest_path: paths.runtime_manifest_path.display().to_string(),
     })
 }
 
-pub fn update_ai_runtime_impl<F>(
-    manifest: &RemoteAiRuntimeManifest,
-    mut emit: F,
-) -> Result<RuntimeInstallResult, String>
-where
-    F: FnMut(AiRuntimeProgressPayload),
-{
-    validate_remote_manifest(manifest)?;
-
-    let download = download_ai_runtime_impl(manifest, &mut emit)?;
-    emit(AiRuntimeProgressPayload {
-        stage: "verifying".to_string(),
-        downloaded_bytes: download.downloaded_bytes,
-        total_bytes: download.total_bytes,
-        percent: 100,
-        bytes_per_second: 0,
-        message: Some("正在校验 AI 增强组件".to_string()),
-    });
-    verify_ai_runtime_package_impl(Path::new(&download.package_path), &manifest.package_sha256)?;
-    emit(AiRuntimeProgressPayload {
-        stage: "installing".to_string(),
-        downloaded_bytes: download.downloaded_bytes,
-        total_bytes: download.total_bytes,
-        percent: 100,
-        bytes_per_second: 0,
-        message: Some("正在安装 AI 增强组件".to_string()),
-    });
-    install_ai_runtime_package_impl(manifest, Path::new(&download.package_path))
-}
-
-pub fn remove_ai_runtime_impl() -> Result<RuntimeRemovalResult, String> {
-    let runtime_root = resolve_ai_runtime_data_root()?;
-    if runtime_root.exists() {
-        fs::remove_dir_all(&runtime_root).map_err(|err| {
-            format!(
-                "Failed to remove AI runtime directory {}: {err}",
-                runtime_root.display()
-            )
-        })?;
-    }
-    Ok(RuntimeRemovalResult {
-        removed: true,
-        runtime_root: runtime_root.display().to_string(),
-    })
-}
-
 fn normalize_extracted_runtime_root(staging_dir: &Path) -> Result<PathBuf, String> {
     let direct_python = staging_dir.join("python");
+    let direct_python_base = staging_dir.join("python-base");
+    let direct_python_site_packages = staging_dir.join("python-site-packages");
     let direct_sidecars = staging_dir.join("sidecars");
     if direct_python.exists() && direct_sidecars.exists() {
+        return Ok(staging_dir.to_path_buf());
+    }
+    if direct_python_base.exists() && direct_python_site_packages.exists() && direct_sidecars.exists()
+    {
         return Ok(staging_dir.to_path_buf());
     }
 
@@ -567,6 +328,190 @@ fn validate_runtime_layout(target_dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn detect_runtime_source_layout(target_dir: &Path) -> Result<RuntimeSourceLayout, String> {
+    let sidecar = target_dir.join("sidecars").join("lama_inpaint.py");
+    if !sidecar.exists() {
+        return Err("AI 运行时安装包缺少 sidecars\\lama_inpaint.py。".to_string());
+    }
+
+    let python_root = target_dir.join("python");
+    if python_root.exists() {
+        validate_portable_python_runtime(target_dir)?;
+        return Ok(RuntimeSourceLayout::Portable);
+    }
+
+    let base_python_root = target_dir.join("python-base");
+    let bundled_site_packages = target_dir.join("python-site-packages");
+    if base_python_root.exists() && bundled_site_packages.exists() {
+        validate_base_python_root(&base_python_root)?;
+        return Ok(RuntimeSourceLayout::BaseBundle);
+    }
+
+    Err(
+        "AI 运行时安装包目录结构不正确。请重新导入由发布脚本生成的 AI 组件包。"
+            .to_string(),
+    )
+}
+
+fn validate_portable_python_runtime(target_dir: &Path) -> Result<(), String> {
+    let python_root = target_dir.join("python");
+    let portable_python = python_root.join("python.exe");
+    let pyvenv_cfg = python_root.join("pyvenv.cfg");
+
+    if pyvenv_cfg.exists() {
+        return Err(
+            "AI 运行时安装包包含 Python 虚拟环境（检测到 pyvenv.cfg），该环境依赖打包机器上的绝对路径，无法在新电脑上直接运行。请重新导入包含便携式 Python 的 AI 运行时包。".to_string(),
+        );
+    }
+
+    if !portable_python.exists() {
+        return Err(
+            "AI 运行时安装包缺少 python\\python.exe。当前包看起来像开发环境产物，不是可分发的便携式 Python 运行时。".to_string(),
+        );
+    }
+
+    Ok(())
+}
+
+fn validate_base_python_root(base_python_root: &Path) -> Result<(), String> {
+    let base_python = base_python_root.join("python.exe");
+    let pyvenv_cfg = base_python_root.join("pyvenv.cfg");
+    if pyvenv_cfg.exists() {
+        return Err(
+            "AI 运行时安装包中的 python-base 仍然是虚拟环境，不能用于稳定发布。"
+                .to_string(),
+        );
+    }
+    if !base_python.exists() {
+        return Err(
+            "AI 运行时安装包缺少 python-base\\python.exe，无法在本机重建运行环境。"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
+fn materialize_runtime_from_bundle(target_dir: &Path) -> Result<(), String> {
+    let base_python_root = target_dir.join("python-base");
+    let base_python_exe = base_python_root.join("python.exe");
+    let bundled_site_packages = target_dir.join("python-site-packages");
+    let runtime_python = target_dir.join("python");
+
+    validate_base_python_root(&base_python_root)?;
+    if !bundled_site_packages.exists() {
+        return Err("AI 运行时安装包缺少 python-site-packages 目录。".to_string());
+    }
+
+    if runtime_python.exists() {
+        fs::remove_dir_all(&runtime_python).map_err(|err| {
+            format!(
+                "Failed to reset materialized AI runtime at {}: {err}",
+                runtime_python.display()
+            )
+        })?;
+    }
+
+    let mut create_venv = Command::new(&base_python_exe);
+    create_venv.arg("-m").arg("venv").arg(&runtime_python);
+    hide_process_window(&mut create_venv);
+    let output = create_venv.output().map_err(|err| {
+        format!(
+            "Failed to start bundled base Python while creating AI runtime environment: {err}"
+        )
+    })?;
+    if !output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(format!(
+            "Failed to create local AI runtime environment. stdout: {}; stderr: {}",
+            stdout, stderr
+        ));
+    }
+
+    let target_site_packages = runtime_python.join("Lib").join("site-packages");
+    if !target_site_packages.exists() {
+        return Err(format!(
+            "Materialized AI runtime site-packages directory was not created: {}",
+            target_site_packages.display()
+        ));
+    }
+
+    copy_dir_contents(&bundled_site_packages, &target_site_packages)?;
+    validate_materialized_runtime(target_dir)
+}
+
+fn validate_materialized_runtime(target_dir: &Path) -> Result<(), String> {
+    let python_exe = resolve_python_executable_in_dir(target_dir)?;
+    let sidecar_script = target_dir.join("sidecars").join("lama_inpaint.py");
+    if !sidecar_script.exists() {
+        return Err(format!(
+            "Materialized AI runtime is missing sidecar entrypoint: {}",
+            sidecar_script.display()
+        ));
+    }
+
+    let torch_home = resolve_ai_runtime_paths()?.torch_home;
+    let mut command = Command::new(&python_exe);
+    command
+        .arg(&sidecar_script)
+        .arg("check-runtime")
+        .arg("--torch-home")
+        .arg(&torch_home)
+        .env("TORCH_HOME", &torch_home)
+        .env("PYTHONNOUSERSITE", "1")
+        .env("PYTHONUTF8", "1")
+        .env("PYTHONIOENCODING", "utf-8");
+    hide_process_window(&mut command);
+
+    let output = command.output().map_err(|err| {
+        format!(
+            "Failed to start materialized AI runtime validation with {}: {err}",
+            python_exe.display()
+        )
+    })?;
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(format!(
+        "Materialized AI runtime validation failed. stdout: {}; stderr: {}",
+        stdout, stderr
+    ))
+}
+
+fn resolve_python_executable_in_dir(target_dir: &Path) -> Result<PathBuf, String> {
+    let direct_python = target_dir.join("python").join("python.exe");
+    if direct_python.exists() {
+        return Ok(direct_python);
+    }
+
+    let venv_python = target_dir.join("python").join("Scripts").join("python.exe");
+    if venv_python.exists() {
+        return Ok(venv_python);
+    }
+
+    Err(format!(
+        "Materialized AI runtime is missing a Python executable under {}",
+        target_dir.join("python").display()
+    ))
+}
+
+fn sanitize_version_segment(input: &str) -> String {
+    let sanitized = input
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    sanitized.trim_matches('-').to_string()
+}
+
 fn sync_current_runtime(version_dir: &Path, current_dir: &Path) -> Result<(), String> {
     if current_dir.exists() {
         fs::remove_dir_all(current_dir).map_err(|err| err.to_string())?;
@@ -595,9 +540,33 @@ fn copy_dir_recursive(from: &Path, to: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn copy_dir_contents(from: &Path, to: &Path) -> Result<(), String> {
+    fs::create_dir_all(to).map_err(|err| err.to_string())?;
+    for entry in fs::read_dir(from).map_err(|err| err.to_string())? {
+        let entry = entry.map_err(|err| err.to_string())?;
+        let source = entry.path();
+        let target = to.join(entry.file_name());
+        if source.is_dir() {
+            copy_dir_recursive(&source, &target)?;
+        } else {
+            fs::copy(&source, &target).map_err(|err| {
+                format!(
+                    "Failed to copy AI runtime file {} -> {}: {err}",
+                    source.display(),
+                    target.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
 fn run_powershell(script: &str) -> Result<String, String> {
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script])
+    let mut command = Command::new("powershell");
+    command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]);
+    hide_process_window(&mut command);
+
+    let output = command
         .output()
         .map_err(|err| format!("Failed to start PowerShell: {err}"))?;
     if !output.status.success() {
@@ -611,129 +580,6 @@ fn run_powershell(script: &str) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-fn build_download_script(url: &str, target_path: &Path) -> String {
-    format!(
-        r#"$ErrorActionPreference='Stop'
-$ProgressPreference='SilentlyContinue'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Add-Type -AssemblyName System.Net.Http
-$uri = '{url}'
-$target = '{target}'
-$targetDir = Split-Path -Parent $target
-if (-not (Test-Path -LiteralPath $targetDir)) {{
-  New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-}}
-$handler = New-Object System.Net.Http.HttpClientHandler
-$client = New-Object System.Net.Http.HttpClient($handler)
-$client.Timeout = [TimeSpan]::FromHours(1)
-$response = $client.GetAsync($uri, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
-if (-not $response.IsSuccessStatusCode) {{
-  throw ('Failed to download AI runtime package: HTTP ' + [int]$response.StatusCode + ' ' + $response.ReasonPhrase)
-}}
-$total = $response.Content.Headers.ContentLength
-$stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
-$fileStream = [System.IO.File]::Open($target, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
-try {{
-  $buffer = New-Object byte[] 262144
-  $downloaded = 0L
-  $sw = [System.Diagnostics.Stopwatch]::StartNew()
-  $lastMs = 0L
-  $lastBytes = 0L
-  while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {{
-    $fileStream.Write($buffer, 0, $read)
-    $downloaded += [int64]$read
-    if (($sw.ElapsedMilliseconds - $lastMs) -ge 150) {{
-      $elapsedMs = [Math]::Max(1, $sw.ElapsedMilliseconds - $lastMs)
-      $deltaBytes = $downloaded - $lastBytes
-      $bps = [int64][Math]::Round(($deltaBytes * 1000.0) / $elapsedMs)
-      [Console]::Out.WriteLine(([ordered]@{{
-        event = 'progress'
-        downloadedBytes = $downloaded
-        totalBytes = $(if ($null -ne $total) {{ [int64]$total }} else {{ 0 }})
-        bytesPerSecond = $bps
-      }} | ConvertTo-Json -Compress))
-      $lastMs = $sw.ElapsedMilliseconds
-      $lastBytes = $downloaded
-    }}
-  }}
-  $fileStream.Flush()
-  $overallMs = [Math]::Max(1, $sw.ElapsedMilliseconds)
-  $overallBps = [int64][Math]::Round(($downloaded * 1000.0) / $overallMs)
-  [Console]::Out.WriteLine(([ordered]@{{
-    event = 'done'
-    downloadedBytes = $downloaded
-    totalBytes = $(if ($null -ne $total) {{ [int64]$total }} else {{ 0 }})
-    bytesPerSecond = $overallBps
-  }} | ConvertTo-Json -Compress))
-}} finally {{
-  if ($stream) {{ $stream.Dispose() }}
-  if ($fileStream) {{ $fileStream.Dispose() }}
-  if ($response) {{ $response.Dispose() }}
-  if ($client) {{ $client.Dispose() }}
-  if ($handler) {{ $handler.Dispose() }}
-}}"#,
-        url = ps_escape(url),
-        target = ps_escape(&target_path.display().to_string())
-    )
-}
-
-fn validate_remote_manifest(manifest: &RemoteAiRuntimeManifest) -> Result<(), String> {
-    if manifest.package_url.trim().is_empty() {
-        return Err("AI runtime manifest 配置不完整：packageUrl 不能为空。".to_string());
-    }
-    validate_sha256_field(
-        &manifest.package_sha256,
-        "packageSha256",
-        "请先替换为 ai-runtime.zip 的真实 SHA256。",
-    )?;
-
-    for (index, model) in manifest.models.iter().enumerate() {
-        if model.url.trim().is_empty() {
-            return Err(format!(
-                "AI runtime manifest 配置不完整：models[{index}].url 不能为空。"
-            ));
-        }
-        validate_sha256_field(
-            &model.sha256,
-            &format!("models[{index}].sha256"),
-            &format!("请先替换为 {} 的真实 SHA256。", model.file_name),
-        )?;
-    }
-
-    Ok(())
-}
-
-fn validate_sha256_field(value: &str, field_name: &str, fix_hint: &str) -> Result<(), String> {
-    let normalized = normalize_sha256(value);
-    if PLACEHOLDER_SHA256_VALUES
-        .iter()
-        .any(|placeholder| placeholder.eq_ignore_ascii_case(normalized.as_str()))
-    {
-        return Err(format!(
-            "AI runtime manifest 配置不完整：{field_name} 仍为占位值，{fix_hint}"
-        ));
-    }
-    if normalized.len() != 64 || !normalized.chars().all(|ch| ch.is_ascii_hexdigit()) {
-        return Err(format!(
-            "AI runtime manifest 配置不完整：{field_name} 不是合法的 SHA256，必须为 64 位十六进制字符串。"
-        ));
-    }
-    Ok(())
-}
-
-fn normalize_sha256(value: &str) -> String {
-    value.trim().to_ascii_uppercase()
-}
-
-fn compute_percent(downloaded_bytes: u64, total_bytes: u64) -> u8 {
-    if total_bytes == 0 {
-        return 0;
-    }
-    ((downloaded_bytes.min(total_bytes) as f64 / total_bytes as f64) * 100.0)
-        .round()
-        .clamp(0.0, 100.0) as u8
-}
-
 fn ps_escape(value: &str) -> String {
     value.replace('\'', "''")
 }
@@ -743,8 +589,10 @@ fn bytes_to_gb(bytes: u64) -> f64 {
 }
 
 fn query_os_version() -> String {
-    Command::new("cmd")
-        .args(["/C", "ver"])
+    let mut command = Command::new("cmd");
+    command.args(["/C", "ver"]);
+    hide_process_window(&mut command);
+    command
         .output()
         .ok()
         .map(|out| String::from_utf8_lossy(&out.stdout).trim().to_string())
@@ -800,7 +648,8 @@ fn get_available_disk_bytes(path: &Path) -> Result<u64, String> {
         ) -> i32;
     }
 
-    let wide: Vec<u16> = path
+    let query_path = resolve_disk_query_path(path);
+    let wide: Vec<u16> = query_path
         .as_os_str()
         .encode_wide()
         .chain(std::iter::once(0))
@@ -817,8 +666,36 @@ fn get_available_disk_bytes(path: &Path) -> Result<u64, String> {
     if ok == 0 {
         return Err(format!(
             "Failed to query available disk space for {}",
-            path.display()
+            query_path.display()
         ));
     }
     Ok(free_bytes)
+}
+
+fn resolve_disk_query_path(path: &Path) -> PathBuf {
+    if path.exists() {
+        return path.to_path_buf();
+    }
+
+    let mut current = path.to_path_buf();
+    while let Some(parent) = current.parent() {
+        if parent.exists() {
+            return parent.to_path_buf();
+        }
+        current = parent.to_path_buf();
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let path_string = path.display().to_string();
+        if path_string.len() >= 2 && path_string.as_bytes()[1] == b':' {
+            return PathBuf::from(format!("{}\\", &path_string[..2]));
+        }
+        PathBuf::from("C:\\")
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        PathBuf::from("/")
+    }
 }

@@ -13,13 +13,15 @@ import {
   Info,
   PauseCircle,
   PlayCircle,
-  Plus,
   Trash2,
   X
 } from "@lucide/vue";
+import AiEnhancementStatusPanel from "@/components/ai-runtime/AiEnhancementStatusPanel.vue";
+import AiRuntimeInstallLoadingOverlay from "@/components/ai-runtime/AiRuntimeInstallLoadingOverlay.vue";
 import { tauriClient } from "@/bridge/tauriClient";
 import { useBatchTask } from "@/modules/batch";
-import { useAiRuntime } from "@/modules/ai-runtime/useAiRuntime";
+import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
+import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
 import {
   checkExportEntitlement,
   consumeExportEntitlement,
@@ -71,19 +73,22 @@ const hintMessage = ref("");
 const showProcessed = ref(false);
 const draftRegion = ref<WatermarkRegion | null>(null);
 const modelError = ref("");
-const runtimeActionError = ref("");
-const modelStorePath = ref("");
-const runtimeDevice = ref("");
-const torchVersion = ref("");
-const aiRuntime = useAiRuntime();
-const aiRuntimeStatus = aiRuntime.status;
-const aiRuntimeEnvironment = aiRuntime.environment;
-const aiRuntimeManifest = aiRuntime.manifest;
-const aiRuntimeProgress = aiRuntime.progress;
-const aiRuntimeError = aiRuntime.error;
-const aiRuntimeHasManifestSource = aiRuntime.hasManifestSource;
-
+const aiPanel = useAiEnhancementPanel();
+const {
+  aiRuntime,
+  hasInstalledAiRuntime,
+  aiRuntimeSimpleStatusText,
+  aiRuntimeStatus,
+  aiRuntimeProgress,
+  isRuntimeBusy,
+  aiRuntimeStatusText,
+  refreshStatus,
+  ensureRuntimeReady,
+  ensureModelReady
+} = aiPanel;
 const { submit, cancel, openOutputDirectory: openBatchOutputDirectory, progress, isRunning, result, failures } = useBatchTask();
+const { notifyTaskBatchCompleted } = useTaskBatchNotification();
+const lastNotifiedTaskId = ref<string | null>(null);
 
 let disposeDrop: UnlistenFn | null = null;
 let elapsedTimer: number | null = null;
@@ -114,7 +119,7 @@ const canStart = computed(() => {
   if (isRunning.value) return false;
   if (items.value.length === 0 || !hasRegions.value) return false;
   if (removalMode.value === "ai") {
-    return aiRuntime.status.value === "INSTALLED" || aiRuntime.status.value === "UPDATE_AVAILABLE";
+    return hasInstalledAiRuntime.value;
   }
   return true;
 });
@@ -123,42 +128,6 @@ const selectedPreviewFit = computed<"landscape" | "portrait">(() => {
   const item = selectedItem.value;
   if (!item || item.width <= 0 || item.height <= 0) return "landscape";
   return item.height > item.width ? "portrait" : "landscape";
-});
-const aiProgressPercent = computed(() => aiRuntime.progress.value?.percent ?? 0);
-const aiDownloadSpeedLabel = computed(() => formatBytes(aiRuntime.progress.value?.bytesPerSecond ?? 0));
-const aiProgressSummaryLabel = computed(() => {
-  const payload = aiRuntime.progress.value;
-  if (!payload) return "--";
-  return `${formatBytes(payload.downloadedBytes)} / ${formatBytes(payload.totalBytes)}`;
-});
-const hasInstalledAiRuntime = computed(() =>
-  aiRuntimeStatus.value === "INSTALLED" || aiRuntimeStatus.value === "UPDATE_AVAILABLE"
-);
-const aiRuntimeStatusText = computed(() => {
-  switch (aiRuntime.status.value) {
-    case "DISABLED":
-      return "AI 增强组件未启用";
-    case "NOT_INSTALLED":
-      return "AI 增强组件未安装";
-    case "CHECKING":
-      return "正在检查 AI 环境";
-    case "ENV_NOT_SUPPORTED":
-      return "当前设备不满足 AI 安装条件";
-    case "READY_TO_INSTALL":
-      return "可安装 AI 增强组件";
-    case "DOWNLOADING":
-      return "正在下载 AI 增强组件";
-    case "VERIFYING":
-      return "正在校验 AI 增强组件";
-    case "INSTALLING":
-      return "正在安装 AI 增强组件";
-    case "INSTALLED":
-      return "AI 增强组件已安装";
-    case "UPDATE_AVAILABLE":
-      return "AI 增强组件有可用更新";
-    case "FAILED":
-      return "AI 增强组件操作失败";
-  }
 });
 
 const progressTitle = computed(() => {
@@ -431,6 +400,7 @@ async function startRemoval() {
   stopTimers();
   showProcessed.value = false;
   elapsedSeconds.value = 0;
+  lastNotifiedTaskId.value = null;
   modelError.value = "";
   items.value.forEach((item) => {
     item.status = "pending";
@@ -439,12 +409,13 @@ async function startRemoval() {
   });
   try {
     if (removalMode.value === "ai") {
-      await aiRuntime.refresh(false);
-      if (aiRuntime.status.value !== "INSTALLED" && aiRuntime.status.value !== "UPDATE_AVAILABLE") {
-        hintMessage.value = aiRuntime.error.value || aiRuntime.environment.value?.reasons?.[0] || "AI 增强组件尚未就绪，请先安装或升级。";
+      const ready = await ensureRuntimeReady();
+      if (!ready) {
+        hintMessage.value =
+          aiRuntime.error.value || aiRuntime.environment.value?.reasons?.[0] || t("aiEnhancement.errors.notReady");
         return;
       }
-      await ensureLamaModelReady();
+      await ensureModelReady();
     }
     const startedAt = Date.now();
     elapsedTimer = window.setInterval(() => {
@@ -503,54 +474,6 @@ function buildRegionsByFile(): Record<string, Array<{ x: number; y: number; widt
   return result;
 }
 
-async function ensureLamaModelReady(): Promise<void> {
-  const status = await tauriClient.getAiModelStatus();
-  modelStorePath.value = status.modelsRoot;
-  runtimeDevice.value = status.runtimeDevice || "";
-  torchVersion.value = status.torchVersion || "";
-  if (!status.downloaded) {
-    const downloadedStatus = await tauriClient.downloadAiModel("lama");
-    modelStorePath.value = downloadedStatus.modelsRoot;
-    runtimeDevice.value = downloadedStatus.runtimeDevice || runtimeDevice.value;
-    torchVersion.value = downloadedStatus.torchVersion || torchVersion.value;
-  }
-}
-
-async function refreshAiRuntimeStatus(forceModeSync = false): Promise<void> {
-  try {
-    await aiRuntime.refresh(false);
-    const status = await tauriClient.getAiModelStatus();
-    modelStorePath.value = status.modelsRoot;
-    runtimeDevice.value = status.runtimeDevice || "";
-    torchVersion.value = status.torchVersion || "";
-    syncRemovalModeWithAi(forceModeSync);
-  } catch {
-    runtimeDevice.value = "";
-    torchVersion.value = "";
-    syncRemovalModeWithAi(forceModeSync);
-  }
-}
-
-async function installAiRuntime() {
-  try {
-    runtimeActionError.value = "";
-    await aiRuntime.installOrUpdate();
-    await refreshAiRuntimeStatus(true);
-  } catch (error) {
-    runtimeActionError.value = error instanceof Error ? error.message : String(error);
-  }
-}
-
-async function removeAiRuntime() {
-  try {
-    runtimeActionError.value = "";
-    await aiRuntime.removeRuntime();
-    await refreshAiRuntimeStatus(true);
-  } catch (error) {
-    runtimeActionError.value = error instanceof Error ? error.message : String(error);
-  }
-}
-
 watch(
   canShowProcessed,
   (canShow) => {
@@ -571,6 +494,15 @@ watch(
   },
   { deep: true }
 );
+
+function formatElapsed(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const remain = seconds % 60;
+  return `${mins}m ${remain}s`;
+}
 
 watch([result, failures], () => {
   const snapshot = result.value;
@@ -602,12 +534,31 @@ watch([result, failures], () => {
       failures.value[0]?.errorMessage || snapshot.message || t("pages.imageWatermarkRemoval.hints.batchFailed");
     hintMessage.value = modelError.value;
   }
+  if (snapshot.status === "FINISHED" || snapshot.status === "FAILED") {
+    if (lastNotifiedTaskId.value !== snapshot.taskId) {
+      lastNotifiedTaskId.value = snapshot.taskId;
+      const elapsedMs =
+        snapshot.finishedAtMs && snapshot.startedAtMs
+          ? snapshot.finishedAtMs - snapshot.startedAtMs
+          : elapsedSeconds.value * 1000;
+      notifyTaskBatchCompleted(
+        "pages.imageWatermarkRemoval.title",
+        {
+          total: snapshot.total,
+          success: snapshot.success,
+          failed: snapshot.failed,
+          elapsedMs
+        },
+        formatElapsed(elapsedMs)
+      );
+    }
+  }
   stopTimers();
 });
 
 onMounted(async () => {
   void setupNativeDrop();
-  void refreshAiRuntimeStatus();
+  void refreshStatus(() => syncRemovalModeWithAi());
 });
 
 onBeforeUnmount(() => {
@@ -623,7 +574,6 @@ onBeforeUnmount(() => {
         <div class="wm-card-head">
           <h3 id="wm-list-title" class="wm-card-head__title">{{ t("pages.imageWatermarkRemoval.list.fileListTitle", { count: items.length }) }}</h3>
           <div class="wm-card-head__actions">
-            <button type="button" class="wm-btn wm-btn--small" @click="pickFiles"><Plus :size="15" />{{ t("pages.imageWatermarkRemoval.list.addImages") }}</button>
             <button type="button" class="wm-btn wm-btn--small" :disabled="items.length === 0 || isRunning" @click="clearList">
               <Trash2 :size="15" />{{ t("pages.imageWatermarkRemoval.list.clearList") }}
             </button>
@@ -740,40 +690,22 @@ onBeforeUnmount(() => {
         <div class="wm-separator" />
 
         <div class="wm-settings-section">
-          <h4>处理模式</h4>
-          <div class="wm-segment wm-segment--two">
-            <button type="button" :class="{ on: removalMode === 'fast' }" @click="applyMode('fast')">极速模式</button>
-            <button type="button" :class="{ on: removalMode === 'ai' }" @click="applyMode('ai')">AI 增强模式</button>
+          <h4>{{ t("pages.watermarkRemoval.mode.title") }}</h4>
+          <div class="mode-options" role="radiogroup" :aria-label="t('pages.watermarkRemoval.mode.ariaLabel')">
+            <label class="mode-option" :class="{ 'mode-option--active': removalMode === 'fast' }">
+              <input type="radio" name="imageRemovalMode" value="fast" :checked="removalMode === 'fast'" @change="applyMode('fast')" />
+              <span>{{ t("pages.watermarkRemoval.mode.fast") }}</span>
+            </label>
+            <label class="mode-option" :class="{ 'mode-option--active': removalMode === 'ai' }">
+              <input type="radio" name="imageRemovalMode" value="ai" :checked="removalMode === 'ai'" @change="applyMode('ai')" />
+              <span>{{ t("pages.watermarkRemoval.mode.ai") }}</span>
+            </label>
           </div>
-          <p v-if="removalMode === 'fast'" class="wm-muted">极速模式无需下载 AI 组件，所有处理均在本地完成，适合简单背景、纯色背景、边角水印和小面积水印。</p>
-          <p v-else class="wm-muted">AI 增强模式需要安装本地 AI 组件，适合复杂背景和更自然的修复效果。组件体积较大，仅需安装一次，文件不会上传服务器。</p>
+          <p v-if="removalMode === 'fast'" class="wm-muted">{{ t("pages.watermarkRemoval.mode.fastHintImage") }}</p>
+          <p v-else class="wm-muted">{{ t("pages.watermarkRemoval.mode.aiHintImage") }}</p>
         </div>
 
-        <div class="wm-settings-section">
-          <h4>AI 组件状态</h4>
-          <p class="wm-muted">{{ aiRuntimeStatusText }}</p>
-          <p v-if="aiRuntimeEnvironment?.reasons?.length" class="wm-warning"><Info :size="14" />{{ aiRuntimeEnvironment.reasons[0] }}</p>
-          <p v-if="aiRuntimeManifest && (aiRuntimeStatus === 'READY_TO_INSTALL' || aiRuntimeStatus === 'UPDATE_AVAILABLE')" class="wm-muted">
-            组件版本 {{ aiRuntimeManifest.runtimeVersion }}，大小 {{ formatBytes(aiRuntimeManifest.packageSize) }}，预计磁盘 {{ aiRuntimeManifest.requiredFreeDiskGb }} GB。
-          </p>
-          <p v-if="aiRuntimeProgress" class="wm-muted">{{ aiProgressSummaryLabel }}，{{ aiDownloadSpeedLabel }}/s</p>
-          <p v-if="aiRuntimeError" class="wm-warning"><Info :size="14" />{{ aiRuntimeError }}</p>
-          <p v-if="runtimeActionError" class="wm-warning"><Info :size="14" />{{ runtimeActionError }}</p>
-          <div class="wm-card-head__actions">
-            <button
-              v-if="aiRuntimeStatus === 'READY_TO_INSTALL' && aiRuntimeHasManifestSource"
-              type="button"
-              class="wm-btn wm-btn--small"
-              @click="installAiRuntime"
-            >
-              安装 AI 增强组件
-            </button>
-            <button v-else-if="aiRuntimeStatus === 'READY_TO_INSTALL'" type="button" class="wm-btn wm-btn--small" disabled>升级当前版本后可一键安装</button>
-            <button v-if="aiRuntimeStatus === 'UPDATE_AVAILABLE'" type="button" class="wm-btn wm-btn--small" @click="installAiRuntime">一键升级 AI 增强组件</button>
-            <button v-if="aiRuntimeStatus === 'FAILED'" type="button" class="wm-btn wm-btn--small" @click="installAiRuntime">重试</button>
-            <button v-if="!hasInstalledAiRuntime" type="button" class="wm-btn wm-btn--small" @click="applyMode('fast')">继续使用极速模式</button>
-          </div>
-        </div>
+        <AiEnhancementStatusPanel @synced="syncRemovalModeWithAi(true)" />
       </section>
     </div>
 
@@ -788,8 +720,8 @@ onBeforeUnmount(() => {
               <dd>{{ isRunning ? progressTitle : t("pages.imageWatermarkRemoval.progress.noTask") }}</dd>
             </div>
             <div>
-              <dt>AI 组件状态</dt>
-              <dd>{{ aiRuntimeStatusText }}</dd>
+              <dt>{{ t("pages.watermarkRemoval.aiComponentStatus") }}</dt>
+              <dd>{{ aiRuntimeSimpleStatusText }}</dd>
             </div>
             <div>
               <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.taskCount") }}</dt>
@@ -802,8 +734,8 @@ onBeforeUnmount(() => {
             <div class="wm-metrics-grid__progress">
               <dt>{{ t("pages.imageWatermarkRemoval.bottomBar.overallProgressDetail") }}</dt>
               <dd>
-                <span>{{ isRunning ? `${progressPercent}%` : aiRuntime.progress ? `${aiProgressPercent}%` : "--" }}</span>
-                <div class="wm-progress-line"><i :style="{ width: `${isRunning ? progressPercent : aiProgressPercent}%` }" /></div>
+                <span>{{ isRunning ? `${progressPercent}%` : "--" }}</span>
+                <div class="wm-progress-line"><i :style="{ width: `${isRunning ? progressPercent : 0}%` }" /></div>
               </dd>
             </div>
           </dl>
@@ -842,20 +774,12 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </footer>
-    <div v-if="['DOWNLOADING', 'VERIFYING', 'INSTALLING'].includes(aiRuntimeStatus)" class="wm-model-loading" role="status" aria-live="polite">
-      <div class="wm-model-loading__panel">
-        <strong>AI 增强组件处理中</strong>
-        <span>{{ aiRuntimeProgress?.message || aiRuntimeStatusText }}</span>
-        <div class="wm-model-loading__bar"><i :style="{ width: `${aiProgressPercent}%` }" /></div>
-        <div class="wm-model-loading__meta">
-          <span>{{ aiProgressSummaryLabel }}</span>
-          <span>{{ aiDownloadSpeedLabel }}/s</span>
-          <span v-if="torchVersion">Torch {{ torchVersion }}</span>
-        </div>
-        <p v-if="modelStorePath">模型目录：{{ modelStorePath }}</p>
-      </div>
-    </div>
-    <div v-if="modelError && !['DOWNLOADING', 'VERIFYING', 'INSTALLING'].includes(aiRuntimeStatus)" class="wm-model-error" role="alert">
+    <AiRuntimeInstallLoadingOverlay
+      v-if="isRuntimeBusy"
+      :title="t('aiEnhancement.overlay.processingTitle')"
+      :message="aiRuntimeProgress?.message || aiRuntimeStatusText"
+    />
+    <div v-if="modelError && !isRuntimeBusy" class="wm-model-error" role="alert">
       <div>
         <strong>{{ t("pages.imageWatermarkRemoval.model.prepFailedTitle") }}</strong>
         <span>{{ modelError }}</span>
@@ -869,13 +793,20 @@ onBeforeUnmount(() => {
 <style scoped>
 .image-watermark-removal-page {
   --surface: #ffffff;
-  --surface-muted: #f6f8fc;
-  --border: #e7ebf3;
-  --border-strong: #d8dfec;
-  --text: #101936;
-  --muted: #667292;
-  --primary: #1769f6;
-  --primary-soft: #eaf2ff;
+  --surface-muted: #f5f6fa;
+  --border: #eef0f4;
+  --border-weak: #e7e9ee;
+  --border-strong: #e7e9ee;
+  --text: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-hint: #9ca3af;
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --primary-soft: #f5f6fa;
+  --accent-link: #f97316;
+  --accent-link-hover: #ea580c;
+  --cta-shadow: 0 4px 12px rgba(243, 132, 30, 0.25);
   --warning: #f59e0b;
   display: flex;
   flex-direction: column;
@@ -883,7 +814,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 8px 18px 10px;
+  padding: 14px 18px 10px;
   overflow: hidden;
   color: var(--text);
   background: var(--surface-muted);
@@ -893,7 +824,7 @@ onBeforeUnmount(() => {
 
 .wm-workspace {
   display: grid;
-  grid-template-columns: minmax(230px, 0.82fr) minmax(340px, 1.5fr) minmax(220px, 0.72fr);
+  grid-template-columns: minmax(220px, 0.78fr) minmax(260px, 1.15fr) minmax(240px, 0.82fr);
   gap: 12px;
   min-height: 0;
   flex: 1;
@@ -908,8 +839,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(27, 46, 94, 0.04);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
 }
 
 .wm-card--list,
@@ -945,8 +876,10 @@ onBeforeUnmount(() => {
 .wm-card-head__title {
   margin: 0;
   color: var(--text);
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
 }
 
 .wm-card-head__actions {
@@ -957,13 +890,25 @@ onBeforeUnmount(() => {
 
 .wm-btn,
 .wm-action {
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-weak);
   background: #fff;
-  color: #18244a;
-  border-radius: 6px;
+  color: var(--text-secondary);
+  border-radius: 999px;
   font: inherit;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.wm-btn:focus-visible,
+.wm-action:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .wm-btn {
@@ -972,13 +917,19 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 0 13px;
+  padding: 0 14px;
   white-space: nowrap;
 }
 
 .wm-btn--small {
   height: 34px;
-  font-size: 13px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.wm-btn:hover:not(:disabled) {
+  border-color: #dbeafe;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.06);
 }
 
 button:disabled {
@@ -994,11 +945,15 @@ button:disabled {
   min-height: 0;
   flex: 1;
   padding: 22px 18px;
-  border: 1px dashed #cbd6ea;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  border: 1px dashed #d6d9e0;
+  border-radius: 14px;
+  background: #fafbfd;
   text-align: center;
   overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .wm-drop--compact {
@@ -1035,14 +990,15 @@ button:disabled {
 }
 
 .wm-drop--active {
-  border-color: var(--primary);
-  background: var(--primary-soft);
+  border-color: #c7d2fe;
+  background: var(--surface-muted);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 .wm-drop__art {
   position: relative;
-  color: #2d72f6;
-  opacity: 0.8;
+  color: var(--primary);
+  opacity: 0.85;
   margin-bottom: 10px;
 }
 
@@ -1064,7 +1020,9 @@ button:disabled {
 .wm-drop__title {
   margin: 0 0 10px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
 }
 
 .wm-drop__title span {
@@ -1074,19 +1032,31 @@ button:disabled {
 
 .wm-drop__sub,
 .wm-muted,
-.wm-hint,
 .wm-list-foot,
-.wm-warning,
 .wm-preview-foot,
 .wm-bottom span,
 .wm-bottom small {
-  color: var(--muted);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.wm-hint {
+  color: #ef4444;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wm-warning,
+.wm-preview-foot {
   font-size: 13px;
 }
 
 .wm-drop__batch {
   margin-top: clamp(12px, 5vh, 28px);
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .wm-file-list {
@@ -1114,8 +1084,9 @@ button:disabled {
 }
 
 .wm-file--selected {
-  border-color: var(--primary);
-  background: #fbfdff;
+  border-color: #c7d2fe;
+  background: #fafbfd;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08);
 }
 
 .wm-file__thumb {
@@ -1137,21 +1108,23 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .wm-file__meta span {
-  color: #5f6c8d;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
 .wm-file__status {
   padding: 6px 9px;
-  border-radius: 5px;
+  border-radius: 8px;
   color: var(--primary);
-  background: #eaf2ff;
+  background: #f5f6fa;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -1170,13 +1143,8 @@ button:disabled {
   height: 28px;
   border: 0;
   background: transparent;
-  color: #1f2a55;
+  color: var(--text-secondary);
   cursor: pointer;
-}
-
-.wm-hint {
-  margin: 10px 0 0;
-  color: #f97316;
 }
 
 .wm-list-foot {
@@ -1187,6 +1155,8 @@ button:disabled {
   margin-top: auto;
   flex: 0 0 auto;
   white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .wm-warning {
@@ -1203,8 +1173,8 @@ button:disabled {
   grid-template-columns: 1fr 1fr;
   width: 172px;
   height: 36px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border: 1px solid var(--border-weak);
+  border-radius: 12px;
   overflow: hidden;
 }
 
@@ -1212,16 +1182,11 @@ button:disabled {
 .wm-segment button {
   border: 0;
   background: #fff;
-  color: #243054;
+  color: var(--text-secondary);
   font: inherit;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-}
-
-.wm-tabs button.on,
-.wm-segment button.on {
-  color: #fff;
-  background: var(--primary);
 }
 
 .wm-canvas-shell {
@@ -1234,8 +1199,8 @@ button:disabled {
   margin-top: 12px;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fbfcff;
+  border-radius: 14px;
+  background: #fafbfd;
   overflow: hidden;
 }
 
@@ -1365,7 +1330,17 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: #1d274c;
+  color: var(--text);
+}
+
+.wm-empty-preview strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wm-empty-preview span {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .wm-empty-preview__art {
@@ -1381,7 +1356,7 @@ button:disabled {
   position: absolute;
   right: 20px;
   bottom: 10px;
-  color: #5f93f8;
+  color: var(--primary);
 }
 
 .wm-preview-foot {
@@ -1408,7 +1383,7 @@ button:disabled {
 .wm-file-list,
 .wm-card--settings {
   scrollbar-width: thin;
-  scrollbar-color: #c9d4e8 transparent;
+  scrollbar-color: #d6d9e0 transparent;
 }
 
 .image-watermark-removal-page::-webkit-scrollbar,
@@ -1432,7 +1407,7 @@ button:disabled {
 .wm-card--settings::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: #c9d4e8;
+  background: #d6d9e0;
   background-clip: padding-box;
 }
 
@@ -1442,43 +1417,81 @@ button:disabled {
 }
 
 .wm-settings-section h4 {
-  margin: 0 0 18px;
-  font-size: 15px;
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
 }
 
 .wm-field-label {
   display: block;
   margin-bottom: 12px;
-  color: #253052;
-  font-size: 14px;
-  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.wm-segment {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.wm-tabs button.on {
+  color: #fff;
+  background: var(--primary);
+}
+
+.mode-options {
+  display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.wm-segment--two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.mode-option {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  background: var(--surface-muted);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
 }
 
-.wm-segment button {
-  height: 38px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
+.mode-option:hover:not(.mode-option--active) {
+  border-color: #dbeafe;
+  background: #fafbfd;
 }
 
-.wm-segment button.on {
-  border-color: var(--primary);
+.mode-option--active {
+  border-color: #c7d2fe;
+  background: #fafbfd;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08);
   color: var(--primary);
-  background: #f8fbff;
+  font-weight: 600;
+}
+
+.mode-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
 }
 
 .wm-muted {
   margin: 10px 0 0;
-  line-height: 1.6;
+  line-height: 1.5;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .wm-switch-row {
@@ -1495,13 +1508,15 @@ button:disabled {
 }
 
 .wm-switch-row strong {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .wm-switch-row em {
-  color: var(--muted);
+  color: var(--text-muted);
   font-style: normal;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .wm-switch-row input {
@@ -1572,10 +1587,11 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 18px 24px 20px;
+  padding: 14px 18px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: #fff;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
 }
 
 .wm-bottom__summary {
@@ -1593,7 +1609,7 @@ button:disabled {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: conic-gradient(#7aa3ff calc(var(--p) * 1%), #edf1f7 0);
+  background: conic-gradient(var(--primary) calc(var(--p) * 1%), #e7e9ee 0);
 }
 
 .wm-ring::before {
@@ -1607,10 +1623,10 @@ button:disabled {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: #111936;
+  color: var(--text);
   background: #fff;
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .wm-bottom__metrics {
@@ -1621,8 +1637,9 @@ button:disabled {
 .wm-bottom__metrics h3 {
   margin: 0 0 12px;
   color: var(--text);
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .wm-metrics-grid {
@@ -1637,19 +1654,19 @@ button:disabled {
 }
 
 .wm-metrics-grid dt {
-  margin: 0 0 8px;
-  color: #111936;
-  font-size: 13px;
-  font-weight: 800;
+  margin: 0 0 6px;
+  color: var(--text-hint);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .wm-metrics-grid dd {
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  color: #5c698a;
+  color: var(--text);
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1663,8 +1680,9 @@ button:disabled {
 
 .wm-metrics-grid__progress dd > span {
   order: 2;
-  color: #5c698a;
-  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
   text-align: right;
 }
 
@@ -1673,7 +1691,7 @@ button:disabled {
   min-width: 0;
   overflow: hidden;
   border-radius: 999px;
-  background: #edf1f7;
+  background: #e7e9ee;
 }
 
 .wm-progress-line i {
@@ -1689,7 +1707,7 @@ button:disabled {
   align-items: center;
   gap: 18px;
   padding-top: 16px;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid var(--border);
 }
 
 .wm-bottom__output {
@@ -1701,9 +1719,9 @@ button:disabled {
 
 .wm-bottom__output label {
   flex: 0 0 auto;
-  color: #111936;
-  font-size: 15px;
-  font-weight: 700;
+  color: var(--text-hint);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .wm-bottom__output-row {
@@ -1726,10 +1744,10 @@ button:disabled {
   min-width: 0;
   padding: 0 12px;
   border-right: 0;
-  border-radius: 6px 0 0 6px;
-  color: #1f2a55;
+  border-radius: 12px 0 0 12px;
+  color: var(--text);
   font: inherit;
-  font-size: 15px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1737,15 +1755,15 @@ button:disabled {
 .wm-bottom__output-row button {
   display: grid;
   place-items: center;
-  border-radius: 0 6px 6px 0;
-  color: #1f2a55;
+  border-radius: 0 12px 12px 0;
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
 .wm-bottom__output-row button:hover:not(:disabled) {
   color: var(--primary);
-  border-color: #b9ccf4;
-  background: #f8fbff;
+  border-color: #c7d2fe;
+  background: #fafbfd;
 }
 
 .wm-bottom__actions {
@@ -1762,72 +1780,33 @@ button:disabled {
   justify-content: center;
   gap: 10px;
   font-size: 15px;
+  font-weight: 600;
+  border-radius: 999px;
 }
 
 .wm-action--primary {
   color: #fff;
-  border-color: var(--primary);
-  background: var(--primary);
+  border: none;
+  font-weight: 700;
+  background: linear-gradient(135deg, #fbb054 0%, #f78c2c 100%);
+  box-shadow: var(--cta-shadow);
 }
 
-.wm-model-loading {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(15, 23, 42, 0.28);
-  backdrop-filter: blur(3px);
+.wm-action--primary:hover:not(:disabled) {
+  filter: brightness(1.03);
+  box-shadow: 0 6px 16px rgba(243, 132, 30, 0.32);
 }
 
-.wm-model-loading__panel,
+.wm-action--primary:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
 .wm-model-error {
   width: min(560px, calc(100vw - 48px));
   padding: 18px;
   border-radius: 10px;
-  background: #fff;
   box-shadow: 0 18px 48px rgba(16, 25, 54, 0.18);
-}
-
-.wm-model-loading__panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  border: 1px solid var(--border);
-}
-
-.wm-model-loading__bar {
-  height: 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #edf1f7;
-}
-
-.wm-model-loading__bar i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--primary);
-}
-
-.wm-model-loading__meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.wm-model-loading__panel p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  word-break: break-all;
-}
-
-.wm-model-error {
   position: fixed;
   right: 24px;
   bottom: 92px;
@@ -1862,173 +1841,10 @@ button:disabled {
 
 .wm-toast-tip {
   margin: -4px 0 0;
-  color: var(--muted);
+  color: var(--text-hint);
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
-@media (max-width: 1120px) {
-  .wm-workspace {
-    grid-template-columns: minmax(260px, 0.9fr) minmax(420px, 1.3fr);
-  }
-
-  .wm-card--settings {
-    grid-column: 1 / -1;
-  }
-
-  .wm-metrics-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .wm-metrics-grid__progress {
-    grid-column: 1 / -1;
-  }
-
-  .wm-bottom__footer {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .wm-bottom__actions {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .wm-bottom__output {
-    align-items: stretch;
-  }
-
-  .wm-bottom__output-row {
-    width: 100%;
-    flex-basis: auto;
-  }
-}
-
-@media (max-height: 760px) {
-  .wm-card-head {
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .wm-card-head__title {
-    font-size: 15px;
-  }
-
-  .wm-btn--small {
-    height: 30px;
-    padding: 0 10px;
-    font-size: 12px;
-  }
-
-  .wm-drop--compact {
-    min-height: 54px;
-    margin-bottom: 8px;
-    padding: 8px 10px;
-  }
-
-  .wm-drop:not(.wm-drop--compact) {
-    padding: 14px 12px;
-  }
-
-  .wm-drop:not(.wm-drop--compact) .wm-drop__art {
-    margin-bottom: 8px;
-  }
-
-  .wm-drop:not(.wm-drop--compact) .wm-drop__title {
-    margin-bottom: 6px;
-    font-size: 14px;
-  }
-
-  .wm-drop:not(.wm-drop--compact) .wm-drop__batch,
-  .wm-drop:not(.wm-drop--compact) .wm-drop__sub:last-child {
-    display: none;
-  }
-
-  .wm-file-list {
-    gap: 8px;
-    min-height: 64px;
-  }
-
-  .wm-file {
-    grid-template-columns: 58px minmax(0, 1fr) auto 26px;
-    min-height: 56px;
-    gap: 8px;
-    padding: 6px;
-  }
-
-  .wm-file__thumb {
-    width: 58px;
-    height: 42px;
-  }
-
-  .wm-file__meta {
-    gap: 3px;
-  }
-
-  .wm-file__meta strong {
-    font-size: 13px;
-  }
-
-  .wm-file__status {
-    padding: 4px 7px;
-    font-size: 11px;
-  }
-
-  .wm-list-foot {
-    padding-top: 8px;
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 900px) {
-  .image-watermark-removal-page {
-    height: 100%;
-    min-height: 0;
-    padding: 10px;
-    overflow: hidden;
-  }
-
-  .wm-workspace {
-    grid-template-columns: 1fr;
-    overflow: auto;
-  }
-
-  .wm-bottom {
-    padding: 16px;
-  }
-
-  .wm-bottom__summary {
-    align-items: flex-start;
-  }
-
-  .wm-ring {
-    width: 70px;
-    height: 70px;
-  }
-
-  .wm-ring span {
-    width: 54px;
-    height: 54px;
-    font-size: 16px;
-  }
-
-  .wm-metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-  }
-
-  .wm-bottom__actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .wm-bottom__output {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .wm-action {
-    width: 100%;
-  }
-}
 </style>

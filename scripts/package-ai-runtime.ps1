@@ -38,9 +38,13 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
 
 $SourceRoot = [System.IO.Path]::GetFullPath($SourceRoot)
 $OutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
-$stageRoot = Join-Path $OutputRoot "stage"
+$stageRoot = Join-Path $repoRoot "_ai_stage"
 $archivePath = Join-Path $OutputRoot $PackageFileName
 $manifestPath = Join-Path $OutputRoot "manifest.generated.json"
+$criticalSitePackageFiles = @(
+  "torch\__init__.py",
+  "torch\version.py"
+)
 
 function Remove-DirectoryIfExists {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -55,29 +59,55 @@ function Copy-TreeFiltered {
     [Parameter(Mandatory = $true)][string]$To
   )
 
-  Get-ChildItem -LiteralPath $From -Force | ForEach-Object {
-    $target = Join-Path $To $_.Name
-
-    if ($_.PSIsContainer) {
-      if ($_.Name -eq "__pycache__") {
-        return
+  foreach ($item in Get-ChildItem -LiteralPath $From -Force) {
+    if ($item.PSIsContainer) {
+      if ($item.Name -eq "__pycache__") {
+        continue
       }
-      New-Item -ItemType Directory -Path $target -Force | Out-Null
-      Copy-TreeFiltered -From $_.FullName -To $target
-      return
+      New-Item -ItemType Directory -Path $To -Force | Out-Null
+      Copy-Item -LiteralPath $item.FullName -Destination $To -Recurse -Force
+      continue
     }
 
-    if ($_.Extension -eq ".pyc") {
-      return
+    if ($item.Extension -eq ".pyc") {
+      continue
     }
 
-    Copy-Item -LiteralPath $_.FullName -Destination $target -Force
+    New-Item -ItemType Directory -Path $To -Force | Out-Null
+    Copy-Item -LiteralPath $item.FullName -Destination (Join-Path $To $item.Name) -Force
   }
 }
 
 function Get-FileSha256 {
   param([Parameter(Mandatory = $true)][string]$Path)
   return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+}
+
+function Assert-CriticalFiles {
+  param(
+    [Parameter(Mandatory = $true)][string]$Root,
+    [Parameter(Mandatory = $true)][string[]]$RelativePaths,
+    [Parameter(Mandatory = $true)][string]$Label
+  )
+
+  $missing = @()
+  foreach ($relativePath in $RelativePaths) {
+    $fullPath = Join-Path $Root $relativePath
+    if (!(Test-Path -LiteralPath $fullPath)) {
+      $missing += $relativePath
+    }
+  }
+
+  if ($missing.Count -gt 0) {
+    throw "$Label is incomplete. Missing critical files: $($missing -join ', ')"
+  }
+}
+
+function Test-IsVirtualEnvRuntime {
+  param([Parameter(Mandatory = $true)][string]$PythonRoot)
+
+  $pyvenvConfig = Join-Path $PythonRoot "pyvenv.cfg"
+  return Test-Path -LiteralPath $pyvenvConfig
 }
 
 function Get-RelativePackageUrl {
@@ -99,18 +129,66 @@ if (!(Test-Path -LiteralPath $SourceRoot)) {
 }
 
 $pythonDir = Join-Path $SourceRoot "python"
+$basePythonDir = Join-Path $SourceRoot "python-base"
+$sitePackagesDir = Join-Path $SourceRoot "python-site-packages"
 $sidecarsDir = Join-Path $SourceRoot "sidecars"
-if (!(Test-Path -LiteralPath $pythonDir)) {
-  throw "Missing runtime python directory: $pythonDir"
-}
 if (!(Test-Path -LiteralPath $sidecarsDir)) {
   throw "Missing runtime sidecars directory: $sidecarsDir"
 }
 
-$pythonExe = Join-Path $pythonDir "python.exe"
-$venvPythonExe = Join-Path $pythonDir "Scripts\python.exe"
-if (!(Test-Path -LiteralPath $pythonExe) -and !(Test-Path -LiteralPath $venvPythonExe)) {
-  throw "Missing runtime python executable under: $pythonDir"
+$layout = ""
+if (Test-Path -LiteralPath $pythonDir) {
+  $pythonExe = Join-Path $pythonDir "python.exe"
+  $venvPythonExe = Join-Path $pythonDir "Scripts\python.exe"
+  if (!(Test-Path -LiteralPath $pythonExe) -and !(Test-Path -LiteralPath $venvPythonExe)) {
+    throw "Missing runtime python executable under: $pythonDir"
+  }
+  if (Test-IsVirtualEnvRuntime -PythonRoot $pythonDir) {
+    throw @"
+The AI runtime under '$pythonDir' is a Python virtual environment (pyvenv.cfg detected).
+Virtual environments are not portable and will keep absolute paths to the build machine,
+which breaks on a clean PC after installation.
+
+Use the prepared source layout instead:
+  python-base\
+  python-site-packages\
+  sidecars\
+"@
+  }
+  if (!(Test-Path -LiteralPath $pythonExe)) {
+    throw @"
+The AI runtime under '$pythonDir' does not contain python\python.exe.
+Release packages must bundle a portable/self-contained Python runtime instead of a venv-style layout.
+"@
+  }
+  $layout = "portable"
+} elseif ((Test-Path -LiteralPath $basePythonDir) -and (Test-Path -LiteralPath $sitePackagesDir)) {
+  $basePythonExe = Join-Path $basePythonDir "python.exe"
+  if (!(Test-Path -LiteralPath $basePythonExe)) {
+    throw "Missing base Python executable under: $basePythonDir"
+  }
+  if (Test-IsVirtualEnvRuntime -PythonRoot $basePythonDir) {
+    throw "Base Python source must not be a virtual environment: $basePythonDir"
+  }
+  if (!(Test-Path -LiteralPath (Join-Path $sitePackagesDir "torch"))) {
+    throw "Missing torch package under: $sitePackagesDir"
+  }
+  Assert-CriticalFiles -Root $sitePackagesDir -RelativePaths $criticalSitePackageFiles -Label "Bundled AI site-packages"
+  $layout = "bundle"
+} else {
+  throw @"
+Unsupported AI runtime source layout: $SourceRoot
+
+Expected one of:
+  1. portable layout:
+     python\
+     sidecars\
+
+  2. bundle layout:
+     python-base\
+     python-site-packages\
+     sidecars\
+"@
 }
 
 $sidecarEntry = Join-Path $sidecarsDir "lama_inpaint.py"
@@ -121,32 +199,49 @@ if (!(Test-Path -LiteralPath $sidecarEntry)) {
 New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
 Remove-DirectoryIfExists -Path $stageRoot
 New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $stageRoot "python") -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $stageRoot "sidecars") -Force | Out-Null
-
-Copy-TreeFiltered -From $pythonDir -To (Join-Path $stageRoot "python")
 Copy-TreeFiltered -From $sidecarsDir -To (Join-Path $stageRoot "sidecars")
+if ($layout -eq "portable") {
+  New-Item -ItemType Directory -Path (Join-Path $stageRoot "python") -Force | Out-Null
+  Copy-TreeFiltered -From $pythonDir -To (Join-Path $stageRoot "python")
+} else {
+  New-Item -ItemType Directory -Path (Join-Path $stageRoot "python-base") -Force | Out-Null
+  New-Item -ItemType Directory -Path (Join-Path $stageRoot "python-site-packages") -Force | Out-Null
+  Copy-TreeFiltered -From $basePythonDir -To (Join-Path $stageRoot "python-base")
+  Copy-TreeFiltered -From $sitePackagesDir -To (Join-Path $stageRoot "python-site-packages")
+  Assert-CriticalFiles -Root (Join-Path $stageRoot "python-site-packages") -RelativePaths $criticalSitePackageFiles -Label "Staged AI site-packages"
+}
 
 $packageSha256 = "SKIPPED"
 $packageSize = 0
 $packageUrl = Get-RelativePackageUrl
 
 if (!$SkipArchive) {
-  $tarExe = Get-Command tar.exe -ErrorAction SilentlyContinue
-  if (!$tarExe) {
-    throw "tar.exe not found. Install Windows bsdtar / tar support, or package the stage directory manually."
-  }
-
   if (Test-Path -LiteralPath $archivePath) {
     Remove-Item -LiteralPath $archivePath -Force
   }
 
   Push-Location $stageRoot
   try {
-    & $tarExe.Source -a -cf $archivePath "python" "sidecars"
+    $archiveInputs = if ($layout -eq "portable") {
+      @("python", "sidecars")
+    } else {
+      @("python-base", "python-site-packages", "sidecars")
+    }
+    Compress-Archive -Path $archiveInputs -DestinationPath $archivePath -Force
+    if (!(Test-Path -LiteralPath $archivePath)) {
+      throw "Compress-Archive did not create the expected archive: $archivePath"
+    }
+    <#
+    if ($layout -eq "portable") {
+      & $tarExe.Source -a -cf $archivePath "python" "sidecars"
+    } else {
+      & $tarExe.Source -a -cf $archivePath "python-base" "python-site-packages" "sidecars"
+    }
     if ($LASTEXITCODE -ne 0) {
       throw "tar.exe failed with exit code $LASTEXITCODE"
     }
+    #>
   } finally {
     Pop-Location
   }

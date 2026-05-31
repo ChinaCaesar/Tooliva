@@ -1,5 +1,6 @@
 use crate::ffmpeg_gif::filter::build_filter_complex;
 use crate::ffmpeg_gif::types::{VideoToGifOptions, VideoToGifProgressEvent};
+use crate::process_utils::hide_process_window;
 use crate::runtime_bins::resolve_binary;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -21,8 +22,8 @@ pub fn probe_duration_secs(ffprobe: &Path, input: &Path) -> Result<f64, String> 
     let input_str = input
         .to_str()
         .ok_or_else(|| "输入路径编码无效".to_string())?;
-    let out = Command::new(ffprobe)
-        .args([
+    let mut command = Command::new(ffprobe);
+    command.args([
             "-v",
             "error",
             "-show_entries",
@@ -30,7 +31,9 @@ pub fn probe_duration_secs(ffprobe: &Path, input: &Path) -> Result<f64, String> 
             "-of",
             "default=noprint_wrappers=1:nokey=1",
             input_str,
-        ])
+        ]);
+    hide_process_window(&mut command);
+    let out = command
         .output()
         .map_err(|err| format!("{} ({err})", binary_missing_hint("ffprobe")))?;
     if !out.status.success() {
@@ -139,10 +142,10 @@ where
     let stderr_tail = Arc::new(Mutex::new(Vec::<String>::new()));
     let tail_clone = Arc::clone(&stderr_tail);
 
-    let mut child = Command::new(ffmpeg)
-        .args(&args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+    let mut command = Command::new(ffmpeg);
+    command.args(&args).stdout(Stdio::piped()).stderr(Stdio::piped());
+    hide_process_window(&mut command);
+    let mut child = command
         .spawn()
         .map_err(|err| format!("{} ({err})", binary_missing_hint("ffmpeg")))?;
 

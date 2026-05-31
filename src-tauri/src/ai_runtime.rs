@@ -213,14 +213,14 @@ fn resolve_ai_runtime_home() -> Result<PathBuf, String> {
         env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
             .ok_or_else(|| "LOCALAPPDATA is not set".to_string())?
-            .join("DesktopToolbox")
+            .join("Tooliva")
     } else if cfg!(target_os = "macos") {
         env::var_os("HOME")
             .map(PathBuf::from)
             .ok_or_else(|| "HOME is not set".to_string())?
             .join("Library")
             .join("Application Support")
-            .join("DesktopToolbox")
+            .join("Tooliva")
     } else {
         env::var_os("XDG_DATA_HOME")
             .map(PathBuf::from)
@@ -228,7 +228,7 @@ fn resolve_ai_runtime_home() -> Result<PathBuf, String> {
                 env::var_os("HOME").map(|home| PathBuf::from(home).join(".local").join("share"))
             })
             .ok_or_else(|| "Unable to resolve local data directory".to_string())?
-            .join("DesktopToolbox")
+            .join("Tooliva")
     };
     Ok(local_app_data.join("ai-runtime"))
 }
@@ -238,14 +238,14 @@ fn resolve_models_root() -> Result<PathBuf, String> {
         env::var_os("APPDATA")
             .map(PathBuf::from)
             .ok_or_else(|| "APPDATA is not set".to_string())?
-            .join("DesktopToolbox")
+            .join("Tooliva")
     } else if cfg!(target_os = "macos") {
         env::var_os("HOME")
             .map(PathBuf::from)
             .ok_or_else(|| "HOME is not set".to_string())?
             .join("Library")
             .join("Application Support")
-            .join("DesktopToolbox")
+            .join("Tooliva")
     } else {
         env::var_os("XDG_DATA_HOME")
             .map(PathBuf::from)
@@ -253,7 +253,7 @@ fn resolve_models_root() -> Result<PathBuf, String> {
                 env::var_os("HOME").map(|home| PathBuf::from(home).join(".local").join("share"))
             })
             .ok_or_else(|| "Unable to resolve data directory".to_string())?
-            .join("DesktopToolbox")
+            .join("Tooliva")
     };
     Ok(app_data.join("ai-models"))
 }

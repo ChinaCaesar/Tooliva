@@ -46,7 +46,7 @@ AI 增强组件与桌面主程序分离发布，通过远端 manifest 管理版�
 ## 本地安装布局
 
 ```text
-%LOCALAPPDATA%/DesktopToolbox/ai-runtime/
+%LOCALAPPDATA%/Tooliva/ai-runtime/
   manifest.json
   current/
   versions/<version>/

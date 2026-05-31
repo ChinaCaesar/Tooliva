@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::ai_runtime::{ensure_lama_torch_checkpoint, resolve_ai_runtime_paths, AiRuntimePaths};
 use crate::debug_log::{debug_log_to_stderr, debug_logs_enabled, DEBUG_LOG_ENV};
+use crate::process_utils::hide_process_window;
 
 static LAMA_POOL: OnceLock<Mutex<Option<Arc<LamaWorkerPool>>>> = OnceLock::new();
 static REQUEST_ID: AtomicU64 = AtomicU64::new(1);
@@ -79,7 +80,7 @@ pub fn ensure_lama_worker_ready(require_lama: bool) -> Result<AiRuntimeHealth, S
 }
 
 pub fn recommended_lama_worker_count(health: &AiRuntimeHealth) -> usize {
-    if let Ok(raw) = std::env::var("DESKTOP_TOOLBOX_LAMA_WORKERS") {
+    if let Ok(raw) = std::env::var("TOOLIVA_LAMA_WORKERS") {
         if let Ok(value) = raw.trim().parse::<usize>() {
             return value.clamp(1, 8);
         }
@@ -270,12 +271,14 @@ fn ensure_runtime_imports(
         .arg("--torch-home")
         .arg(&paths.torch_home)
         .env("TORCH_HOME", &paths.torch_home)
+        .env("PYTHONNOUSERSITE", "1")
         .env("PYTHONUTF8", "1")
         .env("PYTHONIOENCODING", "utf-8")
         .env(DEBUG_LOG_ENV, if debug_logs_enabled() { "1" } else { "0" });
     if require_lama {
         command.arg("--require-lama");
     }
+    hide_process_window(&mut command);
     let output = command.output()
         .map_err(|err| {
             format!(
@@ -321,6 +324,7 @@ fn start_lama_worker(
         .arg("--torch-home")
         .arg(&paths.torch_home)
         .env("TORCH_HOME", &paths.torch_home)
+        .env("PYTHONNOUSERSITE", "1")
         .env("PYTHONUTF8", "1")
         .env("PYTHONIOENCODING", "utf-8")
         .env(DEBUG_LOG_ENV, if debug_logs_enabled() { "1" } else { "0" })
@@ -330,6 +334,7 @@ fn start_lama_worker(
     if require_lama {
         command.arg("--require-lama");
     }
+    hide_process_window(&mut command);
     let mut child = command
         .spawn()
         .map_err(|err| format!("Failed to start AI worker: {err}"))?;

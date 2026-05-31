@@ -8,7 +8,7 @@ use std::{
 use tauri::{AppHandle, LogicalSize, Manager};
 
 const SETTINGS_KEY: &str = "user_settings";
-const DATABASE_FILE_NAME: &str = "desktop_toolbox.db";
+const DATABASE_FILE_NAME: &str = "tooliva.db";
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

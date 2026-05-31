@@ -1,6 +1,6 @@
 export const enUS = {
   app: {
-    title: "Desktop Toolbox"
+    title: "Tooliva"
   },
   nav: {
     home: "Home",
@@ -84,6 +84,67 @@ export const enUS = {
       upgradeCancel: "Later"
     }
   },
+  aiEnhancement: {
+    panelTitle: "AI component status",
+    simpleStatus: {
+      installed: "AI enhancement runtime installed",
+      notInstalled: "AI enhancement runtime not installed"
+    },
+    runtimeStatus: {
+      DISABLED: "AI enhancement runtime is disabled",
+      NOT_INSTALLED: "AI enhancement runtime not installed",
+      CHECKING: "Checking AI environment",
+      ENV_NOT_SUPPORTED: "This device does not meet AI install requirements",
+      READY_TO_INSTALL: "AI enhancement runtime can be installed",
+      DOWNLOADING: "Downloading AI enhancement runtime",
+      VERIFYING: "Verifying AI enhancement runtime",
+      INSTALLING: "Installing AI enhancement runtime",
+      INSTALLED: "AI enhancement runtime installed",
+      UPDATE_AVAILABLE: "AI enhancement runtime update available",
+      FAILED: "AI enhancement runtime operation failed"
+    },
+    installHintDefault:
+      "Import a local AI runtime package first, or place the offline files in the app data directory.",
+    requirements:
+      "Requires {os}, at least {memory} GB free RAM, and {disk} GB free disk space.",
+    requirementsOs: "Windows 10/11 64-bit",
+    modelStatus: {
+      ready: "LaMA model ready",
+      notImported: "LaMA model not imported"
+    },
+    actions: {
+      installRuntime: "Install AI enhancement runtime",
+      upgradeRuntime: "Upgrade AI runtime",
+      retry: "Retry",
+      importModel: "Import LaMA model",
+      importingModel: "Importing model..."
+    },
+    installProgress: {
+      preparing: "Preparing AI runtime…",
+      extracting: "Extracting runtime files…",
+      organizing: "Organizing dependencies…",
+      largePackage: "Large package—installation still in progress…"
+    },
+    overlay: {
+      processingTitle: "Processing AI enhancement runtime",
+      patienceHint: "This may take a while for large tasks. Please wait.",
+      replacingRuntime: "Replacing AI enhancement runtime…"
+    },
+    errors: {
+      modelMissing: "LaMA model not found. Import big-lama.pt first. Target folder: {path}",
+      notReady: "AI enhancement runtime is not ready. Install or upgrade first.",
+      selectPackageFirst: "Select a local AI runtime package (.zip) before importing.",
+      envNotSupported: "This device does not meet AI install requirements."
+    },
+    dialog: {
+      runtimePackage: "AI Runtime Package",
+      lamaModel: "LaMA Model"
+    },
+    engine: {
+      fastLocal: "Local fast repair",
+      aiEnhanced: "AI enhanced repair"
+    }
+  },
   layout: {
     appShell: {
       sidebarAria: "Main navigation",
@@ -125,6 +186,23 @@ export const enUS = {
     }
   },
   pages: {
+    watermarkRemoval: {
+      mode: {
+        title: "Processing mode",
+        ariaLabel: "Processing mode",
+        fast: "Fast mode",
+        ai: "AI enhanced mode",
+        fastHintImage:
+          "Fast mode needs no AI download. All processing stays on-device—best for simple backgrounds, solid colors, corner marks, and small areas.",
+        fastHintVideo:
+          "No AI download required—best for simple backgrounds, solid colors, corner marks, and small areas.",
+        aiHintImage:
+          "Install the local AI runtime for complex backgrounds and more natural results. Large one-time download; files never leave your device.",
+        aiHintVideo:
+          "Best for complex backgrounds and more natural results. Install once; files never leave your device."
+      },
+      aiComponentStatus: "AI component status"
+    },
     home: {
       greeting: {
         morning: "Good morning, creator!",
@@ -139,7 +217,7 @@ export const enUS = {
         useNow: "Use now"
       },
       topBar: {
-        appName: "Toolbox",
+        appName: "Tooliva",
         tagline: "Your helper for creator workflows",
         searchPlaceholder: "Search tools (e.g. image compress, video to GIF)",
         searchShortcut: "Ctrl K",
@@ -198,7 +276,7 @@ export const enUS = {
             viewAll: "View all",
             v100: {
               date: "2024-05-20",
-              summary: "Toolbox initial release."
+              summary: "Tooliva initial release."
             },
             v090: {
               date: "2024-05-15",
@@ -284,7 +362,7 @@ export const enUS = {
         twoDaysAgo: "2 days ago"
       },
       footer: {
-        copyright: "© 2024 Toolbox",
+        copyright: "© 2024 Tooliva",
         versionPrefix: "Current version",
         slogan: "Make creation more efficient, make life simpler",
         feedback: "Feedback",
@@ -351,6 +429,7 @@ export const enUS = {
         off: "Off",
         browse: "Browse",
         change: "Change",
+        replace: "Replace",
         every5Minutes: "Every 5 minutes",
         standard: "Standard",
         concurrency4: "4 concurrent",
@@ -408,6 +487,21 @@ export const enUS = {
         updateDesc: "Notify when a new app version is available",
         mailTitle: "Email Notification",
         mailDesc: "Receive product updates and activity news"
+      },
+      aiModules: {
+        sectionTitle: "AI enhancement",
+        runtimeTitle: "AI runtime",
+        runtimeEmptyHint: "AI runtime is not installed. Use “Replace” to import a zip package.",
+        modelTitle: "LaMA model",
+        modelEmptyHint: "LaMA model is not imported. Use “Replace” to select big-lama.pt.",
+        notInstalled: "Not installed",
+        replaceRuntimeConfirmTitle: "Replace AI runtime",
+        replaceRuntimeConfirmBody:
+          "This removes the current AI runtime and imports the package you select. This cannot be undone. Continue?",
+        replaceModelConfirmTitle: "Replace LaMA model",
+        replaceModelConfirmBody:
+          "This removes the current LaMA model file and imports the file you select. This cannot be undone. Continue?",
+        replaceFailedTitle: "Replace failed"
       },
       privacy: {
         usageTitle: "Usage Data Collection",
@@ -504,7 +598,7 @@ export const enUS = {
         privacyPolicy: "Privacy policy",
         termsPlaceholder: "Terms content will be linked or embedded in a future release.",
         privacyPlaceholder: "Privacy policy content will be linked or embedded in a future release.",
-        copyright: "© Desktop Toolbox"
+        copyright: "© Tooliva"
       }
     },
     membership: {
@@ -711,8 +805,10 @@ export const enUS = {
         one_time: "One-time"
       },
       errors: {
-        planFetchFailed: "Unable to load package information right now.",
-        membershipFetchFailed: "Unable to load current membership status right now."
+        planFetchFailed: "Unable to load package information right now. Please try again later.",
+        membershipFetchFailed: "Unable to load current membership status right now. Please try again later.",
+        networkError: "Network connection failed. Please check your network and try again.",
+        sessionExpired: "Your session has expired. Please sign in again to view membership details."
       }
     },
     imageCompress: {
@@ -1168,7 +1264,8 @@ export const enUS = {
         start: "Start conversion",
         processing: "Converting…",
         exportGif: "Export GIF",
-        openFolder: "Open output folder"
+        openFolder: "Open output folder",
+        openDirectory: "Open folder"
       },
       hints: {
         dragNoPath: "No local path resolved. Use the upload button or drag into the desktop window.",
@@ -1300,7 +1397,7 @@ export const enUS = {
         close: "Close"
       },
       output: {
-        defaultDirectory: "D:\\Toolbox\\watermark-removal-output"
+        defaultDirectory: "D:\\Tooliva\\watermark-removal-output"
       },
       dialog: {
         imagesFilterName: "Images"
@@ -1316,8 +1413,21 @@ export const enUS = {
       filePicker: {
         videoFilter: "Videos"
       },
+      mode: {
+        title: "Processing mode",
+        ariaLabel: "Processing mode",
+        fast: "Fast mode",
+        ai: "AI enhanced mode",
+        fastHint:
+          "No AI download required—best for simple backgrounds, solid colors, corner marks, and small areas.",
+        aiHint:
+          "Best for complex backgrounds and more natural results. Install once; files never leave your device.",
+        engineLabel: "Processing engine"
+      },
       engine: {
-        label: "FFmpeg streaming / automatic hardware encoding"
+        label: "FFmpeg streaming / automatic hardware encoding",
+        fastLocal: "Local fast repair",
+        aiEnhanced: "AI enhanced repair"
       },
       progressPanel: {
         idleTitle: "No active task",
@@ -1349,12 +1459,12 @@ export const enUS = {
         title: "Files ({count})",
         addVideos: "Add videos",
         clearList: "Clear list",
+        removeItem: "Remove from list",
         dropHint: "Drag videos here, or ",
         dropAddLink: "click to add videos",
         formatsLine: "Supports MP4 / MOV / WebM / MKV / AVI / M4V / WMV",
         batchImport: "Batch import supported",
-        sharedRegionHint:
-          "Videos with the same watermark position can share the current selection",
+        sharedRegionHint: "You can add multiple videos and process them in one run",
         totalVideos: "{count} videos",
         totalSize: "Total size: {size}"
       },
@@ -1369,12 +1479,25 @@ export const enUS = {
         controlsAria: "Preview controls",
         outputNote:
           "Output keeps the original format by default; multiple videos can share the same region when the watermark aligns.",
-        regionsSelected: "{count} region(s) selected"
+        regionsSelected: "{count} region(s) selected",
+        footTipPause: "Preview is enlarged. Pause the video before drawing regions."
+      },
+      bottomBar: {
+        overallProgress: "Overall progress",
+        status: "Status",
+        currentFile: "Current file",
+        estimatedRemaining: "Est. remaining",
+        elapsed: "Elapsed",
+        progressDetail: "Progress detail",
+        outputDirLabel: "Output folder",
+        openOutput: "Open folder",
+        stopTask: "Stop task",
+        start: "Remove watermark"
       },
       output: {
         directoryLabel: "Output folder",
         openFolder: "Open folder",
-        defaultDirectory: "D:\\Toolbox\\video-watermark-removal-output"
+        defaultDirectory: "D:\\Tooliva\\video-watermark-removal-output"
       },
       actions: {
         stop: "Stop",

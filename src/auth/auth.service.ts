@@ -1,4 +1,5 @@
 import { API_BASE_URL, AUTH_DESKTOP_CLIENT, AUTH_REDIRECT_URI, WEBSITE_URL } from '@/config/constants';
+import { httpFetch } from '@/utils/httpFetch';
 import { computeCodeChallenge, generateCodeVerifier, generateState } from '@/auth/pkce';
 import type {
   AuthExchangeResult,
@@ -55,7 +56,7 @@ function assetUrl(path?: string): string | undefined {
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
+  const response = await httpFetch(`${apiBaseUrl()}${path}`, {
     ...init,
     headers: {
       Accept: 'application/json',

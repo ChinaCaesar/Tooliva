@@ -44,6 +44,8 @@ const {
   removeClip,
   setFpsPreset,
   startConversion,
+  canOpenOutputDirectory,
+  openOutputDirectory,
   openClipOutputFolder,
   handleDrop,
   onDragOver,
@@ -1150,6 +1152,21 @@ function confirmRemoveVideo(): void {
                 aria-hidden="true"
               />
               {{ isProcessing ? t("pages.videoToGif.footer.processing") : t("pages.videoToGif.footer.start") }}
+            </button>
+            <button
+              type="button"
+              class="vtg-btn vtg-btn--ghost vtg-btn--block"
+              :disabled="!canOpenOutputDirectory || isProcessing"
+              :aria-label="t('pages.videoToGif.footer.openDirectory')"
+              @click="openOutputDirectory"
+            >
+              <svg viewBox="0 0 24 24" class="vtg-btn__icon" aria-hidden="true">
+                <path
+                  d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"
+                  fill="currentColor"
+                />
+              </svg>
+              {{ t("pages.videoToGif.footer.openDirectory") }}
             </button>
           </div>
         </aside>
@@ -3026,7 +3043,9 @@ function confirmRemoveVideo(): void {
 }
 
 .vtg-actions {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 @media (max-width: 1200px) {

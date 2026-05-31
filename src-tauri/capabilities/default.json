@@ -20,6 +20,14 @@
     "dialog:allow-save",
     "opener:default",
     "deep-link:default",
-    "process:default"
+    "process:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://*" },
+        { "url": "http://localhost:*" },
+        { "url": "http://127.0.0.1:*" }
+      ]
+    }
   ]
 }

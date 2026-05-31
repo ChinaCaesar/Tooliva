@@ -65,6 +65,13 @@ function parentDir(filePath: string): string {
   return idx <= 0 ? "" : filePath.slice(0, idx);
 }
 
+function joinPath(parent: string, child: string): string {
+  const base = parent.replace(/[/\\]+$/, "");
+  const segment = child.replace(/^[/\\]+/, "");
+  const sep = base.includes("\\") ? "\\" : "/";
+  return `${base}${sep}${segment}`;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -148,6 +155,23 @@ export function useVideoToGifActions() {
   });
 
   const hasVideo = computed(() => currentVideoPath.value.length > 0);
+
+  const effectiveOutputDirectory = computed(() => {
+    const custom = outputDirectory.value.trim();
+    if (custom) return custom;
+    const videoPath = currentVideoPath.value.trim();
+    if (videoPath) {
+      const dir = parentDir(videoPath);
+      if (dir) return joinPath(dir, "gif");
+    }
+    const completed = clips.value.find((c) => c.status === "completed" && c.outputPath);
+    if (completed?.outputPath) {
+      return parentDir(completed.outputPath);
+    }
+    return "";
+  });
+
+  const canOpenOutputDirectory = computed(() => effectiveOutputDirectory.value.length > 0);
 
   const selectionDurationSec = computed(() =>
     Math.max(0, selectionEndSec.value - selectionStartSec.value)
@@ -526,6 +550,23 @@ export function useVideoToGifActions() {
     outputDirectory.value = selected;
   }
 
+  async function openOutputDirectory(): Promise<void> {
+    const dir = effectiveOutputDirectory.value;
+    if (!dir) {
+      hintMessage.value = t("pages.videoToGif.errors.openDirectory");
+      return;
+    }
+    try {
+      await tauriClient.openDirectoryInFileManager({ directoryPath: dir });
+      hintMessage.value = "";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      hintMessage.value = message
+        ? t("pages.videoToGif.errors.openDirectoryFailed", { message })
+        : t("pages.videoToGif.errors.openDirectory");
+    }
+  }
+
   async function openClipOutputFolder(clipId: string): Promise<void> {
     const clip = clips.value.find((c) => c.id === clipId);
     if (!clip?.outputPath) {
@@ -662,6 +703,9 @@ export function useVideoToGifActions() {
     setFpsPreset,
     startConversion,
     pickOutputDirectory,
+    effectiveOutputDirectory,
+    canOpenOutputDirectory,
+    openOutputDirectory,
     openClipOutputFolder,
     handleDrop,
     onDragOver,

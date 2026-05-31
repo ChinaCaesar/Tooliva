@@ -50,7 +50,7 @@ VITE_AI_RUNTIME_PACKAGE_CHANNEL=stable
 AI 运行时安装到用户目录，不写入安装目录：
 
 ```text
-%LOCALAPPDATA%/DesktopToolbox/ai-runtime/
+%LOCALAPPDATA%/Tooliva/ai-runtime/
   manifest.json
   current/
   versions/
@@ -61,7 +61,7 @@ AI 运行时安装到用户目录，不写入安装目录：
 模型继续放在：
 
 ```text
-%APPDATA%/DesktopToolbox/ai-models/
+%APPDATA%/Tooliva/ai-models/
   lama/
     big-lama.pt
 ```

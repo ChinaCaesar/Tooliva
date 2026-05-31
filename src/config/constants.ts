@@ -1,11 +1,11 @@
 import type { AppLanguage, UserSettings, WindowSizeOption } from "@/types/settings";
 
-export const APP_NAME = "Desktop Toolbox";
-export const SETTINGS_STORAGE_KEY = "desktop-toolbox:user-settings";
+export const APP_NAME = "Tooliva";
+export const SETTINGS_STORAGE_KEY = "tooliva:user-settings";
 /** 应用壳侧栏折叠状态（仅 Web 层；Tauri 设置存 SQLite）。 */
-export const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "desktop-toolbox:app-sidebar-collapsed";
+export const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "tooliva:app-sidebar-collapsed";
 /** 清除本地数据后广播，供首页等刷新仅内存态。 */
-export const LOCAL_DATA_CLEARED_EVENT = "desktop-toolbox:local-data-cleared";
+export const LOCAL_DATA_CLEARED_EVENT = "tooliva:local-data-cleared";
 
 /** 官网地址（开发环境默认 localhost:4322） */
 export const WEBSITE_URL =
@@ -21,30 +21,12 @@ export const API_BASE_URL =
   ?? (API_ORIGIN && API_BASE_PATH ? `${API_ORIGIN.replace(/\/$/, "")}${API_BASE_PATH.startsWith("/") ? API_BASE_PATH : `/${API_BASE_PATH}`}` : undefined)
   ?? `${WEBSITE_URL.replace(/\/$/, "")}/api`;
 
-function normalizeAiRuntimeUrl(value: string | undefined): string {
-  const trimmed = value?.trim() ?? "";
-  if (!trimmed) return "";
-
-  try {
-    const parsed = new URL(trimmed);
-    if (parsed.hostname === "example.com" || parsed.hostname.endsWith(".example.com")) {
-      return "";
-    }
-    return parsed.toString();
-  } catch {
-    return /(^|:\/\/)(?:www\.)?example\.com(?:[/:]|$)/i.test(trimmed) ? "" : trimmed;
-  }
-}
-
-export const AI_RUNTIME_MANIFEST_URL = normalizeAiRuntimeUrl(import.meta.env.VITE_AI_RUNTIME_MANIFEST_URL as string | undefined);
-export const AI_RUNTIME_BASE_URL = normalizeAiRuntimeUrl(import.meta.env.VITE_AI_RUNTIME_BASE_URL as string | undefined);
 export const AI_RUNTIME_ENABLED = `${import.meta.env.VITE_AI_RUNTIME_ENABLED ?? "true"}`.trim().toLowerCase() !== "false";
 export const AI_RUNTIME_MIN_FREE_DISK_GB = Number(import.meta.env.VITE_AI_RUNTIME_MIN_FREE_DISK_GB ?? "8");
-export const AI_RUNTIME_PACKAGE_CHANNEL = (import.meta.env.VITE_AI_RUNTIME_PACKAGE_CHANNEL as string | undefined)?.trim() || "stable";
 export const AUTH_DESKTOP_CLIENT = "desktop";
 export const AUTH_REDIRECT_URI = "tooliva://auth/callback";
-export const AUTH_SESSION_STORAGE_KEY = "desktop-toolbox:auth-session";
-export const AUTH_PKCE_STORAGE_KEY = "desktop-toolbox:auth-pkce";
+export const AUTH_SESSION_STORAGE_KEY = "tooliva:auth-session";
+export const AUTH_PKCE_STORAGE_KEY = "tooliva:auth-pkce";
 export const AUTH_LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
 
 export const DEFAULT_LANGUAGE: AppLanguage = "zh-CN";

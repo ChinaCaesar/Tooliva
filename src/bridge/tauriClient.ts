@@ -86,6 +86,12 @@ export interface AiModelStatusPayload {
   torchVersion: string | null;
 }
 
+export interface AiModelImportResultPayload {
+  modelId: string;
+  modelPath: string;
+  sizeBytes: number;
+}
+
 export interface AiModelProgressPayload {
   modelId: string;
   stage: string;
@@ -107,38 +113,6 @@ export type AiRuntimeStatus =
   | "INSTALLED"
   | "UPDATE_AVAILABLE"
   | "FAILED";
-
-export interface AiRuntimeRequirementsPayload {
-  os: string;
-  minMemoryGb: number;
-  recommendedMemoryGb: number;
-  cpu: string;
-  avxRequired: boolean;
-  avx2Recommended: boolean;
-}
-
-export interface AiRuntimeModelPayload {
-  name: string;
-  version: string;
-  fileName: string;
-  size: number;
-  sha256: string;
-  url: string;
-}
-
-export interface AiRuntimeManifestPayload {
-  channel: string;
-  runtimeVersion: string;
-  minAppVersion: string;
-  platform: string;
-  packageSize: number;
-  packageSha256: string;
-  packageUrl: string;
-  requiredFreeDiskGb: number;
-  requirements: AiRuntimeRequirementsPayload;
-  models: AiRuntimeModelPayload[];
-  releaseNotes: string[];
-}
 
 export interface AiRuntimeEnvironmentPayload {
   allowed: boolean;
@@ -165,6 +139,16 @@ export interface AiRuntimeLocalStatusPayload {
   packageChannel: string | null;
 }
 
+export interface LocalAiRuntimePathsPayload {
+  runtimeRoot: string;
+  modelsRoot: string;
+  currentRuntimePath: string;
+  versionsPath: string;
+  downloadsPath: string;
+  manifestPath: string;
+  lamaModelPath: string;
+}
+
 export interface AiRuntimeProgressPayload {
   stage: string;
   downloadedBytes: number;
@@ -172,13 +156,6 @@ export interface AiRuntimeProgressPayload {
   percent: number;
   bytesPerSecond: number;
   message?: string;
-}
-
-export interface RuntimeDownloadResultPayload {
-  packagePath: string;
-  downloadedBytes: number;
-  totalBytes: number;
-  resumed: boolean;
 }
 
 export interface RuntimeInstallResultPayload {
@@ -508,20 +485,32 @@ export class TauriClient {
     return this.call<AiModelStatusPayload>("get_ai_model_status");
   }
 
-  public async checkAiRuntimeStatus(): Promise<AiRuntimeLocalStatusPayload> {
-    return this.call<AiRuntimeLocalStatusPayload>("check_ai_runtime_status");
+  public async importAiModel(filePath: string): Promise<AiModelImportResultPayload> {
+    return this.call<AiModelImportResultPayload>("import_ai_model", { payload: { filePath } });
   }
 
-  public async fetchAiRuntimeManifest(manifestUrl: string): Promise<AiRuntimeManifestPayload> {
-    return this.call<AiRuntimeManifestPayload>("fetch_ai_runtime_manifest", { payload: { manifestUrl } });
+  public async removeAiModel(): Promise<void> {
+    await this.call("remove_ai_model");
+  }
+
+  public async checkAiRuntimeStatus(): Promise<AiRuntimeLocalStatusPayload> {
+    return this.call<AiRuntimeLocalStatusPayload>("check_ai_runtime_status");
   }
 
   public async checkAiEnvironment(requiredFreeDiskGb: number): Promise<AiRuntimeEnvironmentPayload> {
     return this.call<AiRuntimeEnvironmentPayload>("check_ai_environment", { payload: { requiredFreeDiskGb } });
   }
 
-  public async updateAiRuntime(manifest: AiRuntimeManifestPayload): Promise<RuntimeInstallResultPayload> {
-    return this.call<RuntimeInstallResultPayload>("update_ai_runtime", { payload: { manifest } });
+  public async getLocalAiRuntimePaths(): Promise<LocalAiRuntimePathsPayload> {
+    return this.call<LocalAiRuntimePathsPayload>("get_local_ai_runtime_paths");
+  }
+
+  public async openLocalAiRuntimeDirectory(target: "runtime" | "models" | "downloads"): Promise<void> {
+    await this.call("open_local_ai_runtime_directory", { payload: { target } });
+  }
+
+  public async installLocalAiRuntimePackage(packagePath: string): Promise<RuntimeInstallResultPayload> {
+    return this.call<RuntimeInstallResultPayload>("install_local_ai_runtime_package", { payload: { packagePath } });
   }
 
   public async removeAiRuntime(): Promise<void> {
@@ -532,10 +521,6 @@ export class TauriClient {
     return listen<AiRuntimeProgressPayload>(AI_RUNTIME_PROGRESS_EVENT, (event) => {
       handler(event.payload);
     });
-  }
-
-  public async downloadAiModel(modelId = "lama"): Promise<AiModelStatusPayload> {
-    return this.call<AiModelStatusPayload>("download_ai_model", { payload: { modelId } });
   }
 
   public async warmAiInpaintWorker(): Promise<void> {

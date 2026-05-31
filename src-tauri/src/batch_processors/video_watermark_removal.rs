@@ -881,7 +881,7 @@ fn unique_work_dir(stem: &str, index: usize) -> Result<PathBuf, BatchError> {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or_default();
-    let dir = std::env::temp_dir().join(format!("desktop-toolbox-vw-{stem}-{index}-{millis}"));
+    let dir = std::env::temp_dir().join(format!("tooliva-vw-{stem}-{index}-{millis}"));
     fs::create_dir_all(&dir)
         .map_err(|err| BatchError::io(format!("Failed to create video temp directory: {err}")))?;
     Ok(dir)

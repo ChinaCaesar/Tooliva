@@ -1,6 +1,6 @@
 ---
 name: desktop-tool-authoring
-description: 在桌面工具箱（Vue+Tauri）中新增或扩展壳内工具的标准流程。用户提到新工具、tools.registry、首页卡片、侧栏入口、ImageCompress 类页面、批量任务、useBatchTask、batchService、壳层布局、工具页脚手架时使用；Agent 必须先读本 Skill 再改代码。
+description: 在 Tooliva 桌面应用（Vue+Tauri）中新增或扩展壳内工具的标准流程。用户提到新工具、tools.registry、首页卡片、侧栏入口、ImageCompress 类页面、批量任务、useBatchTask、batchService、壳层布局、工具页脚手架时使用；Agent 必须先读本 Skill 再改代码。
 ---
 
 # desktop-tool-authoring

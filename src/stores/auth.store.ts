@@ -227,10 +227,17 @@ export const useAuthStore = defineStore('auth', {
           state_mismatch: 'state 校验失败。',
           pkce_mismatch: 'PKCE 校验失败。',
           invalid_token_response: '账号服务未返回有效登录凭证，请重新登录。',
+          network_error: '无法连接账号服务，请检查网络后重试。',
+          request_failed: '账号服务请求失败，请稍后重试。',
+          'Failed to fetch': '无法连接账号服务，请检查网络后重试。',
         };
+        const fallbackMessage =
+          error instanceof AuthApiError
+            ? (messages[error.message] ?? error.message)
+            : (messages[code] ?? '无法完成登录，请重试。');
         notificationStore.showNotification({
           title: '登录失败',
-          message: error instanceof AuthApiError ? error.message : (messages[code] ?? '无法完成登录，请重试。'),
+          message: fallbackMessage,
           tone: 'error',
           durationMs: 5000,
         });

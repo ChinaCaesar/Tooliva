@@ -66,12 +66,17 @@ function getAuthHeaders(): HeadersInit {
 }
 
 async function requestJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    headers: getAuthHeaders(),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      headers: getAuthHeaders(),
+    });
+  } catch {
+    throw new AuthApiError("network_error", 0, 0);
+  }
   const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
   if (!payload) {
-    throw new Error("network_error");
+    throw new AuthApiError("network_error", response.status, 0);
   }
   if (!response.ok || Number(payload.code) !== 1) {
     const error = new AuthApiError(payload.msg || "request_failed", response.status, Number(payload.code));

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Desktop Toolbox",
+  "productName": "Tooliva",
   "version": "0.1.0",
-  "identifier": "com.toolbox.desktop",
+  "identifier": "com.tooliva.desktop",
   "build": {
     "beforeDevCommand": "npm run dev:desktop",
     "beforeBuildCommand": "npm run build",

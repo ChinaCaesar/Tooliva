@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-pub const DEBUG_LOG_ENV: &str = "DESKTOP_TOOLBOX_DEBUG_LOG";
+pub const DEBUG_LOG_ENV: &str = "TOOLIVA_DEBUG_LOG";
 
 static DEBUG_LOGS_ENABLED: OnceLock<bool> = OnceLock::new();
 

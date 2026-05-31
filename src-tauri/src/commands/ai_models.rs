@@ -1,8 +1,5 @@
-use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader, Read};
-use std::process::{Command, Stdio};
-use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter};
+use serde::Serialize;
+use tauri::AppHandle;
 
 use crate::ai_runtime::{
     ensure_lama_torch_checkpoint, read_installed_runtime_state, resolve_ai_runtime_paths,
@@ -12,8 +9,6 @@ use crate::ai_worker::{
     check_lama_runtime_health, ensure_lama_worker_ready, inpaint_image_with_lama, AiRuntimeHealth,
     InpaintImageRequest,
 };
-
-pub const AI_MODEL_PROGRESS_EVENT: &str = "ai-model-progress";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,47 +27,21 @@ pub struct AiModelStatus {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AiModelProgressPayload {
+pub struct AiModelImportResult {
     pub model_id: String,
-    pub stage: String,
-    pub downloaded_bytes: u64,
-    pub total_bytes: u64,
-    pub percent: u8,
-    pub message: Option<String>,
+    pub model_path: String,
+    pub size_bytes: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DownloadAiModelPayload {
-    pub model_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct SidecarProgressLine {
-    event: Option<String>,
-    stage: Option<String>,
-    downloaded_bytes: Option<u64>,
-    total_bytes: Option<u64>,
-    message: Option<String>,
+pub struct ImportAiModelPayload {
+    pub file_path: String,
 }
 
 #[tauri::command]
-pub async fn get_ai_model_status(app: AppHandle) -> Result<AiModelStatus, String> {
-    lama_status(&app)
-}
-
-#[tauri::command]
-pub async fn download_ai_model(
-    payload: DownloadAiModelPayload,
-    app: AppHandle,
-) -> Result<AiModelStatus, String> {
-    if payload.model_id != LAMA_MODEL_ID {
-        return Err(format!("Unsupported AI model: {}", payload.model_id));
-    }
-    let app_for_task = app.clone();
-    tauri::async_runtime::spawn_blocking(move || download_lama_model_blocking(app_for_task))
-        .await
-        .map_err(|err| err.to_string())?
+pub async fn get_ai_model_status(_app: AppHandle) -> Result<AiModelStatus, String> {
+    lama_status()
 }
 
 #[tauri::command]
@@ -82,9 +51,23 @@ pub async fn warm_ai_inpaint_worker() -> Result<AiRuntimeHealth, String> {
         .map_err(|err| err.to_string())?
 }
 
+#[tauri::command]
+pub async fn import_ai_model(payload: ImportAiModelPayload) -> Result<AiModelImportResult, String> {
+    tauri::async_runtime::spawn_blocking(move || import_ai_model_blocking(payload.file_path))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn remove_ai_model() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(remove_ai_model_blocking)
+        .await
+        .map_err(|err| err.to_string())?
+}
+
 fn warm_ai_inpaint_worker_blocking() -> Result<AiRuntimeHealth, String> {
     let health = ensure_lama_worker_ready(false)?;
-    let warm_dir = std::env::temp_dir().join("desktop-toolbox-ai-warmup");
+    let warm_dir = std::env::temp_dir().join("tooliva-ai-warmup");
     std::fs::create_dir_all(&warm_dir).map_err(|err| err.to_string())?;
     let input_path = warm_dir.join("warmup.png");
     let output_path = warm_dir.join("warmup_out.png");
@@ -107,7 +90,7 @@ fn warm_ai_inpaint_worker_blocking() -> Result<AiRuntimeHealth, String> {
     Ok(health)
 }
 
-fn lama_status(_app: &AppHandle) -> Result<AiModelStatus, String> {
+fn lama_status() -> Result<AiModelStatus, String> {
     let paths = resolve_ai_runtime_paths()?;
     let manifest = read_installed_runtime_state()?;
     let expected_size = manifest
@@ -135,198 +118,62 @@ fn lama_status(_app: &AppHandle) -> Result<AiModelStatus, String> {
     })
 }
 
-fn download_lama_model_blocking(app: AppHandle) -> Result<AiModelStatus, String> {
+fn remove_ai_model_blocking() -> Result<(), String> {
     let paths = resolve_ai_runtime_paths()?;
-    let manifest = read_installed_runtime_state()?
-        .ok_or_else(|| "本机未安装 AI 运行时，无法解析 LaMA 模型下载地址。".to_string())?;
-    let model = manifest
-        .models
-        .iter()
-        .find(|item| item.name == LAMA_MODEL_ID)
-        .cloned()
-        .ok_or_else(|| "当前 AI 运行时清单未包含 LaMA 模型下载信息。".to_string())?;
-    append_download_log(
-        &paths,
-        &format!(
-            "download requested; runtime_root={}; python={}; sidecar={}; model={}",
-            paths.runtime_root.display(),
-            paths.python_exe.display(),
-            paths.sidecar_script.display(),
-            paths.lama_model_file.display()
-        ),
-    );
     if paths.lama_model_file.exists() {
-        let size = std::fs::metadata(&paths.lama_model_file)
-            .map(|meta| meta.len())
-            .unwrap_or(0);
-        if size == 0 {
-            let _ = std::fs::remove_file(&paths.lama_model_file);
-        } else {
-            ensure_lama_torch_checkpoint(&paths)?;
-            emit_progress(
-                &app,
-                "ready",
-                size,
-                size,
-                Some("LaMA model already exists".to_string()),
-            );
-            return lama_status(&app);
-        }
+        std::fs::remove_file(&paths.lama_model_file).map_err(|err| {
+            format!(
+                "删除模型文件失败 {}: {err}",
+                paths.lama_model_file.display()
+            )
+        })?;
     }
-    if !paths.sidecar_script.exists() {
-        let message = format!(
-            "AI sidecar script not found: {}",
-            paths.sidecar_script.display()
-        );
-        append_download_log(&paths, &message);
-        return Err(message);
+    if paths.torch_lama_checkpoint.exists() {
+        std::fs::remove_file(&paths.torch_lama_checkpoint).map_err(|err| {
+            format!(
+                "删除模型缓存失败 {}: {err}",
+                paths.torch_lama_checkpoint.display()
+            )
+        })?;
     }
-    let python_version = check_python_available(&paths)?;
-    append_download_log(&paths, &format!("python available: {python_version}"));
+    Ok(())
+}
+
+fn import_ai_model_blocking(file_path: String) -> Result<AiModelImportResult, String> {
+    let source = std::path::PathBuf::from(&file_path);
+    if !source.exists() {
+        return Err(format!("模型文件不存在：{}", source.display()));
+    }
+    if !source.is_file() {
+        return Err(format!("模型路径不是文件：{}", source.display()));
+    }
+    let file_name = source
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| "无法识别模型文件名".to_string())?;
+    if !file_name.eq_ignore_ascii_case(LAMA_MODEL_FILE) {
+        return Err(format!("请选择 {} 文件。", LAMA_MODEL_FILE));
+    }
+
+    let paths = resolve_ai_runtime_paths()?;
     if let Some(parent) = paths.lama_model_file.parent() {
         std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
-    emit_progress(&app, "starting", 0, model.size.max(1), None);
-    let mut child = Command::new(&paths.python_exe)
-        .arg(&paths.sidecar_script)
-        .arg("download-model")
-        .arg("--model-url")
-        .arg(&model.url)
-        .arg("--model-path")
-        .arg(&paths.lama_model_file)
-        .arg("--torch-home")
-        .arg(&paths.torch_home)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|err| {
-            let message = format!(
-                "Failed to start AI runtime {}: {err}",
-                paths.python_exe.display()
-            );
-            append_download_log(&paths, &message);
-            message
-        })?;
-
-    let stderr_handle = child.stderr.take().map(|mut stderr| {
-        std::thread::spawn(move || {
-            let mut buf = String::new();
-            let _ = stderr.read_to_string(&mut buf);
-            buf
-        })
-    });
-
-    if let Some(stdout) = child.stdout.take() {
-        let reader = BufReader::new(stdout);
-        for line in reader.lines().flatten() {
-            if let Ok(progress) = serde_json::from_str::<SidecarProgressLine>(&line) {
-                if progress.event.as_deref() == Some("progress") {
-                    emit_progress(
-                        &app,
-                        progress.stage.as_deref().unwrap_or("downloading"),
-                        progress.downloaded_bytes.unwrap_or(0),
-                        progress
-                            .total_bytes
-                            .filter(|total| *total > 0)
-                            .unwrap_or(model.size.max(1)),
-                        progress.message,
-                    );
-                }
-            }
-        }
-    }
-
-    let status = child.wait().map_err(|err| err.to_string())?;
-    let stderr_text = stderr_handle
-        .and_then(|handle| handle.join().ok())
-        .unwrap_or_default();
-    if !status.success() {
-        let detail = stderr_text.trim();
-        let message = if detail.is_empty() {
-            format!("LaMA model download failed with status {status}")
-        } else {
-            format!("LaMA model download failed with status {status}: {detail}")
-        };
-        append_download_log(&paths, &message);
-        return Err(message);
-    }
+    std::fs::copy(&source, &paths.lama_model_file).map_err(|err| {
+        format!(
+            "导入模型文件失败 {} -> {}: {err}",
+            source.display(),
+            paths.lama_model_file.display()
+        )
+    })?;
     ensure_lama_torch_checkpoint(&paths)?;
-    emit_progress(
-        &app,
-        "ready",
-        model.size.max(1),
-        model.size.max(1),
-        Some(format!("{LAMA_MODEL_FILE} is ready")),
-    );
-    lama_status(&app)
-}
-
-fn check_python_available(paths: &crate::ai_runtime::AiRuntimePaths) -> Result<String, String> {
-    let output = Command::new(&paths.python_exe)
-        .arg("--version")
-        .output()
-        .map_err(|err| {
-            let message = format!(
-                "AI runtime Python unavailable: {} ({err}). Expected project runtime under {}. Run scripts/setup-ai-runtime.ps1 before using AI watermark removal.",
-                paths.python_exe.display(),
-                paths.runtime_root.join("python").display()
-            );
-            append_download_log(paths, &message);
-            message
-        })?;
-    if !output.status.success() {
-        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        let message = if detail.is_empty() {
-            format!(
-                "AI runtime Python check failed with status {}",
-                output.status
-            )
-        } else {
-            format!("AI runtime Python check failed: {detail}")
-        };
-        append_download_log(paths, &message);
-        return Err(message);
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    Ok(if stdout.is_empty() { stderr } else { stdout })
-}
-
-fn append_download_log(paths: &crate::ai_runtime::AiRuntimePaths, message: &str) {
-    let log_dir = paths.models_root.join("_logs");
-    if std::fs::create_dir_all(&log_dir).is_err() {
-        return;
-    }
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
+    let size_bytes = std::fs::metadata(&paths.lama_model_file)
+        .map(|meta| meta.len())
         .unwrap_or_default();
-    let line = format!("[{ts}] {message}\n");
-    let _ = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_dir.join("ai-model-download.log"))
-        .and_then(|mut file| std::io::Write::write_all(&mut file, line.as_bytes()));
-}
 
-fn emit_progress(
-    app: &AppHandle,
-    stage: &str,
-    downloaded_bytes: u64,
-    total_bytes: u64,
-    message: Option<String>,
-) {
-    let total = total_bytes.max(1);
-    let percent = ((downloaded_bytes.min(total) as f64 / total as f64) * 100.0).round() as u8;
-    let _ = app.emit(
-        AI_MODEL_PROGRESS_EVENT,
-        AiModelProgressPayload {
-            model_id: LAMA_MODEL_ID.to_string(),
-            stage: stage.to_string(),
-            downloaded_bytes,
-            total_bytes,
-            percent,
-            message,
-        },
-    );
+    Ok(AiModelImportResult {
+        model_id: LAMA_MODEL_ID.to_string(),
+        model_path: paths.lama_model_file.display().to_string(),
+        size_bytes,
+    })
 }

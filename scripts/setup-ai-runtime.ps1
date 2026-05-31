@@ -126,9 +126,9 @@ if ($Cuda) {
 
 Write-Host "Checking AI runtime imports"
 if ($Cuda) {
-  Invoke-Checked $pythonExe (Join-Path $runtimeRoot "sidecars\lama_inpaint.py") check-runtime --torch-home (Join-Path $env:APPDATA "DesktopToolbox\ai-models\_torch") --require-lama
+  Invoke-Checked $pythonExe (Join-Path $runtimeRoot "sidecars\lama_inpaint.py") check-runtime --torch-home (Join-Path $env:APPDATA "Tooliva\ai-models\_torch") --require-lama
 } else {
-  Invoke-Checked $pythonExe (Join-Path $runtimeRoot "sidecars\lama_inpaint.py") check-runtime --torch-home (Join-Path $env:APPDATA "DesktopToolbox\ai-models\_torch")
+  Invoke-Checked $pythonExe (Join-Path $runtimeRoot "sidecars\lama_inpaint.py") check-runtime --torch-home (Join-Path $env:APPDATA "Tooliva\ai-models\_torch")
 }
 
 Write-Host "AI runtime is ready: $pythonExe"

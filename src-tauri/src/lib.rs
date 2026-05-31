@@ -9,6 +9,7 @@ mod ffmpeg_gif;
 mod image_core;
 mod image_processors;
 mod local_inpaint;
+mod process_utils;
 mod runtime_bins;
 
 use std::sync::Arc;
@@ -26,6 +27,7 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
@@ -49,15 +51,14 @@ pub fn run() {
             commands::system::ping_host,
             commands::system::get_path_metadata,
             commands::ai_runtime::check_ai_runtime_status,
-            commands::ai_runtime::fetch_ai_runtime_manifest,
             commands::ai_runtime::check_ai_environment,
-            commands::ai_runtime::download_ai_runtime,
-            commands::ai_runtime::verify_ai_runtime_package,
-            commands::ai_runtime::install_ai_runtime_package,
-            commands::ai_runtime::update_ai_runtime,
+            commands::ai_runtime::get_local_ai_runtime_paths,
+            commands::ai_runtime::open_local_ai_runtime_directory,
+            commands::ai_runtime::install_local_ai_runtime_package,
             commands::ai_runtime::remove_ai_runtime,
             commands::ai_models::get_ai_model_status,
-            commands::ai_models::download_ai_model,
+            commands::ai_models::import_ai_model,
+            commands::ai_models::remove_ai_model,
             commands::ai_models::warm_ai_inpaint_worker,
             commands::image::list_images_from_directory,
             commands::image::get_image_preview_data_url,

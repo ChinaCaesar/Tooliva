@@ -3,7 +3,7 @@ import { localStorageService } from "@/storage/localStorage";
 import type { AppLanguage, UserSettings } from "@/types/settings";
 import { checkDesktopAppUpdate, type AppUpdateCheckResult } from "@/modules/app-updates/api";
 
-const AUTO_UPDATE_META_KEY = "desktop-toolbox:auto-update-meta";
+const AUTO_UPDATE_META_KEY = "tooliva:auto-update-meta";
 
 type UpdateTrigger = "auto" | "manual";
 

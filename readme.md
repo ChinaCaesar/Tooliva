@@ -1,8 +1,8 @@
-# Desktop Toolbox 项目说明
+# Tooliva 项目说明
 
 ## 项目简介
 
-`Desktop Toolbox` 是一个桌面端工具集合应用，当前已具备工具首页与视频格式转换页面的前端界面基础，目标是为用户提供统一、易用的本地效率工具入口。
+`Tooliva` 是一个桌面端工具集合应用，当前已具备工具首页与视频格式转换页面的前端界面基础，目标是为用户提供统一、易用的本地效率工具入口。
 
 从现有代码结构看，项目已包含以下核心能力基础：
 
@@ -67,10 +67,10 @@
 
 当前已存在的关键信息如下：
 
-- 应用名称：`Desktop Toolbox`
-- 窗口标题：`Desktop Toolbox`
+- 应用名称：`Tooliva`
+- 窗口标题：`Tooliva`
 - 应用版本：`0.1.0`
-- 应用标识符：`com.toolbox.desktop`
+- 应用标识符：`com.tooliva.desktop`
 - 前端构建命令：`npm run build`
 - 开发环境命令：`npm run dev:desktop`
 - 打包目标：`all`
@@ -85,9 +85,9 @@
 
 正式打包前，建议先确定以下信息，并写入配置：
 
-- 软件中文名：例如 `桌面工具箱`
-- 软件英文名：例如 `Desktop Toolbox`
-- 包名 / 标识符：例如 `com.yourcompany.desktoptoolbox`
+- 软件中文名：`Tooliva`
+- 软件英文名：`Tooliva`
+- 包名 / 标识符：例如 `com.tooliva.desktop`
 - 软件版本：例如 `0.1.0`
 - 公司或团队名称：例如 `Your Company`
 - 应用图标源文件：建议提供一张 `1024 x 1024` 的 PNG，文件名例如 `app-icon.png`
@@ -105,9 +105,9 @@
 ```json
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Desktop Toolbox",
+  "productName": "Tooliva",
   "version": "0.1.0",
-  "identifier": "com.toolbox.desktop",
+  "identifier": "com.tooliva.desktop",
   "build": {
     "beforeDevCommand": "npm run dev:desktop",
     "beforeBuildCommand": "npm run build",
@@ -118,7 +118,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Desktop Toolbox",
+        "title": "Tooliva",
         "width": 1280,
         "height": 800,
         "resizable": true
@@ -344,10 +344,10 @@ npm run tauri:build
 
 如果你准备正式发版，建议先统一下面这份信息：
 
-- 软件中文名：`桌面工具箱`
-- 软件英文名：`Desktop Toolbox`
-- 可执行程序名：`Desktop Toolbox`
-- 应用标识符：`com.toolbox.desktop`
+- 软件中文名：`Tooliva`
+- 软件英文名：`Tooliva`
+- 可执行程序名：`Tooliva`
+- 应用标识符：`com.tooliva.desktop`
 - 当前版本：`0.1.0`
 - 作者 / 公司：`Your Company`
 - 图标源文件：`src-tauri/assets/app-icon.png`

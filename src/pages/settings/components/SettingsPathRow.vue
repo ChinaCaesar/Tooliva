@@ -4,10 +4,22 @@ import { isTauri } from "@tauri-apps/api/core";
 import { message } from "@tauri-apps/plugin-dialog";
 import { tauriClient } from "@/bridge/tauriClient";
 
-const props = defineProps<{
-  pathValue: string;
-  emptyHintKey: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    pathValue: string;
+    emptyHintKey: string;
+    changeLabelKey?: string;
+    changeDisabled?: boolean;
+    openPath?: string;
+    aiOpenTarget?: "runtime" | "models";
+  }>(),
+  {
+    changeLabelKey: "pages.settings.actions.change",
+    changeDisabled: false,
+    openPath: undefined,
+    aiOpenTarget: undefined
+  }
+);
 
 const emit = defineEmits<{
   change: [];
@@ -16,15 +28,24 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 async function onOpen(): Promise<void> {
-  const trimmed = props.pathValue.trim();
+  if (!isTauri()) {
+    window.alert(t("pages.settings.path.webOpenUnavailable"));
+    return;
+  }
+  if (props.aiOpenTarget) {
+    try {
+      await tauriClient.openLocalAiRuntimeDirectory(props.aiOpenTarget);
+    } catch (err) {
+      const text = err instanceof Error ? err.message : String(err);
+      await message(text, { title: t("pages.settings.dashboard.pathHintTitle") });
+    }
+    return;
+  }
+  const trimmed = (props.openPath ?? props.pathValue).trim();
   if (!trimmed) {
     const hint = t(props.emptyHintKey);
     if (isTauri()) await message(hint, { title: t("pages.settings.dashboard.pathHintTitle") });
     else window.alert(hint);
-    return;
-  }
-  if (!isTauri()) {
-    window.alert(t("pages.settings.path.webOpenUnavailable"));
     return;
   }
   try {
@@ -40,8 +61,8 @@ async function onOpen(): Promise<void> {
   <div class="path-row">
     <code class="path-row__path">{{ pathValue || $t("pages.settings.dashboard.pathNotSet") }}</code>
     <div class="path-row__actions">
-      <button type="button" class="path-row__btn" @click="emit('change')">
-        {{ $t("pages.settings.actions.change") }}
+      <button type="button" class="path-row__btn" :disabled="changeDisabled" @click="emit('change')">
+        {{ $t(changeLabelKey) }}
       </button>
       <button type="button" class="path-row__btn path-row__btn--secondary" @click="onOpen">
         {{ $t("pages.settings.dashboard.openFolder") }}
@@ -91,6 +112,10 @@ async function onOpen(): Promise<void> {
 }
 .path-row__btn:hover {
   background: #f8fafc;
+}
+.path-row__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .path-row__btn:focus-visible {
   outline: 2px solid #2563eb;

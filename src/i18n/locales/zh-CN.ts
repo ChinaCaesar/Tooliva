@@ -1,6 +1,6 @@
 export const zhCN = {
   app: {
-    title: "桌面工具箱"
+    title: "Tooliva"
   },
   nav: {
     home: "首页",
@@ -84,6 +84,65 @@ export const zhCN = {
       upgradeCancel: "稍后再说"
     }
   },
+  aiEnhancement: {
+    panelTitle: "AI 组件状态",
+    simpleStatus: {
+      installed: "AI 增强组件已安装",
+      notInstalled: "AI 增强组件未安装"
+    },
+    runtimeStatus: {
+      DISABLED: "AI 增强组件未启用",
+      NOT_INSTALLED: "AI 增强组件未安装",
+      CHECKING: "正在检查 AI 环境",
+      ENV_NOT_SUPPORTED: "当前设备不满足 AI 安装条件",
+      READY_TO_INSTALL: "可安装 AI 增强组件",
+      DOWNLOADING: "正在下载 AI 增强组件",
+      VERIFYING: "正在校验 AI 增强组件",
+      INSTALLING: "正在安装 AI 增强组件",
+      INSTALLED: "AI 增强组件已安装",
+      UPDATE_AVAILABLE: "AI 增强组件有可用更新",
+      FAILED: "AI 增强组件操作失败"
+    },
+    installHintDefault: "请先导入本地 AI 组件包，或将离线文件放到应用数据目录。",
+    requirements: "需要 {os}、至少 {memory} GB 可用内存，以及 {disk} GB 可用磁盘空间。",
+    requirementsOs: "Windows 10/11 64 位",
+    modelStatus: {
+      ready: "LaMA 模型已就绪",
+      notImported: "LaMA 模型未导入"
+    },
+    actions: {
+      installRuntime: "安装 AI 增强组件",
+      upgradeRuntime: "一键升级 AI 组件",
+      retry: "重试",
+      importModel: "导入 LaMA 模型",
+      importingModel: "正在导入模型..."
+    },
+    installProgress: {
+      preparing: "正在准备 AI 组件…",
+      extracting: "正在解压运行时文件…",
+      organizing: "正在整理依赖资源…",
+      largePackage: "资源较大，仍在努力安装中…"
+    },
+    overlay: {
+      processingTitle: "AI 增强组件处理中",
+      patienceHint: "任务内容加大，请耐心等待",
+      replacingRuntime: "正在更换 AI 增强组件…"
+    },
+    errors: {
+      modelMissing: "未检测到 LaMA 模型，请先导入 big-lama.pt。目标目录：{path}",
+      notReady: "AI 增强组件尚未就绪，请先安装或升级。",
+      selectPackageFirst: "请选择本地 AI 组件包（zip）后再导入。",
+      envNotSupported: "当前设备不满足 AI 增强组件安装条件。"
+    },
+    dialog: {
+      runtimePackage: "AI Runtime Package",
+      lamaModel: "LaMA Model"
+    },
+    engine: {
+      fastLocal: "本地极速修复",
+      aiEnhanced: "AI 增强修复"
+    }
+  },
   layout: {
     appShell: {
       sidebarAria: "应用主导航",
@@ -125,6 +184,21 @@ export const zhCN = {
     }
   },
   pages: {
+    watermarkRemoval: {
+      mode: {
+        title: "处理模式",
+        ariaLabel: "处理模式",
+        fast: "极速模式",
+        ai: "AI 增强模式",
+        fastHintImage:
+          "极速模式无需下载 AI 组件，所有处理均在本地完成，适合简单背景、纯色背景、边角水印和小面积水印。",
+        fastHintVideo: "无需下载 AI 组件，适合简单背景、纯色背景、边角水印和小面积水印。",
+        aiHintImage:
+          "AI 增强模式需要安装本地 AI 组件，适合复杂背景和更自然的修复效果。组件体积较大，仅需安装一次，文件不会上传服务器。",
+        aiHintVideo: "适合复杂背景和更自然的修复效果。组件仅安装一次，文件不会上传服务器。"
+      },
+      aiComponentStatus: "AI 组件状态"
+    },
     home: {
       greeting: {
         morning: "早上好，创作者！",
@@ -139,7 +213,7 @@ export const zhCN = {
         useNow: "立即使用"
       },
       topBar: {
-        appName: "工具箱",
+        appName: "Tooliva",
         tagline: "自媒体创作好帮手",
         searchPlaceholder: "搜索工具（例如：图片压缩、视频转 GIF）",
         searchShortcut: "Ctrl K",
@@ -198,7 +272,7 @@ export const zhCN = {
             viewAll: "查看全部",
             v100: {
               date: "2024-05-20",
-              summary: "工具箱新上线"
+              summary: "Tooliva 新版本上线"
             },
             v090: {
               date: "2024-05-15",
@@ -284,7 +358,7 @@ export const zhCN = {
         twoDaysAgo: "2天前"
       },
       footer: {
-        copyright: "© 2024 工具箱",
+        copyright: "© 2024 Tooliva",
         versionPrefix: "当前版本",
         slogan: "让创作更高效，让生活更简单",
         feedback: "意见反馈",
@@ -351,6 +425,7 @@ export const zhCN = {
         off: "已关闭",
         browse: "浏览",
         change: "更改",
+        replace: "更换",
         every5Minutes: "每5分钟",
         standard: "标准模式",
         concurrency4: "4 并发",
@@ -408,6 +483,19 @@ export const zhCN = {
         updateDesc: "应用有新版本时通知",
         mailTitle: "邮件通知",
         mailDesc: "接收产品更新和活动信息"
+      },
+      aiModules: {
+        sectionTitle: "AI 增强组件",
+        runtimeTitle: "AI 运行时",
+        runtimeEmptyHint: "尚未安装 AI 运行时，可点击「更换」导入 zip 安装包。",
+        modelTitle: "LaMA 模型",
+        modelEmptyHint: "尚未导入 LaMA 模型，可点击「更换」选择 big-lama.pt 文件。",
+        notInstalled: "未安装",
+        replaceRuntimeConfirmTitle: "更换 AI 运行时",
+        replaceRuntimeConfirmBody: "将删除当前已安装的 AI 运行时，并导入您选择的新安装包。此操作不可撤销，是否继续？",
+        replaceModelConfirmTitle: "更换 LaMA 模型",
+        replaceModelConfirmBody: "将删除当前已导入的 LaMA 模型文件，并导入您选择的新模型。此操作不可撤销，是否继续？",
+        replaceFailedTitle: "更换失败"
       },
       privacy: {
         usageTitle: "使用数据收集",
@@ -469,7 +557,6 @@ export const zhCN = {
         clearDataModalCancel: "取消",
         clearDataModalConfirm: "确认清除",
         cacheEmptyHint: "请先在上方点击「更改」选择缓存目录。",
-        checkUpdatesHint: "检查更新会先校验最新版本，再决定是否展示更新入口。",
         updateProgressTitle: "检查更新中",
         updateCheckProgressStart: "正在准备检查当前版本信息…",
         updateCheckProgressNetwork: "正在连接更新服务并获取最新版本…",
@@ -504,7 +591,7 @@ export const zhCN = {
         privacyPolicy: "隐私政策",
         termsPlaceholder: "用户协议正文将在后续版本提供链接或内嵌页面。",
         privacyPlaceholder: "隐私政策正文将在后续版本提供链接或内嵌页面。",
-        copyright: "© 桌面工具箱"
+        copyright: "© Tooliva"
       }
     },
     membership: {
@@ -711,8 +798,10 @@ export const zhCN = {
         one_time: "一次性"
       },
       errors: {
-        planFetchFailed: "暂时无法加载套餐信息。",
-        membershipFetchFailed: "暂时无法加载当前会员状态。"
+        planFetchFailed: "暂时无法加载套餐信息，请稍后重试。",
+        membershipFetchFailed: "暂时无法加载当前会员状态，请稍后重试。",
+        networkError: "网络连接异常，请检查网络后重试。",
+        sessionExpired: "登录状态已失效，请重新登录后查看会员信息。"
       }
     },
     imageCompress: {
@@ -1166,7 +1255,8 @@ export const zhCN = {
         start: "开始转换",
         processing: "转换中…",
         exportGif: "导出 GIF",
-        openFolder: "打开输出文件夹"
+        openFolder: "打开输出文件夹",
+        openDirectory: "打开目录"
       },
       hints: {
         dragNoPath: "未读取到本地视频路径，请使用按钮上传或在桌面端窗口内拖拽。",
@@ -1296,7 +1386,7 @@ export const zhCN = {
         close: "关闭"
       },
       output: {
-        defaultDirectory: "D:\\工具箱\\去水印结果"
+        defaultDirectory: "D:\\Tooliva\\去水印结果"
       },
       dialog: {
         imagesFilterName: "图片"
@@ -1313,8 +1403,19 @@ export const zhCN = {
       filePicker: {
         videoFilter: "视频"
       },
+      mode: {
+        title: "处理模式",
+        ariaLabel: "处理模式",
+        fast: "极速模式",
+        ai: "AI 增强模式",
+        fastHint: "无需下载 AI 组件，适合简单背景、纯色背景、边角水印和小面积水印。",
+        aiHint: "适合复杂背景和更自然的修复效果。组件仅安装一次，文件不会上传服务器。",
+        engineLabel: "处理引擎"
+      },
       engine: {
-        label: "FFmpeg 流式处理 / 自动硬件编码"
+        label: "FFmpeg 流式处理 / 自动硬件编码",
+        fastLocal: "本地极速修复",
+        aiEnhanced: "AI 增强修复"
       },
       progressPanel: {
         idleTitle: "暂无任务",
@@ -1344,11 +1445,12 @@ export const zhCN = {
         title: "文件列表（{count}）",
         addVideos: "添加视频",
         clearList: "清空列表",
+        removeItem: "从列表移除",
         dropHint: "拖拽视频到此处，或",
         dropAddLink: "点击添加视频",
         formatsLine: "支持 MP4 / MOV / WebM / MKV / AVI / M4V / WMV",
         batchImport: "支持批量导入",
-        sharedRegionHint: "同一水印位置的视频可共用当前框选区域",
+        sharedRegionHint: "可同时添加多个视频进行处理",
         totalVideos: "共 {count} 个视频",
         totalSize: "总大小：{size}"
       },
@@ -1362,12 +1464,25 @@ export const zhCN = {
         controlsAria: "视频预览控制",
         outputNote:
           "输出格式默认保持原视频格式；多视频水印位置一致时可共用当前框选区域。",
-        regionsSelected: "已框选 {count} 个区域"
+        regionsSelected: "已框选 {count} 个区域",
+        footTipPause: "预览区已放大，建议先暂停视频再框选。"
+      },
+      bottomBar: {
+        overallProgress: "总体进度",
+        status: "状态",
+        currentFile: "当前文件",
+        estimatedRemaining: "预计剩余",
+        elapsed: "已用时间",
+        progressDetail: "进度详情",
+        outputDirLabel: "输出目录",
+        openOutput: "打开目录",
+        stopTask: "停止任务",
+        start: "开始去水印"
       },
       output: {
         directoryLabel: "输出目录",
         openFolder: "打开目录",
-        defaultDirectory: "D:\\工具箱\\视频去水印结果"
+        defaultDirectory: "D:\\Tooliva\\视频去水印结果"
       },
       actions: {
         stop: "停止处理",

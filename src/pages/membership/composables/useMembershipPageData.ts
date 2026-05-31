@@ -1,6 +1,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { fetchDesktopMembershipSnapshot, fetchDesktopPricingPlans, type DesktopMembershipSnapshot, type DesktopPricingPlan } from "@/modules/membership/api";
+import { resolveMembershipErrorMessage } from "@/modules/membership/resolveMembershipErrorMessage";
 import { useAuthStore } from "@/stores/auth.store";
 
 interface MembershipPlanViewModel {
@@ -191,16 +192,22 @@ export function useMembershipPageData() {
         try {
           snapshot.value = await fetchDesktopMembershipSnapshot();
         } catch (error) {
-          const message = error instanceof Error ? error.message : "";
-          errorMessage.value = message || t("pages.membershipDesktop.errors.membershipFetchFailed");
+          errorMessage.value = resolveMembershipErrorMessage(
+            error,
+            "pages.membershipDesktop.errors.membershipFetchFailed",
+            t,
+          );
           snapshot.value = null;
         }
       } else {
         snapshot.value = null;
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      errorMessage.value = message || t("pages.membershipDesktop.errors.planFetchFailed");
+      errorMessage.value = resolveMembershipErrorMessage(
+        error,
+        "pages.membershipDesktop.errors.planFetchFailed",
+        t,
+      );
       plans.value = [];
     } finally {
       loading.value = false;

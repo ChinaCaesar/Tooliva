@@ -72,3 +72,8 @@ src-tauri/resources/ai-runtime/**/*.ckpt
 src-tauri/resources/ai-runtime/**/*.safetensors
 
 /tmp
+
+_ai
+_ai_stage
+_pkgtest
+_buildRecources

@@ -16,7 +16,7 @@
 执行 `pnpm tauri:build` 时，前端构建与 Rust 编译均可成功，但在最后一步 NSIS 打安装包时失败：
 
 ```text
-Running makensis to produce ...\Desktop Toolbox_0.1.0_x64-setup.exe
+Running makensis to produce ...\Tooliva_0.1.0_x64-setup.exe
 
 Internal compiler error #12345: error mmapping file (1947917674, 33554432) is out of range.
 
@@ -26,7 +26,7 @@ failed to bundle project `系统找不到指定的文件。 (os error 2)`
 
 典型特征：
 
-- `desktop-toolbox.exe` 已成功生成于 `src-tauri/target/release/`
+- `tooliva.exe` 已成功生成于 `src-tauri/target/release/`
 - 失败发生在 `makensis` 阶段，而非 Rust 或 Vite 构建阶段
 - 错误中的数字 `1947917674` 约为 1.86 GB，接近 NSIS 的 2 GB 上限
 
@@ -56,7 +56,7 @@ NSIS（Nullsoft Scriptable Install System）安装包生成器存在约 **2 GB**
 
 | 组件 | 路径 | 体积 |
 |------|------|------|
-| 主程序 | `target/release/desktop-toolbox.exe` | ~23 MB |
+| 主程序 | `target/release/tooliva.exe` | ~23 MB |
 | FFmpeg | `resources/bin/ffmpeg.exe` + `ffprobe.exe` | ~0.16 GB |
 | AI Python 运行时 | `resources/ai-runtime/python` | **~5.21 GB** |
 | AI Sidecar 脚本 | `resources/ai-runtime/sidecars` | ~0.03 MB |
@@ -82,7 +82,7 @@ NSIS（Nullsoft Scriptable Install System）安装包生成器存在约 **2 GB**
 ### 3.2 LAMA 模型文件（~196 MB）
 
 - **内容**：`big-lama.pt` 权重文件
-- **位置**：`%APPDATA%\DesktopToolbox\ai-models\lama\big-lama.pt`（用户数据目录）
+- **位置**：`%APPDATA%\Tooliva\ai-models\lama\big-lama.pt`（用户数据目录）
 - **当前策略**：**不打包进安装包**，首次使用去水印功能时由应用内下载
 - **代码常量**：`LAMA_MODEL_SIZE_BYTES = 196_000_000`（见 `ai_runtime.rs`）
 
@@ -109,7 +109,7 @@ pnpm exec tauri build --config '{"bundle":{"resources":["resources/bin/ffmpeg.ex
 产物约 **51 MB**：
 
 ```text
-src-tauri\target\release\bundle\nsis\Desktop Toolbox_0.1.0_x64-setup.exe
+src-tauri\target\release\bundle\nsis\Tooliva_0.1.0_x64-setup.exe
 ```
 
 此安装包包含主程序与 FFmpeg，**不包含** AI 去水印所需的 Python 运行时。
@@ -120,7 +120,7 @@ src-tauri\target\release\bundle\nsis\Desktop Toolbox_0.1.0_x64-setup.exe
 pnpm exec tauri build --no-bundle
 ```
 
-产物为 `src-tauri\target\release\desktop-toolbox.exe`，需手动将 `resources\` 目录与 exe 一并分发。
+产物为 `src-tauri\target\release\tooliva.exe`，需手动将 `resources\` 目录与 exe 一并分发。
 
 ---
 
@@ -139,7 +139,7 @@ pnpm exec tauri build --no-bundle
 
 ### 方案 B：便携版 ZIP（单包全量）
 
-不打 NSIS，将 `desktop-toolbox.exe` + 完整 `resources\` 打成 zip 分发。
+不打 NSIS，将 `tooliva.exe` + 完整 `resources\` 打成 zip 分发。
 
 **优点**：一个包包含全部能力，无 2 GB 限制。  
 **缺点**：包体约 5.4 GB；无标准安装/卸载流程；deep link 注册需用户手动或额外脚本。

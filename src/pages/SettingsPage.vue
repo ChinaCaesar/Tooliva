@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
-import { open, message } from "@tauri-apps/plugin-dialog";
+import { open, message, confirm } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
-import { WINDOW_SIZE_OPTIONS } from "@/config/constants";
+import { WINDOW_SIZE_OPTIONS, AI_RUNTIME_ENABLED } from "@/config/constants";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { useExternalNavigate } from "@/composables/useExternalNavigate";
+import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
 import { LANGUAGES, type AppLanguage, type AppWindowSize, type ThemeMode, type UserSettings } from "@/types/settings";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useTaskStore } from "@/stores/task.store";
@@ -14,6 +15,7 @@ import SettingsSectionCard from "@/pages/settings/components/SettingsSectionCard
 import SettingsRow from "@/pages/settings/components/SettingsRow.vue";
 import SettingsThemeSegment from "@/pages/settings/components/SettingsThemeSegment.vue";
 import SettingsPathRow from "@/pages/settings/components/SettingsPathRow.vue";
+import AiRuntimeInstallLoadingOverlay from "@/components/ai-runtime/AiRuntimeInstallLoadingOverlay.vue";
 import { type AppUpdateCheckResult } from "@/modules/app-updates/api";
 import {
   installUpdateWithTauri,
@@ -59,6 +61,35 @@ const updateInstalling = ref(false);
 const updateResult = ref<AppUpdateCheckResult | null>(null);
 const updateResultStatus = ref<"success" | "error">("success");
 const updateResultMessage = ref("");
+
+const aiPanel = useAiEnhancementPanel();
+const {
+  hasInstalledAiRuntime,
+  isLamaModelReady,
+  aiRuntimePath,
+  lamaModelPath,
+  modelsRoot,
+  aiRuntimeSimpleStatusText,
+  aiModelStatusText,
+  aiRuntimeProgress,
+  aiRuntimeStatusText,
+  isRuntimeBusy,
+  isReplacingRuntime,
+  isReplacingModel,
+  runtimeActionError,
+  refreshStatus,
+  replaceRuntime,
+  replaceModel
+} = aiPanel;
+
+const aiRuntimeDisplayPath = computed(() => aiRuntimePath.value || "");
+const lamaModelDisplayPath = computed(() => modelsRoot.value || lamaModelPath.value || "");
+const showAiRuntimeLoadingOverlay = computed(() => isRuntimeBusy.value || isReplacingRuntime.value);
+const aiRuntimeLoadingMessage = computed(() => {
+  if (aiRuntimeProgress.value?.message) return aiRuntimeProgress.value.message;
+  if (isReplacingRuntime.value && !isRuntimeBusy.value) return t("aiEnhancement.overlay.replacingRuntime");
+  return aiRuntimeStatusText.value;
+});
 
 watch(clearDataModalOpen, (open) => {
   if (open) {
@@ -287,6 +318,42 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
     logicalPath: kind === "terms" ? "/terms" : "/privacy",
   });
 }
+
+async function onReplaceAiRuntime(): Promise<void> {
+  if (!isTauri() || isReplacingRuntime.value) return;
+  if (hasInstalledAiRuntime.value) {
+    const confirmed = await confirm(t("pages.settings.aiModules.replaceRuntimeConfirmBody"), {
+      title: t("pages.settings.aiModules.replaceRuntimeConfirmTitle"),
+      kind: "warning"
+    });
+    if (!confirmed) return;
+  }
+  await replaceRuntime();
+  if (runtimeActionError.value) {
+    await message(runtimeActionError.value, { title: t("pages.settings.aiModules.replaceFailedTitle") });
+  }
+}
+
+async function onReplaceLamaModel(): Promise<void> {
+  if (!isTauri() || isReplacingModel.value) return;
+  if (isLamaModelReady.value) {
+    const confirmed = await confirm(t("pages.settings.aiModules.replaceModelConfirmBody"), {
+      title: t("pages.settings.aiModules.replaceModelConfirmTitle"),
+      kind: "warning"
+    });
+    if (!confirmed) return;
+  }
+  await replaceModel();
+  if (runtimeActionError.value) {
+    await message(runtimeActionError.value, { title: t("pages.settings.aiModules.replaceFailedTitle") });
+  }
+}
+
+onMounted(() => {
+  if (AI_RUNTIME_ENABLED) {
+    void refreshStatus();
+  }
+});
 </script>
 
 <template>
@@ -402,6 +469,37 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
               <button type="button" class="btn-ghost" @click="onClearCache">
                 {{ $t("pages.settings.dashboard.clearCache") }}
               </button>
+            </SettingsRow>
+          </SettingsSectionCard>
+
+          <SettingsSectionCard v-if="AI_RUNTIME_ENABLED" :title="$t('pages.settings.aiModules.sectionTitle')">
+            <SettingsRow
+              variant="block"
+              :title="$t('pages.settings.aiModules.runtimeTitle')"
+              :description="`${aiRuntimeSimpleStatusText}${hasInstalledAiRuntime ? '' : ' · ' + $t('pages.settings.aiModules.notInstalled')}`"
+            >
+              <SettingsPathRow
+                :path-value="aiRuntimeDisplayPath"
+                empty-hint-key="pages.settings.aiModules.runtimeEmptyHint"
+                change-label-key="pages.settings.actions.replace"
+                :change-disabled="isReplacingRuntime"
+                ai-open-target="runtime"
+                @change="onReplaceAiRuntime"
+              />
+            </SettingsRow>
+            <SettingsRow
+              variant="block"
+              :title="$t('pages.settings.aiModules.modelTitle')"
+              :description="`${aiModelStatusText}${isLamaModelReady ? '' : ' · ' + $t('pages.settings.aiModules.notInstalled')}`"
+            >
+              <SettingsPathRow
+                :path-value="lamaModelDisplayPath"
+                empty-hint-key="pages.settings.aiModules.modelEmptyHint"
+                change-label-key="pages.settings.actions.replace"
+                :change-disabled="isReplacingModel"
+                ai-open-target="models"
+                @change="onReplaceLamaModel"
+              />
             </SettingsRow>
           </SettingsSectionCard>
         </div>
@@ -522,6 +620,14 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
           </div>
         </div>
       </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <AiRuntimeInstallLoadingOverlay
+        v-if="showAiRuntimeLoadingOverlay"
+        :title="t('aiEnhancement.overlay.processingTitle')"
+        :message="aiRuntimeLoadingMessage"
+      />
     </Teleport>
 
     <Teleport to="body">
