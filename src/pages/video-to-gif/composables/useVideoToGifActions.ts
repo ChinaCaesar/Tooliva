@@ -102,7 +102,7 @@ function formatSize(bytes: number): string {
 }
 
 export function useVideoToGifActions() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const settingsStore = useSettingsStore();
   const taskStore = useTaskStore();
@@ -125,6 +125,7 @@ export function useVideoToGifActions() {
 
   const clips = ref<VideoClip[]>([]);
   const isProcessing = ref(false);
+  const stopRequested = ref(false);
   const outputDirectory = ref("");
   const resultSummary = ref<VideoGifResultSummary | null>(null);
 
@@ -505,6 +506,7 @@ export function useVideoToGifActions() {
       return;
     }
     isProcessing.value = true;
+    stopRequested.value = false;
     resultSummary.value = null;
     hintMessage.value = "";
     try {
@@ -524,24 +526,35 @@ export function useVideoToGifActions() {
       let success = 0;
       let failed = 0;
       for (const clip of pending) {
+        if (stopRequested.value) break;
         const outcome = await processSingleClip(clip);
         success += outcome.success;
         failed += outcome.failed;
       }
-      resultSummary.value = {
-        total: pending.length,
-        success,
-        failed,
-        elapsedMs: Math.round(performance.now() - startedAt)
-      };
-      notifyTaskBatchCompleted(
-        "pages.videoToGif.title",
-        resultSummary.value,
-        formatElapsed(resultSummary.value.elapsedMs)
-      );
+      if (!stopRequested.value) {
+        resultSummary.value = {
+          total: pending.length,
+          success,
+          failed,
+          elapsedMs: Math.round(performance.now() - startedAt)
+        };
+        notifyTaskBatchCompleted(
+          "pages.videoToGif.title",
+          resultSummary.value,
+          formatElapsed(resultSummary.value.elapsedMs)
+        );
+      }
     } finally {
       isProcessing.value = false;
     }
+  }
+
+  async function interruptProcessing(): Promise<void> {
+    if (!isProcessing.value) return;
+    stopRequested.value = true;
+    hintMessage.value = locale.value.startsWith("zh")
+      ? "已请求停止任务，当前片段处理完成后将中断并允许页面切换。"
+      : "Stop requested. The current clip will finish first, then the task will be interrupted.";
   }
 
   async function pickOutputDirectory(): Promise<void> {
@@ -702,6 +715,7 @@ export function useVideoToGifActions() {
     removeClip,
     setFpsPreset,
     startConversion,
+    interruptProcessing,
     pickOutputDirectory,
     effectiveOutputDirectory,
     canOpenOutputDirectory,

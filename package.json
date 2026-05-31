@@ -7,11 +7,13 @@
     "dev": "vite",
     "dev:local-api": "vite --mode development --host 127.0.0.1 --strictPort",
     "dev:desktop": "vite --host 127.0.0.1 --strictPort",
-    "build": "vue-tsc --noEmit && vite build",
+    "sync:app-version": "node scripts/sync-app-version.mjs",
+    "sync:app-version:prod": "node scripts/sync-app-version.mjs --production",
+    "build": "npm run sync:app-version:prod && vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "ai-runtime:package": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/package-ai-runtime.ps1",
-    "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:Path = \\\"$env:USERPROFILE\\\\.cargo\\\\bin;$env:Path\\\"; tauri dev\"",
-    "tauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:Path = \\\"$env:USERPROFILE\\\\.cargo\\\\bin;$env:Path\\\"; tauri build\""
+    "tauri:dev": "npm run sync:app-version && powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:Path = \\\"$env:USERPROFILE\\\\.cargo\\\\bin;$env:Path\\\"; tauri dev\"",
+    "tauri:build": "npm run sync:app-version:prod && powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:Path = \\\"$env:USERPROFILE\\\\.cargo\\\\bin;$env:Path\\\"; tauri build\""
   },
   "dependencies": {
     "@lucide/vue": "^1.14.0",

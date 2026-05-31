@@ -6,11 +6,13 @@ import { i18n } from "@/i18n";
 import { useAuthStore } from "@/stores/auth.store";
 import { useSettingsStore } from "@/stores/settings.store";
 import {
-  installUpdateWithTauri,
+  executeUpdateInstall,
   mapUpdateInstallError,
   markAutoUpdatePromptShown,
+  resolveUpdateInstallAction,
   runDesktopUpdateCheck,
 } from "@/modules/app-updates/orchestrator";
+import { APP_VERSION } from "@/config/appVersion";
 import "@/styles/base.css";
 
 const app = createApp(App);
@@ -40,11 +42,12 @@ async function bootstrapAutoUpdateCheck(): Promise<void> {
       checkFrequency: settingsStore.checkFrequency,
       updateMethod: settingsStore.updateMethod,
     },
-    currentVersion: __APP_VERSION__,
+    currentVersion: APP_VERSION,
     locale,
   }).catch(() => ({ status: "skipped" as const }));
 
   if (checked.status !== "ok" || !checked.result?.available) return;
+  if (resolveUpdateInstallAction(checked.result).type !== "external_download") return;
 
   markAutoUpdatePromptShown();
   const { confirm, message } = await import("@tauri-apps/plugin-dialog");
@@ -57,7 +60,10 @@ async function bootstrapAutoUpdateCheck(): Promise<void> {
   if (!shouldInstall) return;
 
   try {
-    await installUpdateWithTauri();
+    await executeUpdateInstall(checked.result);
+    await message(i18n.global.t("pages.settings.dashboard.updateDownloadStartedMessage"), {
+      title: i18n.global.t("pages.settings.dashboard.updateDownloadStartedTitle"),
+    });
   } catch (error) {
     await message(i18n.global.t(`pages.settings.dashboard.updateInstallError.${mapUpdateInstallError(error)}`), {
       title: i18n.global.t("pages.settings.dashboard.updateInstallFailedTitle"),

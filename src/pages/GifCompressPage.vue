@@ -19,6 +19,7 @@ import {
   Trash2,
   X
 } from "@lucide/vue";
+import { useInterruptOnRouteLeave } from "@/composables/useInterruptOnRouteLeave";
 import { useBatchTask } from "@/modules/batch";
 import type { BatchConcurrencyPreset } from "@/modules/batch/types";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
@@ -31,7 +32,7 @@ import {
 const gifListImageUrl = "/resources/gifCompress/listImage.png";
 const gifPreviewImageUrl = "/resources/gifCompress/preImage.png";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const router = useRouter();
 const { notifyTaskBatchCompleted } = useTaskBatchNotification();
 const {
@@ -44,6 +45,15 @@ const {
   successOutputs,
   result
 } = useBatchTask();
+
+useInterruptOnRouteLeave({
+  when: () => isRunning.value,
+  message: () =>
+    locale.value.startsWith("zh")
+      ? "当前页面任务正在进行，切换页面会中断任务。确定切换吗？"
+      : "A task is still running on this page. Switching pages will interrupt it. Continue?",
+  interrupt: () => cancel()
+});
 
 const MAX_FILES = 20;
 const RECOMMENDED_MB = 200;

@@ -14,6 +14,7 @@ import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { resolveHomeToolRoute } from "@/pages/home/config/homeToolRoutes";
 import { showHomeInfoDialog } from "@/pages/home/utils/homeDialogs";
 import { useExternalNavigate } from "@/composables/useExternalNavigate";
+import { runRouteInterruptCheck } from "@/router/interruptGuard";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -33,15 +34,17 @@ const {
 async function handleToolNavigate(actionCode: string): Promise<void> {
   const route = resolveHomeToolRoute(actionCode);
   if (route) {
+    if (!(await runRouteInterruptCheck())) return;
     router.push(route);
     return;
   }
   await showHomeInfoDialog(t("pages.home.placeholders.toolUnavailable"), t("pages.home.dialogs.placeholderTitle"));
 }
 
-function handleRecentItemClick(actionCode: string): void {
+async function handleRecentItemClick(actionCode: string): Promise<void> {
   const route = resolveHomeToolRoute(actionCode);
   if (route) {
+    if (!(await runRouteInterruptCheck())) return;
     router.push(route);
     return;
   }
@@ -52,7 +55,8 @@ async function handlePlaceholder(messageKey: string): Promise<void> {
   await showHomeInfoDialog(t(messageKey), t("pages.home.dialogs.placeholderTitle"));
 }
 
-function goMembership(): void {
+async function goMembership(): Promise<void> {
+  if (!(await runRouteInterruptCheck())) return;
   router.push(ROUTE_PATHS.membership).catch(() => {
     /* 路由重复导航等可忽略 */
   });

@@ -226,6 +226,7 @@ export function useImageWatermarkActions() {
     offsetTop: 0
   });
   const resultSummary = ref<WatermarkResultSummary | null>(null);
+  const stopRequested = ref(false);
   const previewCanvasRef = ref<HTMLElement | null>(null);
   /** 预览舞台可用区域（client 尺寸），用于与 `previewRect` 同源缩放，避免 CSS max-* 与计算尺寸不一致 */
   const previewStageSize = ref<PreviewRect>({ width: PREVIEW_BASE.width, height: PREVIEW_BASE.height });
@@ -899,6 +900,7 @@ export function useImageWatermarkActions() {
       return;
     }
     isProcessing.value = true;
+    stopRequested.value = false;
     resultSummary.value = null;
     hintMessage.value = "";
     try {
@@ -914,22 +916,33 @@ export function useImageWatermarkActions() {
       await ensureProgressListener();
 
       for (const current of pendingItems) {
+        if (stopRequested.value) break;
         const outcome = await processSingleWatermarkItem(current);
         success += outcome.successCount;
         failed += outcome.failedCount;
-        if (outcome.blockedByEntitlement) break;
+        if (outcome.blockedByEntitlement || stopRequested.value) break;
       }
 
-      resultSummary.value = {
-        total: pendingItems.length,
-        success,
-        failed,
-        elapsedMs: Math.round(performance.now() - startedAt)
-      };
-      notifyTaskBatchCompleted("pages.imageWatermark.title", resultSummary.value, formatElapsed(resultSummary.value.elapsedMs));
+      if (!stopRequested.value) {
+        resultSummary.value = {
+          total: pendingItems.length,
+          success,
+          failed,
+          elapsedMs: Math.round(performance.now() - startedAt)
+        };
+        notifyTaskBatchCompleted("pages.imageWatermark.title", resultSummary.value, formatElapsed(resultSummary.value.elapsedMs));
+      }
     } finally {
       isProcessing.value = false;
     }
+  }
+
+  async function interruptProcessing(): Promise<void> {
+    if (!isProcessing.value) return;
+    stopRequested.value = true;
+    hintMessage.value = locale.value.startsWith("zh")
+      ? "已请求停止任务，当前文件处理完成后将中断并允许页面切换。"
+      : "Stop requested. The current file will finish first, then the task will be interrupted.";
   }
 
   /**
@@ -1197,6 +1210,7 @@ export function useImageWatermarkActions() {
     handleOverlayPointerDown,
     handlePreviewPointerUp,
     startWatermark,
+    interruptProcessing,
     clearItems,
     removeItem,
     handleDrop,

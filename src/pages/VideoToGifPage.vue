@@ -2,8 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useVideoToGifActions } from "@/pages/video-to-gif/composables/useVideoToGifActions";
+import { useInterruptOnRouteLeave } from "@/composables/useInterruptOnRouteLeave";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const {
   currentVideoUrl,
@@ -44,6 +45,7 @@ const {
   removeClip,
   setFpsPreset,
   startConversion,
+  interruptProcessing,
   canOpenOutputDirectory,
   openOutputDirectory,
   openClipOutputFolder,
@@ -54,6 +56,15 @@ const {
   formatTimeAxis,
   formatTimeCode
 } = useVideoToGifActions();
+
+useInterruptOnRouteLeave({
+  when: () => isProcessing.value,
+  message: () =>
+    locale.value.startsWith("zh")
+      ? "当前页面任务正在进行，切换页面会中断任务。确定切换吗？"
+      : "A task is still running on this page. Switching pages will interrupt it. Continue?",
+  interrupt: () => interruptProcessing()
+});
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 const isPaused = ref(true);

@@ -3,6 +3,8 @@ import { computed, toRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ROUTE_PATHS } from "@/config/constants";
+import { APP_VERSION_LABEL } from "@/config/appVersion";
+import { runRouteInterruptCheck } from "@/router/interruptGuard";
 import { useAuthEntry } from "@/auth/composables/useAuthEntry";
 import UserProfileModal from "@/components/auth/UserProfileModal.vue";
 import AppSidebar from "@/layouts/app-shell/AppSidebar.vue";
@@ -57,12 +59,14 @@ const searchableTools = computed(() =>
   })
 );
 
-function handleSearchSelect(route: string): void {
+async function handleSearchSelect(route: string): Promise<void> {
   if (!route || route === ROUTE_PATHS.home) return;
+  if (!(await runRouteInterruptCheck())) return;
   router.push(route);
 }
 
-function goMembership(): void {
+async function goMembership(): Promise<void> {
+  if (!(await runRouteInterruptCheck())) return;
   router.push(ROUTE_PATHS.membership).catch(() => {
     /* 重复导航 */
   });
@@ -132,7 +136,7 @@ function onLogout(): void {
 
     <AppFooter
       :version-prefix="t(pageConfig.footer.versionPrefixKey)"
-      :version="pageConfig.footer.version"
+      :version="APP_VERSION_LABEL"
       :slogan="t(pageConfig.footer.sloganKey)"
     />
   </div>

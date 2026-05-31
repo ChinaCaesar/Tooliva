@@ -3,7 +3,7 @@
 import "vue-router";
 
 declare global {
-  /** App 版本号；由 `vite.config.ts` 的 `define` 在构建期静态注入。 */
+  /** App 版本号；来自 `.env.*` 的 `APP_VERSION`，由 `vite.config.ts` 构建期注入。 */
   const __APP_VERSION__: string;
 }
 

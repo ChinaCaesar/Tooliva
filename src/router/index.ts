@@ -11,6 +11,7 @@ import VideoWatermarkRemovalPage from "@/pages/VideoWatermarkRemovalPage.vue";
 import GifCompressPage from "@/pages/GifCompressPage.vue";
 import SettingsPage from "@/pages/SettingsPage.vue";
 import MembershipPage from "@/pages/MembershipPage.vue";
+import { runRouteInterruptCheck } from "@/router/interruptGuard";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -44,3 +45,5 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes
 });
+
+router.beforeEach(async () => runRouteInterruptCheck());

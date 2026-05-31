@@ -1,4 +1,5 @@
 import { WEBSITE_URL } from '@/config/constants';
+import { APP_VERSION } from '@/config/appVersion';
 
 export type AppLocale = 'zh-CN' | 'en-US';
 type WebsiteLocale = 'en' | 'zh-CN';
@@ -48,7 +49,7 @@ export function buildWebsiteUrlWithSource(
   const sep = baseWithoutHash.includes('?') ? '&' : '?';
   const params = new URLSearchParams();
   params.set('source', 'desktop');
-  params.set('v', __APP_VERSION__);
+  params.set('v', APP_VERSION);
   params.set('locale', appLocale);
   if (entryId) params.set('entry', entryId);
   return `${baseWithoutHash}${sep}${params.toString()}${hashPart}`;

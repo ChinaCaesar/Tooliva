@@ -2,8 +2,9 @@
 import { useI18n } from "vue-i18n";
 import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { useImageUpscaleActions } from "@/pages/image-upscale/composables/useImageUpscaleActions";
+import { useInterruptOnRouteLeave } from "@/composables/useInterruptOnRouteLeave";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const {
   items,
   visibleItems,
@@ -31,6 +32,7 @@ const {
   pickOutputDirectory,
   openEffectiveOutputDirectory,
   startUpscale,
+  interruptProcessing,
   clearItems,
   removeItem,
   removeSelected,
@@ -39,6 +41,15 @@ const {
   onDragOver,
   onDragLeave
 } = useImageUpscaleActions();
+
+useInterruptOnRouteLeave({
+  when: () => isProcessing.value,
+  message: () =>
+    locale.value.startsWith("zh")
+      ? "当前页面任务正在进行，切换页面会中断任务。确定切换吗？"
+      : "A task is still running on this page. Switching pages will interrupt it. Continue?",
+  interrupt: () => interruptProcessing()
+});
 
 const scaleOptions = [2, 3, 4] as const;
 const modeOptions = ["fast", "standard", "high"] as const;

@@ -112,13 +112,15 @@ function createUpscaleItem(path: string): UpscaleItem {
 async function runWithConcurrency<T>(
   queueItems: readonly T[],
   limit: number,
-  worker: (item: T) => Promise<void>
+  worker: (item: T) => Promise<void>,
+  shouldStop?: () => boolean
 ): Promise<void> {
   let cursor = 0;
   const workerCount = Math.max(1, Math.min(limit, queueItems.length));
   await Promise.all(
     Array.from({ length: workerCount }, async () => {
       while (cursor < queueItems.length) {
+        if (shouldStop?.()) break;
         const currentIndex = cursor;
         cursor += 1;
         await worker(queueItems[currentIndex]);
@@ -131,7 +133,7 @@ async function runWithConcurrency<T>(
  * 图片高清放大页的核心动作：导入、参数管理、并发调度与结果汇总。
  */
 export function useImageUpscaleActions() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const taskStore = useTaskStore();
   const { notifyTaskBatchCompleted } = useTaskBatchNotification();
@@ -153,6 +155,7 @@ export function useImageUpscaleActions() {
   const resultSummary = ref<UpscaleResultSummary | null>(null);
   const entitlementDialogShown = ref(false);
   const selectedIds = shallowRef(new Set<string>());
+  const stopRequested = ref(false);
   let disposeDropListener: UnlistenFn | null = null;
   let disposeUpscaleProgressListener: UnlistenFn | null = null;
 
@@ -354,6 +357,7 @@ export function useImageUpscaleActions() {
       return;
     }
     isProcessing.value = true;
+    stopRequested.value = false;
     resultSummary.value = null;
     hintMessage.value = "";
     try {
@@ -377,23 +381,39 @@ export function useImageUpscaleActions() {
 
       const startedAt = performance.now();
       const stats = { success: 0, failed: 0 };
-      await runWithConcurrency(pendingItems, normalizeConcurrency(concurrency.value), async (item) => {
-        const outcome = await processSingleUpscaleItem(item);
-        stats.success += outcome.success ? 1 : 0;
-        stats.failed += outcome.success ? 0 : 1;
-      });
+      await runWithConcurrency(
+        pendingItems,
+        normalizeConcurrency(concurrency.value),
+        async (item) => {
+          if (stopRequested.value) return;
+          const outcome = await processSingleUpscaleItem(item);
+          stats.success += outcome.success ? 1 : 0;
+          stats.failed += outcome.success ? 0 : 1;
+        },
+        () => stopRequested.value
+      );
 
-      resultSummary.value = {
-        total: pendingItems.length,
-        success: stats.success,
-        failed: stats.failed,
-        elapsedMs: Math.round(performance.now() - startedAt),
-        outputDirectoryLabel: outputFooterPath.value
-      };
-      notifyTaskBatchCompleted("pages.imageUpscale.title", resultSummary.value, formatElapsed(resultSummary.value.elapsedMs));
+      if (!stopRequested.value) {
+        resultSummary.value = {
+          total: pendingItems.length,
+          success: stats.success,
+          failed: stats.failed,
+          elapsedMs: Math.round(performance.now() - startedAt),
+          outputDirectoryLabel: outputFooterPath.value
+        };
+        notifyTaskBatchCompleted("pages.imageUpscale.title", resultSummary.value, formatElapsed(resultSummary.value.elapsedMs));
+      }
     } finally {
       isProcessing.value = false;
     }
+  }
+
+  async function interruptProcessing(): Promise<void> {
+    if (!isProcessing.value) return;
+    stopRequested.value = true;
+    hintMessage.value = locale.value.startsWith("zh")
+      ? "已请求停止任务，当前正在处理的文件完成后将中断并允许页面切换。"
+      : "Stop requested. Running files will finish first, then the task will be interrupted.";
   }
 
   async function processSingleUpscaleItem(current: UpscaleItem): Promise<{ success: boolean }> {
@@ -574,6 +594,7 @@ export function useImageUpscaleActions() {
     pickOutputDirectory,
     openEffectiveOutputDirectory,
     startUpscale,
+    interruptProcessing,
     clearItems,
     removeItem,
     removeSelected,

@@ -5,6 +5,7 @@ import { storeToRefs } from "pinia";
 import { open, message, confirm } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { WINDOW_SIZE_OPTIONS, AI_RUNTIME_ENABLED } from "@/config/constants";
+import { APP_VERSION, APP_VERSION_LABEL } from "@/config/appVersion";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { useExternalNavigate } from "@/composables/useExternalNavigate";
 import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
@@ -18,8 +19,9 @@ import SettingsPathRow from "@/pages/settings/components/SettingsPathRow.vue";
 import AiRuntimeInstallLoadingOverlay from "@/components/ai-runtime/AiRuntimeInstallLoadingOverlay.vue";
 import { type AppUpdateCheckResult } from "@/modules/app-updates/api";
 import {
-  installUpdateWithTauri,
+  executeUpdateInstall,
   mapUpdateInstallError,
+  resolveUpdateInstallAction,
   runDesktopUpdateCheck,
 } from "@/modules/app-updates/orchestrator";
 
@@ -46,7 +48,7 @@ const {
   errorReportingEnabled
 } = storeToRefs(settingsStore);
 
-const appVersion = computed(() => `v${__APP_VERSION__}`);
+const appVersion = computed(() => APP_VERSION_LABEL);
 
 const clearDataModalOpen = ref(false);
 const clearDataAcknowledged = ref(false);
@@ -61,6 +63,17 @@ const updateInstalling = ref(false);
 const updateResult = ref<AppUpdateCheckResult | null>(null);
 const updateResultStatus = ref<"success" | "error">("success");
 const updateResultMessage = ref("");
+const updateResultTitle = computed(() => {
+  if (updateResultStatus.value === "error") {
+    return t("pages.settings.dashboard.updateCheckFailedTitle");
+  }
+  if (updateResult.value?.available) {
+    return t("pages.settings.dashboard.updateAvailableTitle");
+  }
+  return t("pages.settings.dashboard.updateUpToDateTitle");
+});
+const updateInstallAction = computed(() => resolveUpdateInstallAction(updateResult.value));
+const canExecuteRealUpdate = computed(() => updateInstallAction.value.type === "external_download");
 
 const aiPanel = useAiEnhancementPanel();
 const {
@@ -234,19 +247,26 @@ async function onCheckUpdates(): Promise<void> {
         checkFrequency: checkFrequency.value,
         updateMethod: updateMethod.value,
       },
-      currentVersion: __APP_VERSION__,
+      currentVersion: APP_VERSION,
       locale: language.value,
     });
     if (checked.status !== "ok" || !checked.result) {
       throw new Error("manual_check_failed");
     }
     const result = checked.result;
+    const installAction = resolveUpdateInstallAction(result);
 
     updateResult.value = result;
     updateResultStatus.value = "success";
-    updateResultMessage.value = result.available
-      ? t("pages.settings.dashboard.updateAvailableMessage", { version: result.latestVersion })
-      : t("pages.settings.dashboard.updateUpToDateMessage", { version: result.currentVersion });
+    if (!result.available) {
+      updateResultMessage.value = t("pages.settings.dashboard.updateUpToDateMessage", { version: result.currentVersion });
+    } else if (installAction.type === "dev_check_only") {
+      updateResultMessage.value = t("pages.settings.dashboard.updateAvailableDevMessage", { version: result.latestVersion });
+    } else if (installAction.type === "unsupported") {
+      updateResultMessage.value = t("pages.settings.dashboard.updateAvailableUnsupportedMessage", { version: result.latestVersion });
+    } else {
+      updateResultMessage.value = t("pages.settings.dashboard.updateAvailableMessage", { version: result.latestVersion });
+    }
   } catch {
     updateResult.value = null;
     updateResultStatus.value = "error";
@@ -270,10 +290,11 @@ function closeUpdateResultModal(): void {
 }
 
 async function onInstallUpdate(): Promise<void> {
-  if (!updateResult.value?.available || updateInstalling.value) return;
+  if (!updateResult.value?.available || updateInstalling.value || !canExecuteRealUpdate.value) return;
   if (taskStore.activeTasks.length > 0) {
     updateResultStatus.value = "error";
     updateResultMessage.value = t("pages.settings.dashboard.updateInstallBlockedByActiveTasks");
+    updateResultModalOpen.value = true;
     return;
   }
   updateInstalling.value = true;
@@ -282,26 +303,27 @@ async function onInstallUpdate(): Promise<void> {
   updateProgressValue.value = 0;
   updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressPrepare");
   try {
-    await installUpdateWithTauri((payload) => {
+    await executeUpdateInstall(updateResult.value, (payload) => {
       switch (payload.phase) {
         case "checking":
           updateProgressValue.value = 10;
           updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressPrepare");
           break;
-        case "downloading":
-          updateProgressValue.value = 15;
-          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressDownload");
+        case "opening":
+          updateProgressValue.value = 72;
+          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressOpenLink");
           break;
-        case "installing":
-          updateProgressValue.value = 80;
-          updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressApply");
-          break;
-        case "restarting":
+        case "done":
           updateProgressValue.value = 100;
           updateProgressLabel.value = t("pages.settings.dashboard.updateInstallProgressDone");
           break;
       }
     });
+    await new Promise((resolve) => window.setTimeout(resolve, 220));
+    updateProgressModalOpen.value = false;
+    updateResultStatus.value = "success";
+    updateResultMessage.value = t("pages.settings.dashboard.updateDownloadStartedMessage");
+    updateResultModalOpen.value = true;
   } catch (error) {
     updateProgressModalOpen.value = false;
     updateResultStatus.value = "error";
@@ -649,13 +671,7 @@ onMounted(() => {
       <div v-if="updateResultModalOpen" class="dialog-backdrop" aria-hidden="false" @click.self="closeUpdateResultModal">
         <div class="dialog-panel" role="alertdialog" aria-modal="true" aria-labelledby="update-result-title">
           <h2 id="update-result-title" class="dialog-title">
-            {{
-              updateResultStatus === "error"
-                ? $t("pages.settings.dashboard.updateCheckFailedTitle")
-                : updateResult?.available
-                  ? $t("pages.settings.dashboard.updateAvailableTitle")
-                  : $t("pages.settings.dashboard.updateUpToDateTitle")
-            }}
+            {{ updateResultTitle }}
           </h2>
           <p class="dialog-body">{{ updateResultMessage }}</p>
           <div v-if="updateResult" class="dialog-meta-block">
@@ -666,13 +682,13 @@ onMounted(() => {
           </div>
           <div class="dialog-actions">
             <button
-              v-if="updateResult?.available && updateResultStatus !== 'error'"
+              v-if="updateResult?.available && updateResultStatus !== 'error' && canExecuteRealUpdate"
               type="button"
               class="btn-primary"
               :disabled="updateInstalling"
               @click="onInstallUpdate"
             >
-              {{ $t("pages.settings.dashboard.updateNow") }}
+              {{ $t("pages.settings.dashboard.downloadUpdateNow") }}
             </button>
             <button type="button" class="btn-ghost" :disabled="updateInstalling" @click="closeUpdateResultModal">
               {{ $t("pages.settings.dashboard.closeModal") }}

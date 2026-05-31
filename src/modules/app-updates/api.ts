@@ -1,3 +1,4 @@
+import { isTauri } from "@tauri-apps/api/core";
 import { API_BASE_URL } from "@/config/constants";
 
 export interface AppUpdateCheckResult {
@@ -13,6 +14,7 @@ interface CheckUpdateOptions {
   currentVersion: string;
   channel: string;
   locale?: string;
+  buildNum?: number;
 }
 
 interface ApiEnvelope<T> {
@@ -23,15 +25,32 @@ type UnknownRecord = Record<string, unknown>;
 
 function getUpdateCheckUrl(options: CheckUpdateOptions): string {
   const base = API_BASE_URL.replace(/\/$/, "");
-  const path = (import.meta.env.VITE_APP_UPDATE_CHECK_PATH as string | undefined)?.trim() || "/desktop/releases/check";
+  const path = (import.meta.env.VITE_APP_UPDATE_CHECK_PATH as string | undefined)?.trim() || "/app-version/check";
   const url = new URL(`${base}${path.startsWith("/") ? path : `/${path}`}`);
-  url.searchParams.set("currentVersion", options.currentVersion);
+  url.searchParams.set("app_code", "tooliva");
   url.searchParams.set("channel", options.channel);
-  url.searchParams.set("platform", "desktop");
+  url.searchParams.set("platform", detectPlatform());
+  url.searchParams.set("arch", detectArch());
+  url.searchParams.set("build_num", String(Math.max(0, options.buildNum ?? 0)));
   if (options.locale) {
-    url.searchParams.set("locale", options.locale);
+    url.searchParams.set("locale", normalizeLocale(options.locale));
   }
   return url.toString();
+}
+
+function normalizeLocale(locale: string): string {
+  const normalized = locale.trim().toLowerCase();
+  return normalized === "en" || normalized === "en-us" ? "en" : "zh-CN";
+}
+
+function detectPlatform(): "windows" | "macos" {
+  const platform = `${globalThis.navigator?.platform ?? ""}`.toLowerCase();
+  return platform.includes("mac") ? "macos" : "windows";
+}
+
+function detectArch(): "x64" | "arm64" {
+  const ua = `${globalThis.navigator?.userAgent ?? ""}`.toLowerCase();
+  return /\b(arm|aarch64)\b/.test(ua) ? "arm64" : "x64";
 }
 
 function unwrapPayload(payload: unknown): UnknownRecord {
@@ -69,6 +88,25 @@ function pickBoolean(source: UnknownRecord, keys: string[]): boolean | null {
   return null;
 }
 
+function pickNestedString(source: UnknownRecord, path: string[]): string {
+  let current: unknown = source;
+  for (const key of path) {
+    if (!current || typeof current !== "object") {
+      return "";
+    }
+    current = (current as UnknownRecord)[key];
+  }
+  return typeof current === "string" && current.trim().length > 0 ? current.trim() : "";
+}
+
+function pickStringList(source: UnknownRecord, key: string): string[] {
+  const value = source[key];
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
 function normalizeVersion(value: string): number[] {
   return value
     .trim()
@@ -94,26 +132,63 @@ function isVersionGreater(nextVersion: string, currentVersion: string): boolean 
 }
 
 export async function checkDesktopAppUpdate(options: CheckUpdateOptions): Promise<AppUpdateCheckResult> {
-  const response = await fetch(getUpdateCheckUrl(options), {
+  const requestUrl = getUpdateCheckUrl(options);
+  const requestInit = {
     headers: {
       Accept: "application/json",
     },
-  });
+  };
+  const response = isTauri()
+    ? await (await import("@tauri-apps/plugin-http")).fetch(requestUrl, {
+      ...requestInit,
+      method: "GET",
+      connectTimeout: 12_000,
+    })
+    : await fetch(requestUrl, requestInit);
   if (!response.ok) {
     throw new Error(`update_check_failed:${response.status}`);
   }
 
   const payload = (await response.json().catch(() => null)) as unknown;
   const source = unwrapPayload(payload);
-  const latestVersion = pickString(source, ["latestVersion", "latest_version", "version", "tag", "release_version"]) || options.currentVersion;
-  const explicitAvailable = pickBoolean(source, ["available", "hasUpdate", "has_update", "needUpdate", "need_update"]);
+  const latestVersion =
+    pickString(source, ["latestVersion", "latest_version", "version", "tag", "release_version"])
+    || pickNestedString(source, ["latest", "version"])
+    || options.currentVersion;
+  const explicitAvailable =
+    pickBoolean(source, ["available", "hasUpdate", "has_update", "needUpdate", "need_update"])
+    ?? pickNestedBoolean(source, ["latest", "has_update"]);
+  const notesList = pickStringList(source, "notes");
+  const packageUrl =
+    pickString(source, ["downloadUrl", "download_url", "url", "link"])
+    || pickNestedString(source, ["package", "package_file"]);
 
   return {
     available: explicitAvailable ?? isVersionGreater(latestVersion, options.currentVersion),
     currentVersion: options.currentVersion,
     latestVersion,
-    notes: pickString(source, ["notes", "summary", "description", "content"]),
-    publishedAt: pickString(source, ["publishedAt", "published_at", "releaseDate", "release_date", "date"]),
-    downloadUrl: pickString(source, ["downloadUrl", "download_url", "url", "link"]) || undefined,
+    notes: notesList.join("\n") || pickString(source, ["notes", "summary", "description", "content"]),
+    publishedAt:
+      pickString(source, ["publishedAt", "published_at", "releaseDate", "release_date", "date"])
+      || pickNestedString(source, ["latest", "release_date"]),
+    downloadUrl: packageUrl || undefined,
   };
+}
+
+function pickNestedBoolean(source: UnknownRecord, path: string[]): boolean | null {
+  let current: unknown = source;
+  for (const key of path) {
+    if (!current || typeof current !== "object") {
+      return null;
+    }
+    current = (current as UnknownRecord)[key];
+  }
+  if (typeof current === "boolean") return current;
+  if (typeof current === "number") return current > 0;
+  if (typeof current === "string") {
+    const normalized = current.trim().toLowerCase();
+    if (["true", "1", "yes"].includes(normalized)) return true;
+    if (["false", "0", "no"].includes(normalized)) return false;
+  }
+  return null;
 }

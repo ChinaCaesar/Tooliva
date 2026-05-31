@@ -6,6 +6,7 @@ import { ChevronLeft, Crown, House } from "@lucide/vue";
 import { message } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
+import { runRouteInterruptCheck } from "@/router/interruptGuard";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { getAllToolsSorted, type AppToolDef } from "@/config/tools.registry";
 import { resolveHomeToolRoute } from "@/pages/home/config/homeToolRoutes";
@@ -38,6 +39,7 @@ function navSecondaryActive(item: AppNavSecondaryItem): boolean {
 }
 
 async function goHome(): Promise<void> {
+  if (!(await runRouteInterruptCheck())) return;
   emit("collapseForHome");
   await router.push(ROUTE_PATHS.home).catch(() => {
     /* 重复导航 */
@@ -47,6 +49,7 @@ async function goHome(): Promise<void> {
 async function onFeaturedClick(item: AppToolDef): Promise<void> {
   const target = resolveHomeToolRoute(item.actionCode);
   if (target) {
+    if (!(await runRouteInterruptCheck())) return;
     await router.push(target).catch(() => {
       /* 重复导航 */
     });
@@ -55,6 +58,7 @@ async function onFeaturedClick(item: AppToolDef): Promise<void> {
 
 async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
   if (item.kind === "route" && item.path) {
+    if (!(await runRouteInterruptCheck())) return;
     await router.push(item.path).catch(() => {
       /* 重复导航 */
     });

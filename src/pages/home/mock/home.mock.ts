@@ -1,4 +1,5 @@
 import { ROUTE_PATHS } from "@/config/constants";
+import { APP_VERSION_LABEL } from "@/config/appVersion";
 import type {
   HomeChangelogEntryDef,
   HomeFooterLinkItem,
@@ -101,7 +102,7 @@ export const HOME_MEMBERSHIP_BULLETS_MOCK: HomeSidebarBulletDef[] = [
 export const HOME_CHANGELOG_MOCK: HomeChangelogEntryDef[] = [
   {
     id: "cl-1",
-    version: "v1.0.0",
+    version: APP_VERSION_LABEL,
     dateKey: "pages.home.sections.sidebar.changelog.v100.date",
     summaryKey: "pages.home.sections.sidebar.changelog.v100.summary"
   },

@@ -5,12 +5,13 @@ import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
+import { useInterruptOnRouteLeave } from "@/composables/useInterruptOnRouteLeave";
 import type { WatermarkPosition } from "@/bridge/tauriClient";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useImageWatermarkActions } from "@/pages/image-watermark/composables/useImageWatermarkActions";
 
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { outputFileNamingRule } = storeToRefs(useSettingsStore());
 
 /** 九宫格预设方位（不含自定义拖拽），顺序：上排 → 中排 → 下排 */
@@ -65,12 +66,22 @@ const {
   handleOverlayPointerDown,
   handlePreviewPointerUp,
   startWatermark,
+  interruptProcessing,
   clearItems,
   removeItem,
   handleDrop,
   onDragOver,
   onDragLeave
 } = useImageWatermarkActions();
+
+useInterruptOnRouteLeave({
+  when: () => isProcessing.value,
+  message: () =>
+    locale.value.startsWith("zh")
+      ? "当前页面任务正在进行，切换页面会中断任务。确定切换吗？"
+      : "A task is still running on this page. Switching pages will interrupt it. Continue?",
+  interrupt: () => interruptProcessing()
+});
 
 const watermarkTypeLabel = computed(() =>
   mode.value === "text" ? t("pages.imageWatermark.settings.textMode") : t("pages.imageWatermark.settings.imageMode")

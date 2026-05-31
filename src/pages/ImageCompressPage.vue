@@ -2,8 +2,9 @@
 import { ref, watchEffect, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useImageCompressActions } from "@/pages/image-compress/composables/useImageCompressActions";
+import { useInterruptOnRouteLeave } from "@/composables/useInterruptOnRouteLeave";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const {
   items,
   visibleItems,
@@ -30,6 +31,7 @@ const {
   pickAddFolder,
   pickOutputDirectory,
   startCompress,
+  interruptProcessing,
   clearItems,
   removeItem,
   removeSelected,
@@ -41,6 +43,15 @@ const {
   onDragOver,
   onDragLeave
 } = useImageCompressActions();
+
+useInterruptOnRouteLeave({
+  when: () => isProcessing.value,
+  message: () =>
+    locale.value.startsWith("zh")
+      ? "当前页面任务正在进行，切换页面会中断任务。确定切换吗？"
+      : "A task is still running on this page. Switching pages will interrupt it. Continue?",
+  interrupt: () => interruptProcessing()
+});
 
 const selectAllCheckboxRef = ref<HTMLInputElement | null>(null);
 const outputModeOptions = ["source", "custom", "overwrite"] as const;

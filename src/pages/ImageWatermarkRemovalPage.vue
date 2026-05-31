@@ -19,6 +19,7 @@ import {
 import AiEnhancementStatusPanel from "@/components/ai-runtime/AiEnhancementStatusPanel.vue";
 import AiRuntimeInstallLoadingOverlay from "@/components/ai-runtime/AiRuntimeInstallLoadingOverlay.vue";
 import { tauriClient } from "@/bridge/tauriClient";
+import { useInterruptOnRouteLeave } from "@/composables/useInterruptOnRouteLeave";
 import { useBatchTask } from "@/modules/batch";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
@@ -28,7 +29,7 @@ import {
   promptEntitlementUpgrade
 } from "@/modules/entitlement/exportEntitlementGuard";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const router = useRouter();
 
 type RemovalStatus = "pending" | "processing" | "done" | "failed";
@@ -89,6 +90,18 @@ const {
 const { submit, cancel, openOutputDirectory: openBatchOutputDirectory, progress, isRunning, result, failures } = useBatchTask();
 const { notifyTaskBatchCompleted } = useTaskBatchNotification();
 const lastNotifiedTaskId = ref<string | null>(null);
+
+useInterruptOnRouteLeave({
+  when: () => isRunning.value,
+  message: () =>
+    locale.value.startsWith("zh")
+      ? "当前页面任务正在进行，切换页面会中断任务。确定切换吗？"
+      : "A task is still running on this page. Switching pages will interrupt it. Continue?",
+  interrupt: async () => {
+    await cancel();
+    stopTimers();
+  }
+});
 
 let disposeDrop: UnlistenFn | null = null;
 let elapsedTimer: number | null = null;

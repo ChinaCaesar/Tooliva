@@ -135,7 +135,7 @@ function computeMaxOutputPixels(
  * 图片压缩页的核心动作：导入、拖拽、串行压缩与结果汇总。
  */
 export function useImageCompressActions() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const settingsStore = useSettingsStore();
   const taskStore = useTaskStore();
@@ -155,6 +155,7 @@ export function useImageCompressActions() {
   const maxHeightBound = ref<number | null>(null);
   const resultSummary = ref<CompressResultSummary | null>(null);
   const selectedIds = shallowRef(new Set<string>());
+  const stopRequested = ref(false);
   let disposeDropListener: UnlistenFn | null = null;
   let disposeCompressProgressListener: UnlistenFn | null = null;
 
@@ -352,6 +353,7 @@ export function useImageCompressActions() {
       return;
     }
     isProcessing.value = true;
+    stopRequested.value = false;
     resultSummary.value = null;
     hintMessage.value = "";
     try {
@@ -379,27 +381,38 @@ export function useImageCompressActions() {
       });
 
       for (const current of pendingItems) {
+        if (stopRequested.value) break;
         const outcome = await processSingleCompressItem(current);
         totalInputBytes += outcome.inputBytes;
         totalOutputBytes += outcome.outputBytes;
         success += outcome.successCount;
         failed += outcome.failedCount;
-        if (outcome.blockedByEntitlement) break;
+        if (outcome.blockedByEntitlement || stopRequested.value) break;
       }
 
-      resultSummary.value = {
-        total: pendingItems.length,
-        success,
-        failed,
-        elapsedMs: Math.round(performance.now() - startedAt),
-        totalInputBytes,
-        totalOutputBytes,
-        compressionRatio: totalInputBytes > 0 ? (totalInputBytes - totalOutputBytes) / totalInputBytes : 0
-      };
-      notifyTaskBatchCompleted("pages.imageCompress.title", resultSummary.value, formatElapsed(resultSummary.value.elapsedMs));
+      if (!stopRequested.value) {
+        resultSummary.value = {
+          total: pendingItems.length,
+          success,
+          failed,
+          elapsedMs: Math.round(performance.now() - startedAt),
+          totalInputBytes,
+          totalOutputBytes,
+          compressionRatio: totalInputBytes > 0 ? (totalInputBytes - totalOutputBytes) / totalInputBytes : 0
+        };
+        notifyTaskBatchCompleted("pages.imageCompress.title", resultSummary.value, formatElapsed(resultSummary.value.elapsedMs));
+      }
     } finally {
       isProcessing.value = false;
     }
+  }
+
+  async function interruptProcessing(): Promise<void> {
+    if (!isProcessing.value) return;
+    stopRequested.value = true;
+    hintMessage.value = locale.value.startsWith("zh")
+      ? "已请求停止任务，当前文件处理完成后将中断并允许页面切换。"
+      : "Stop requested. The current file will finish first, then the task will be interrupted.";
   }
 
   /**
@@ -613,6 +626,7 @@ export function useImageCompressActions() {
     pickAddFolder: pickSourceDirectory,
     pickOutputDirectory,
     startCompress,
+    interruptProcessing,
     clearItems,
     removeItem,
     removeSelected,

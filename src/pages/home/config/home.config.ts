@@ -44,7 +44,6 @@ export const HOME_PAGE_CONFIG = {
   },
   footer: {
     sloganKey: "pages.home.footer.slogan",
-    versionPrefixKey: "pages.home.footer.versionPrefix",
-    version: "v1.0.0"
+    versionPrefixKey: "pages.home.footer.versionPrefix"
   }
 } as const;
