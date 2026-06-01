@@ -13,6 +13,7 @@ import { useInterruptOnRouteLeave } from "@/composables/useInterruptOnRouteLeave
 import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
 import { useBatchTask } from "@/modules/batch";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
+import { useTaskElapsedTimer } from "@/pages/shared/useTaskElapsedTimer";
 import {
   checkExportEntitlement,
   consumeExportEntitlement,
@@ -57,7 +58,6 @@ const isDropActive = ref(false);
 const removalMode = ref<RemovalMode>("fast");
 const outputDir = ref(t("pages.videoWatermarkRemoval.output.defaultDirectory"));
 const hintMessage = ref("");
-const elapsedSeconds = ref(0);
 const draftRegion = ref<WatermarkRegion | null>(null);
 const isSubmittingRemoval = ref(false);
 const previewVideoRef = ref<HTMLVideoElement | null>(null);
@@ -82,6 +82,10 @@ const {
   ensureModelReady
 } = aiPanel;
 const { submit, cancel, openOutputDirectory: openBatchOutputDirectory, progress, isRunning, result, failures } = useBatchTask();
+const { elapsedSeconds, startElapsedTimer, stopElapsedTimer, syncElapsedFromMs } = useTaskElapsedTimer({
+  isRunning,
+  progress
+});
 const { notifyTaskBatchCompleted } = useTaskBatchNotification();
 const lastNotifiedTaskId = ref<string | null>(null);
 
@@ -93,12 +97,11 @@ useInterruptOnRouteLeave({
       : "A task is still running on this page. Switching pages will interrupt it. Continue?",
   interrupt: async () => {
     await cancel();
-    stopTimers();
+    stopElapsedTimer();
   }
 });
 
 let disposeDrop: UnlistenFn | null = null;
-let elapsedTimer: number | null = null;
 let dragStart: { x: number; y: number } | null = null;
 let previewResizeObserver: ResizeObserver | null = null;
 let hasManualModeSelection = false;
@@ -522,8 +525,7 @@ async function startRemoval() {
     return;
   }
 
-  stopTimers();
-  elapsedSeconds.value = 0;
+  stopElapsedTimer(false);
   lastNotifiedTaskId.value = null;
   items.value.forEach((item) => {
     item.status = "pending";
@@ -536,10 +538,7 @@ async function startRemoval() {
       const ready = await ensureAiReady();
       if (!ready) return;
     }
-    const startedAt = Date.now();
-    elapsedTimer = window.setInterval(() => {
-      elapsedSeconds.value = Math.floor((Date.now() - startedAt) / 1000);
-    }, 1000);
+    startElapsedTimer();
 
     await submit({
       taskType: "VIDEO_WATERMARK_REMOVAL",
@@ -554,7 +553,7 @@ async function startRemoval() {
       concurrencyPreset: "balanced"
     });
   } catch (error) {
-    stopTimers();
+    stopElapsedTimer();
     const message = error instanceof Error ? error.message : String(error);
     hintMessage.value = message || t("pages.videoWatermarkRemoval.hints.startTaskFailed");
   } finally {
@@ -564,15 +563,10 @@ async function startRemoval() {
 
 function stopTask() {
   void cancel();
-  stopTimers();
+  stopElapsedTimer();
   items.value.forEach((item) => {
     if (item.status === "processing") item.status = "pending";
   });
-}
-
-function stopTimers() {
-  if (elapsedTimer != null) window.clearInterval(elapsedTimer);
-  elapsedTimer = null;
 }
 
 async function openOutputDirectory() {
@@ -647,6 +641,11 @@ watch([result, failures], () => {
   if (snapshot.status === "FAILED") {
     hintMessage.value = failures.value[0]?.errorMessage || snapshot.message || t("pages.videoWatermarkRemoval.hints.taskFailed");
   }
+  if (snapshot.finishedAtMs && snapshot.startedAtMs) {
+    syncElapsedFromMs(snapshot.finishedAtMs - snapshot.startedAtMs);
+  } else {
+    stopElapsedTimer();
+  }
   if (snapshot.status === "FINISHED" || snapshot.status === "FAILED") {
     if (lastNotifiedTaskId.value !== snapshot.taskId) {
       lastNotifiedTaskId.value = snapshot.taskId;
@@ -666,7 +665,6 @@ watch([result, failures], () => {
       );
     }
   }
-  stopTimers();
 });
 
 onMounted(() => {
@@ -682,7 +680,6 @@ onBeforeUnmount(() => {
   disposeDrop?.();
   previewResizeObserver?.disconnect();
   window.removeEventListener("resize", updateVideoLayerSize);
-  stopTimers();
 });
 </script>
 

@@ -121,7 +121,7 @@ export function useAiEnhancementPanel() {
       runtimeActionError.value = "";
       const selected = await open({
         multiple: false,
-        filters: [{ name: t("aiEnhancement.dialog.runtimePackage"), extensions: ["zip"] }]
+        filters: [{ name: t("aiEnhancement.dialog.runtimePackage"), extensions: ["7z", "zip"] }]
       });
       if (!selected || Array.isArray(selected)) return;
       await aiRuntime.installOrUpdate(selected);
@@ -158,7 +158,7 @@ export function useAiEnhancementPanel() {
       }
       const selected = await open({
         multiple: false,
-        filters: [{ name: t("aiEnhancement.dialog.runtimePackage"), extensions: ["zip"] }]
+        filters: [{ name: t("aiEnhancement.dialog.runtimePackage"), extensions: ["7z", "zip"] }]
       });
       if (!selected || Array.isArray(selected)) {
         await refreshStatus(onSynced);

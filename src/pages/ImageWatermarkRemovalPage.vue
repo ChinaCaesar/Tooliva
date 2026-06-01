@@ -22,6 +22,7 @@ import { tauriClient } from "@/bridge/tauriClient";
 import { useInterruptOnRouteLeave } from "@/composables/useInterruptOnRouteLeave";
 import { useBatchTask } from "@/modules/batch";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
+import { useTaskElapsedTimer } from "@/pages/shared/useTaskElapsedTimer";
 import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
 import {
   checkExportEntitlement,
@@ -69,7 +70,6 @@ const basicRadius = ref(3);
 const batchApply = ref(true);
 const outputFormat = ref<OutputFormat>("auto");
 const outputDir = ref(t("pages.imageWatermarkRemoval.output.defaultDirectory"));
-const elapsedSeconds = ref(0);
 const hintMessage = ref("");
 const showProcessed = ref(false);
 const draftRegion = ref<WatermarkRegion | null>(null);
@@ -88,6 +88,10 @@ const {
   ensureModelReady
 } = aiPanel;
 const { submit, cancel, openOutputDirectory: openBatchOutputDirectory, progress, isRunning, result, failures } = useBatchTask();
+const { elapsedSeconds, startElapsedTimer, stopElapsedTimer, syncElapsedFromMs } = useTaskElapsedTimer({
+  isRunning,
+  progress
+});
 const { notifyTaskBatchCompleted } = useTaskBatchNotification();
 const lastNotifiedTaskId = ref<string | null>(null);
 
@@ -99,12 +103,11 @@ useInterruptOnRouteLeave({
       : "A task is still running on this page. Switching pages will interrupt it. Continue?",
   interrupt: async () => {
     await cancel();
-    stopTimers();
+    stopElapsedTimer();
   }
 });
 
 let disposeDrop: UnlistenFn | null = null;
-let elapsedTimer: number | null = null;
 let dragStart: { x: number; y: number } | null = null;
 let hasManualModeSelection = false;
 
@@ -410,9 +413,8 @@ async function startRemoval() {
     }
     return;
   }
-  stopTimers();
+  stopElapsedTimer(false);
   showProcessed.value = false;
-  elapsedSeconds.value = 0;
   lastNotifiedTaskId.value = null;
   modelError.value = "";
   items.value.forEach((item) => {
@@ -430,10 +432,7 @@ async function startRemoval() {
       }
       await ensureModelReady();
     }
-    const startedAt = Date.now();
-    elapsedTimer = window.setInterval(() => {
-      elapsedSeconds.value = Math.floor((Date.now() - startedAt) / 1000);
-    }, 1000);
+    startElapsedTimer();
     await submit({
       taskType: "AI_INPAINT",
       inputFiles: items.value.map((item) => item.path),
@@ -448,7 +447,7 @@ async function startRemoval() {
       concurrencyPreset: "lowUsage"
     });
   } catch (error) {
-    stopTimers();
+    stopElapsedTimer();
     const message = error instanceof Error ? error.message : String(error);
     hintMessage.value = message || t("pages.imageWatermarkRemoval.hints.startTaskFailed");
     modelError.value = hintMessage.value;
@@ -457,15 +456,10 @@ async function startRemoval() {
 
 function stopTask() {
   void cancel();
-  stopTimers();
+  stopElapsedTimer();
   items.value.forEach((item) => {
     if (item.status === "processing") item.status = "pending";
   });
-}
-
-function stopTimers() {
-  if (elapsedTimer != null) window.clearInterval(elapsedTimer);
-  elapsedTimer = null;
 }
 
 async function openOutputDirectory() {
@@ -547,6 +541,11 @@ watch([result, failures], () => {
       failures.value[0]?.errorMessage || snapshot.message || t("pages.imageWatermarkRemoval.hints.batchFailed");
     hintMessage.value = modelError.value;
   }
+  if (snapshot.finishedAtMs && snapshot.startedAtMs) {
+    syncElapsedFromMs(snapshot.finishedAtMs - snapshot.startedAtMs);
+  } else {
+    stopElapsedTimer();
+  }
   if (snapshot.status === "FINISHED" || snapshot.status === "FAILED") {
     if (lastNotifiedTaskId.value !== snapshot.taskId) {
       lastNotifiedTaskId.value = snapshot.taskId;
@@ -566,7 +565,6 @@ watch([result, failures], () => {
       );
     }
   }
-  stopTimers();
 });
 
 onMounted(async () => {
@@ -576,7 +574,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   disposeDrop?.();
-  stopTimers();
 });
 </script>
 

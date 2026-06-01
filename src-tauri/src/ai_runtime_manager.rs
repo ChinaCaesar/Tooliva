@@ -11,6 +11,7 @@ use crate::ai_runtime::{
     write_installed_runtime_state, InstalledAiRuntimeState,
 };
 use crate::process_utils::hide_process_window;
+use crate::runtime_bins::resolve_binary;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -226,11 +227,7 @@ fn install_ai_runtime_package_impl(
     }
     fs::create_dir_all(&staging_dir).map_err(|err| err.to_string())?;
 
-    run_powershell(&format!(
-        "$ProgressPreference='SilentlyContinue'; Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force",
-        ps_escape(&package_path.display().to_string()),
-        ps_escape(&staging_dir.display().to_string())
-    ))?;
+    extract_runtime_archive(package_path, &staging_dir)?;
 
     let runtime_root = normalize_extracted_runtime_root(&staging_dir)?;
     let layout = detect_runtime_source_layout(&runtime_root)?;
@@ -542,6 +539,73 @@ fn cleanup_stale_current_runtime_dir() -> Result<(), String> {
         return Ok(());
     }
     cleanup_legacy_current_runtime(&current_dir, version)
+}
+
+fn extract_runtime_archive(package_path: &Path, destination_dir: &Path) -> Result<(), String> {
+    let extension = package_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+        .unwrap_or_default();
+
+    match extension.as_str() {
+        "zip" => run_powershell(&format!(
+            "$ProgressPreference='SilentlyContinue'; Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force",
+            ps_escape(&package_path.display().to_string()),
+            ps_escape(&destination_dir.display().to_string())
+        ))
+        .map(|_| ()),
+        "7z" => extract_with_7zip(package_path, destination_dir),
+        other => Err(format!(
+            "Unsupported AI runtime package format: .{other}. Please import a .7z or .zip package."
+        )),
+    }
+}
+
+fn extract_with_7zip(package_path: &Path, destination_dir: &Path) -> Result<(), String> {
+    let seven_zip = resolve_7zip_executable()?;
+    let mut command = Command::new(&seven_zip);
+    command
+        .arg("x")
+        .arg(package_path)
+        .arg(format!("-o{}", destination_dir.display()))
+        .arg("-y");
+    hide_process_window(&mut command);
+    let output = command.output().map_err(|err| {
+        format!(
+            "Failed to start 7-Zip extractor {}: {err}",
+            seven_zip.display()
+        )
+    })?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(format!(
+        "7-Zip extraction failed. stdout: {}; stderr: {}",
+        stdout, stderr
+    ))
+}
+
+fn resolve_7zip_executable() -> Result<PathBuf, String> {
+    let candidates = [
+        resolve_binary("7za"),
+        resolve_binary("7z"),
+        PathBuf::from(r"C:\Program Files\7-Zip\7z.exe"),
+        PathBuf::from(r"C:\Program Files (x86)\7-Zip\7z.exe"),
+        PathBuf::from(r"C:\Program Files (x86)\Adobe\Adobe Creative Cloud\Utils\zip\7za.exe"),
+        PathBuf::from(r"C:\Program Files\NVIDIA Corporation\NVIDIA GeForce Experience\7z.exe"),
+    ];
+    for candidate in candidates {
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+    Err(
+        "No 7-Zip executable was found. The app expected a bundled 7za/7z binary under resources/bin, but it was missing."
+            .to_string(),
+    )
 }
 
 fn copy_dir_recursive(from: &Path, to: &Path) -> Result<(), String> {

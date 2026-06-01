@@ -19,7 +19,8 @@
 ```json
 [
   "resources/bin/ffmpeg.exe",
-  "resources/bin/ffprobe.exe"
+  "resources/bin/ffprobe.exe",
+  "resources/bin/7za.exe"
 ]
 ```
 
@@ -80,12 +81,12 @@ No remote runtime manifest URL, base URL, or package channel is used by the curr
 
 1. Run `pnpm tauri:build` to generate the standard NSIS installer.
 2. Verify that the installer contains only the desktop app and FFmpeg resources.
-3. Run `.\scripts\package-ai-runtime.ps1 -RuntimeVersion <version>` to produce the manual runtime zip.
+3. Run `.\scripts\package-ai-runtime.ps1 -RuntimeVersion <version>` to produce the manual runtime archive.
 4. Prepare `big-lama.pt` as a separate local download file.
-5. Publish the main installer, runtime zip, and model file as separate downloads.
+5. Publish the main installer, runtime archive, and model file as separate downloads.
 6. Verify on a clean Windows machine:
    - The app works without importing AI files.
-   - The app can import the local runtime zip.
+   - The app can import the local runtime archive.
    - The app can import the local `big-lama.pt` file.
 
 ## Acceptance Checklist

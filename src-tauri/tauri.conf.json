@@ -38,7 +38,8 @@
     "targets": ["nsis"],
     "resources": [
       "resources/bin/ffmpeg.exe",
-      "resources/bin/ffprobe.exe"
+      "resources/bin/ffprobe.exe",
+      "resources/bin/7za.exe"
     ],
     "icon": [
       "icons/32x32.png",

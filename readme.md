@@ -462,11 +462,13 @@ npm run tauri:build
 
 ```text
 dist/ai-runtime/<RuntimeVersion>/
-  ai-runtime.zip
+  ai-runtime.7z
   manifest.generated.json
 ```
 
 本次实际验证结果：
-- 成功生成 `ai-runtime.zip`
-- 归档大小为 `2565830757` bytes，约 `2.39 GiB`
+- 成功生成 `ai-runtime.7z`
+- 归档大小约 `1474232013` bytes，约 `1.37 GiB`
 - 默认精简配置下，归档会排除 `paddle`
+- 桌面端兼容导入新的 `.7z` 包，同时仍兼容旧的 `.zip` 包
+- 桌面安装包已内置 `resources/bin/7za.exe`，用户无需额外安装压缩软件

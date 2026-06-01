@@ -5,7 +5,7 @@ param(
   [string]$Channel = "stable",
   [string]$MinAppVersion = "0.1.0",
   [string]$Platform = "windows-x64",
-  [string]$PackageFileName = "ai-runtime.zip",
+  [string]$PackageFileName = "ai-runtime.7z",
   [string]$PackageBaseUrl = "",
   [string]$ManifestUrl = "",
   [string]$ModelBaseUrl = "",
@@ -43,6 +43,14 @@ $OutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
 $stageRoot = Join-Path $repoRoot "_ai_stage"
 $archivePath = Join-Path $OutputRoot $PackageFileName
 $manifestPath = Join-Path $OutputRoot "manifest.generated.json"
+$sevenZipExeCandidates = @(
+  (Join-Path $repoRoot "src-tauri\resources\bin\7za.exe"),
+  (Join-Path $repoRoot "src-tauri\resources\bin\7z.exe"),
+  "C:\Program Files\7-Zip\7z.exe",
+  "C:\Program Files (x86)\7-Zip\7z.exe",
+  "C:\Program Files (x86)\Adobe\Adobe Creative Cloud\Utils\zip\7za.exe",
+  "C:\Program Files\NVIDIA Corporation\NVIDIA GeForce Experience\7z.exe"
+)
 $criticalSitePackageFiles = @(
   "torch\__init__.py",
   "torch\version.py",
@@ -140,6 +148,24 @@ function Copy-TreeFiltered {
 function Get-FileSha256 {
   param([Parameter(Mandatory = $true)][string]$Path)
   return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+}
+
+function Resolve-SevenZipExe {
+  foreach ($candidate in $sevenZipExeCandidates) {
+    if (Test-Path -LiteralPath $candidate) {
+      return $candidate
+    }
+  }
+  $command = Get-Command 7z.exe, 7za.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($command) {
+    return $command.Source
+  }
+  throw @"
+7-Zip executable not found.
+Install 7-Zip or provide one of these executables on this machine:
+  - 7z.exe
+  - 7za.exe
+"@
 }
 
 function Assert-CriticalFiles {
@@ -329,9 +355,22 @@ if (!$SkipArchive) {
     } else {
       @("python-base", "python-site-packages", "sidecars")
     }
-    Compress-Archive -Path $archiveInputs -DestinationPath $archivePath -Force
+    $sevenZipExe = Resolve-SevenZipExe
+    $sevenZipArgs = @(
+      "a",
+      "-t7z",
+      "-mx=7",
+      "-m0=lzma2",
+      "-md=16m",
+      "-mfb=64",
+      $archivePath
+    ) + $archiveInputs
+    & $sevenZipExe @sevenZipArgs
+    if ($LASTEXITCODE -ne 0) {
+      throw "7-Zip failed with exit code $LASTEXITCODE while creating $archivePath"
+    }
     if (!(Test-Path -LiteralPath $archivePath)) {
-      throw "Compress-Archive did not create the expected archive: $archivePath"
+      throw "7-Zip did not create the expected archive: $archivePath"
     }
   } finally {
     Pop-Location
