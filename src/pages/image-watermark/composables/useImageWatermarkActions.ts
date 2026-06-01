@@ -18,6 +18,7 @@ import {
   consumeExportEntitlement,
   promptEntitlementUpgrade
 } from "@/modules/entitlement/exportEntitlementGuard";
+import { showAppAlert } from "@/utils/appDialog";
 import { importDirectoryItems } from "@/pages/shared/directoryImport";
 import { useTaskBatchNotification } from "@/pages/shared/useTaskBatchNotification";
 
@@ -896,7 +897,10 @@ export function useImageWatermarkActions() {
     }
     if (mode.value === "text" && text.value.trim().length === 0) {
       hintMessage.value = t("pages.imageWatermark.hints.enterWatermarkTextBeforeStart");
-      globalThis.alert(t("pages.imageWatermark.alerts.watermarkTextRequired"));
+      await showAppAlert({
+        title: t("layout.appShell.placeholderTitle"),
+        message: t("pages.imageWatermark.alerts.watermarkTextRequired")
+      });
       return;
     }
     isProcessing.value = true;

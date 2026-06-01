@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from "vue";
-import { AlertTriangle, X } from "@lucide/vue";
+import { AlertCircle, AlertTriangle, X } from "@lucide/vue";
 import { useAppConfirmDialogStore } from "@/stores/appConfirmDialog.store";
 
 const dialogStore = useAppConfirmDialogStore();
@@ -8,13 +8,13 @@ const panelRef = ref<HTMLElement | null>(null);
 
 function closeOnOverlay(event: MouseEvent): void {
   if (event.target === event.currentTarget) {
-    dialogStore.cancel();
+    dialogStore.close();
   }
 }
 
 function onKeydown(event: KeyboardEvent): void {
   if (event.key === "Escape" && dialogStore.open) {
-    dialogStore.cancel();
+    dialogStore.close();
   }
 }
 
@@ -49,7 +49,11 @@ onUnmounted(() => {
         <div
           ref="panelRef"
           class="app-confirm-modal__panel"
-          role="alertdialog"
+          :class="[
+            `app-confirm-modal__panel--${dialogStore.tone}`,
+            { 'app-confirm-modal__panel--alert': dialogStore.mode === 'alert' }
+          ]"
+          :role="dialogStore.mode === 'confirm' ? 'alertdialog' : 'dialog'"
           aria-modal="true"
           aria-labelledby="app-confirm-modal-title"
           aria-describedby="app-confirm-modal-message"
@@ -58,8 +62,9 @@ onUnmounted(() => {
         >
           <header class="app-confirm-modal__header">
             <div class="app-confirm-modal__title-wrap">
-              <span class="app-confirm-modal__icon" aria-hidden="true">
-                <AlertTriangle :size="16" />
+              <span class="app-confirm-modal__icon" :class="`app-confirm-modal__icon--${dialogStore.tone}`" aria-hidden="true">
+                <AlertTriangle v-if="dialogStore.tone === 'warning'" :size="16" />
+                <AlertCircle v-else :size="16" />
               </span>
               <h2 id="app-confirm-modal-title" class="app-confirm-modal__title">
                 {{ dialogStore.title }}
@@ -68,8 +73,8 @@ onUnmounted(() => {
             <button
               type="button"
               class="app-confirm-modal__icon-btn"
-              :aria-label="dialogStore.cancelLabel"
-              @click="dialogStore.cancel"
+              :aria-label="dialogStore.mode === 'confirm' ? dialogStore.cancelLabel : dialogStore.confirmLabel"
+              @click="dialogStore.close"
             >
               <X :size="16" aria-hidden="true" />
             </button>
@@ -83,6 +88,7 @@ onUnmounted(() => {
 
           <footer class="app-confirm-modal__footer">
             <button
+              v-if="dialogStore.mode === 'confirm'"
               type="button"
               class="app-confirm-modal__btn app-confirm-modal__btn--secondary"
               @click="dialogStore.cancel"
@@ -91,7 +97,8 @@ onUnmounted(() => {
             </button>
             <button
               type="button"
-              class="app-confirm-modal__btn app-confirm-modal__btn--primary"
+              class="app-confirm-modal__btn"
+              :class="dialogStore.mode === 'confirm' ? 'app-confirm-modal__btn--primary' : 'app-confirm-modal__btn--info'"
               @click="dialogStore.confirm"
             >
               {{ dialogStore.confirmLabel }}
@@ -131,6 +138,10 @@ onUnmounted(() => {
   outline: none;
 }
 
+.app-confirm-modal__panel--alert {
+  width: min(100%, 420px);
+}
+
 .app-confirm-modal__header {
   display: flex;
   align-items: center;
@@ -154,10 +165,19 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.app-confirm-modal__icon--warning {
   color: #ea580c;
   background: linear-gradient(135deg, #ffedd5 0%, #fdba74 100%);
   border: 1px solid rgba(251, 146, 60, 0.45);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.app-confirm-modal__icon--info {
+  color: #1d4ed8;
+  background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+  border: 1px solid rgba(96, 165, 250, 0.45);
 }
 
 .app-confirm-modal__title {
@@ -245,6 +265,16 @@ onUnmounted(() => {
 }
 
 .app-confirm-modal__btn--primary:hover {
+  filter: brightness(1.03);
+}
+
+.app-confirm-modal__btn--info {
+  color: #ffffff;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
+}
+
+.app-confirm-modal__btn--info:hover {
   filter: brightness(1.03);
 }
 

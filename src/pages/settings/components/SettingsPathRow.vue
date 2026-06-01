@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
 import { isTauri } from "@tauri-apps/api/core";
-import { message } from "@tauri-apps/plugin-dialog";
 import { tauriClient } from "@/bridge/tauriClient";
+import { showAppAlert } from "@/utils/appDialog";
 
 const props = withDefaults(
   defineProps<{
@@ -31,7 +31,10 @@ const { t } = useI18n();
 
 async function onOpen(): Promise<void> {
   if (!isTauri()) {
-    window.alert(t("pages.settings.path.webOpenUnavailable"));
+    await showAppAlert({
+      title: t("pages.settings.dashboard.pathHintTitle"),
+      message: t("pages.settings.path.webOpenUnavailable")
+    });
     return;
   }
   if (props.aiOpenTarget) {
@@ -39,22 +42,29 @@ async function onOpen(): Promise<void> {
       await tauriClient.openLocalAiRuntimeDirectory(props.aiOpenTarget);
     } catch (err) {
       const text = err instanceof Error ? err.message : String(err);
-      await message(text, { title: t("pages.settings.dashboard.pathHintTitle") });
+      await showAppAlert({
+        title: t("pages.settings.dashboard.pathHintTitle"),
+        message: text
+      });
     }
     return;
   }
   const trimmed = (props.openPath ?? props.pathValue).trim();
   if (!trimmed) {
-    const hint = t(props.emptyHintKey);
-    if (isTauri()) await message(hint, { title: t("pages.settings.dashboard.pathHintTitle") });
-    else window.alert(hint);
+    await showAppAlert({
+      title: t("pages.settings.dashboard.pathHintTitle"),
+      message: t(props.emptyHintKey)
+    });
     return;
   }
   try {
     await tauriClient.openDirectoryInFileManager({ directoryPath: trimmed });
   } catch (err) {
     const text = err instanceof Error ? err.message : String(err);
-    await message(text, { title: t("pages.settings.dashboard.pathHintTitle") });
+    await showAppAlert({
+      title: t("pages.settings.dashboard.pathHintTitle"),
+      message: text
+    });
   }
 }
 </script>

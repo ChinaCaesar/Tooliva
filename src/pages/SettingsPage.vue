@@ -2,13 +2,14 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
-import { open, message, confirm } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { WINDOW_SIZE_OPTIONS, AI_RUNTIME_ENABLED } from "@/config/constants";
 import { APP_VERSION, APP_VERSION_LABEL } from "@/config/appVersion";
 import { tauriClient } from "@/bridge/tauriClient";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { useExternalNavigate } from "@/composables/useExternalNavigate";
+import { showAppAlert, showAppConfirm } from "@/utils/appDialog";
 import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
 import { LANGUAGES, type AiPathMode, type AppLanguage, type AppWindowSize, type UserSettings } from "@/types/settings";
 import { useSettingsStore } from "@/stores/settings.store";
@@ -197,7 +198,10 @@ async function onAiPathModeChange(event: Event): Promise<void> {
 
 async function pickOutputDirectory(): Promise<void> {
   if (!isTauri()) {
-    window.alert(t("pages.settings.path.webNoPicker"));
+    await showAppAlert({
+      title: t("pages.settings.dashboard.pathHintTitle"),
+      message: t("pages.settings.path.webNoPicker")
+    });
     return;
   }
   const selected = await open({ directory: true, multiple: false });
@@ -209,7 +213,10 @@ async function pickOutputDirectory(): Promise<void> {
 
 async function pickCacheDirectory(): Promise<void> {
   if (!isTauri()) {
-    window.alert(t("pages.settings.path.webNoPicker"));
+    await showAppAlert({
+      title: t("pages.settings.dashboard.pathHintTitle"),
+      message: t("pages.settings.path.webNoPicker")
+    });
     return;
   }
   const selected = await open({ directory: true, multiple: false });
@@ -221,7 +228,10 @@ async function pickCacheDirectory(): Promise<void> {
 
 async function pickAiDirectory(kind: "runtime" | "models"): Promise<void> {
   if (!isTauri()) {
-    window.alert(t("pages.settings.path.webNoPicker"));
+    await showAppAlert({
+      title: t("pages.settings.dashboard.pathHintTitle"),
+      message: t("pages.settings.path.webNoPicker")
+    });
     return;
   }
   const selected = await open({ directory: true, multiple: false });
@@ -263,9 +273,10 @@ function onCheckFrequencyChange(event: Event): void {
 }
 
 async function onClearCache(): Promise<void> {
-  const body = t("pages.settings.dashboard.clearCacheHint");
-  if (isTauri()) await message(body, { title: t("pages.settings.dashboard.cacheTitle") });
-  else window.alert(body);
+  await showAppAlert({
+    title: t("pages.settings.dashboard.cacheTitle"),
+    message: t("pages.settings.dashboard.clearCacheHint")
+  });
 }
 
 async function loadSystemTempDirectory(): Promise<void> {
@@ -437,30 +448,42 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
 async function onReplaceAiRuntime(): Promise<void> {
   if (!isTauri() || isReplacingRuntime.value) return;
   if (hasInstalledAiRuntime.value) {
-    const confirmed = await confirm(t("pages.settings.aiModules.replaceRuntimeConfirmBody"), {
+    const confirmed = await showAppConfirm({
       title: t("pages.settings.aiModules.replaceRuntimeConfirmTitle"),
-      kind: "warning"
+      message: t("pages.settings.aiModules.replaceRuntimeConfirmBody"),
+      confirmLabel: t("pages.settings.actions.replace"),
+      cancelLabel: t("pages.settings.dashboard.closeConfirmCancel"),
+      tone: "warning"
     });
     if (!confirmed) return;
   }
   await replaceRuntime();
   if (runtimeActionError.value) {
-    await message(runtimeActionError.value, { title: t("pages.settings.aiModules.replaceFailedTitle") });
+    await showAppAlert({
+      title: t("pages.settings.aiModules.replaceFailedTitle"),
+      message: runtimeActionError.value
+    });
   }
 }
 
 async function onReplaceLamaModel(): Promise<void> {
   if (!isTauri() || isReplacingModel.value) return;
   if (isLamaModelReady.value) {
-    const confirmed = await confirm(t("pages.settings.aiModules.replaceModelConfirmBody"), {
+    const confirmed = await showAppConfirm({
       title: t("pages.settings.aiModules.replaceModelConfirmTitle"),
-      kind: "warning"
+      message: t("pages.settings.aiModules.replaceModelConfirmBody"),
+      confirmLabel: t("pages.settings.actions.replace"),
+      cancelLabel: t("pages.settings.dashboard.closeConfirmCancel"),
+      tone: "warning"
     });
     if (!confirmed) return;
   }
   await replaceModel();
   if (runtimeActionError.value) {
-    await message(runtimeActionError.value, { title: t("pages.settings.aiModules.replaceFailedTitle") });
+    await showAppAlert({
+      title: t("pages.settings.aiModules.replaceFailedTitle"),
+      message: runtimeActionError.value
+    });
   }
 }
 
@@ -1152,4 +1175,3 @@ onMounted(() => {
   cursor: not-allowed;
 }
 </style>
-

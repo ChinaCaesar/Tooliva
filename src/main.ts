@@ -14,6 +14,7 @@ import {
   runDesktopUpdateCheck,
 } from "@/modules/app-updates/orchestrator";
 import { APP_VERSION } from "@/config/appVersion";
+import { showAppAlert } from "@/utils/appDialog";
 import "@/styles/base.css";
 
 const app = createApp(App);
@@ -65,9 +66,9 @@ async function bootstrapAutoUpdateCheck(): Promise<void> {
   try {
     await executeUpdateInstall(checked.result);
   } catch (error) {
-    const { message } = await import("@tauri-apps/plugin-dialog");
-    await message(i18n.global.t(`pages.settings.dashboard.updateInstallError.${mapUpdateInstallError(error)}`), {
+    await showAppAlert({
       title: i18n.global.t("pages.settings.dashboard.updateInstallFailedTitle"),
+      message: i18n.global.t(`pages.settings.dashboard.updateInstallError.${mapUpdateInstallError(error)}`)
     });
   }
 }

@@ -1,8 +1,8 @@
 import { useI18n } from "vue-i18n";
-import { isTauri } from "@tauri-apps/api/core";
 import { openExternalUrl } from "@/utils/openExternalUrl";
 import { buildWebsiteUrlWithSource, type AppLocale } from "@/utils/websiteLinks";
 import { useExternalNavStore } from "@/stores/externalNav.store";
+import { showAppAlert } from "@/utils/appDialog";
 
 /**
  * 桌面端**唯一允许**的"分层 ③/④ 外跳通道"。所有 `src/pages/**`、
@@ -43,12 +43,7 @@ export function useExternalNavigate() {
       externalNavStore.hide();
       const title = t("auth.websiteOpenFailedTitle");
       const body = t("auth.websiteOpenFailedMessage");
-      if (isTauri()) {
-        const { message } = await import("@tauri-apps/plugin-dialog");
-        await message(body, { title });
-      } else {
-        globalThis.alert(`${title}\n\n${body}`);
-      }
+      await showAppAlert({ title, message: body });
       console.warn(
         `[externalNav] failed to open url=${url} entry=${opts.entryId}`,
         error,

@@ -3,14 +3,13 @@ import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ChevronLeft, Crown, House } from "@lucide/vue";
-import { message } from "@tauri-apps/plugin-dialog";
-import { isTauri } from "@tauri-apps/api/core";
 import { ROUTE_PATHS } from "@/config/constants";
 import { runRouteInterruptCheck } from "@/router/interruptGuard";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { getAllToolsSorted, type AppToolDef } from "@/config/tools.registry";
 import { resolveHomeToolRoute } from "@/pages/home/config/homeToolRoutes";
 import { APP_NAV_SECONDARY_ITEMS, type AppNavSecondaryItem } from "@/layouts/app-shell/appNav.config";
+import { showAppAlert } from "@/utils/appDialog";
 
 defineProps<{
   collapsed: boolean;
@@ -65,12 +64,10 @@ async function onSecondaryClick(item: AppNavSecondaryItem): Promise<void> {
     return;
   }
   if (item.kind === "placeholder" && item.placeholderMessageKey) {
-    const body = t(item.placeholderMessageKey);
-    if (isTauri()) {
-      await message(body, { title: t("layout.appShell.placeholderTitle") });
-    } else {
-      globalThis.alert(body);
-    }
+    await showAppAlert({
+      title: t("layout.appShell.placeholderTitle"),
+      message: t(item.placeholderMessageKey)
+    });
   }
 }
 </script>
