@@ -55,7 +55,8 @@ export async function closeWindow(): Promise<void> {
       warn("closeWindow: not running in Tauri");
       return;
     }
-    await getCurrentWindow().close();
+    const { requestAppClose } = await import("@/services/desktopWindowLifecycle");
+    await requestAppClose();
   } catch (e) {
     warn("closeWindow failed", e);
   }

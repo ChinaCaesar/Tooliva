@@ -24,7 +24,10 @@ function buildSettingsPayload(store: UserSettings): UserSettings {
     updateMethod: store.updateMethod,
     checkFrequency: store.checkFrequency,
     privacyUxImprovement: store.privacyUxImprovement,
-    errorReportingEnabled: store.errorReportingEnabled
+    errorReportingEnabled: store.errorReportingEnabled,
+    aiPathMode: store.aiPathMode,
+    aiRuntimeRoot: store.aiRuntimeRoot,
+    aiModelsRoot: store.aiModelsRoot
   };
 }
 
@@ -76,6 +79,10 @@ export const useSettingsStore = defineStore("settings", {
     patchSettings(partial: Partial<UserSettings>): void {
       this.$patch(partial);
       void this.persist();
+    },
+    async updateSettings(partial: Partial<UserSettings>): Promise<void> {
+      this.$patch(partial);
+      await this.persist();
     },
     /**
      * 清除本机用户数据：SQLite 中的使用记录与设置、Web 层 localStorage 辅助项，

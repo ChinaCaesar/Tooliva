@@ -15,6 +15,7 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-app
 dist-ssr
 .nuxt
 .output
@@ -77,3 +78,10 @@ _ai
 _ai_stage
 _pkgtest
 _buildRecources
+_runtime_test
+_runtime_smoke_package
+_runtime_smoke_prepare
+
+# Local AI runtime validation / packaging scratch space
+_runtime_test/
+_runtime_smoke_*/

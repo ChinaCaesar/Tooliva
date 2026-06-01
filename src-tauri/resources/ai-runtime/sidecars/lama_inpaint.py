@@ -7,7 +7,6 @@ import shutil
 import sys
 import tempfile
 import time
-import urllib.request
 from pathlib import Path
 
 
@@ -23,44 +22,6 @@ def debug_logs_enabled() -> bool:
         "on",
         "debug",
     }
-
-
-def download_model(args: argparse.Namespace) -> int:
-    model_path = Path(args.model_path)
-    torch_home = Path(args.torch_home)
-    checkpoint_path = torch_home / "hub" / "checkpoints" / model_path.name
-    model_path.parent.mkdir(parents=True, exist_ok=True)
-    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if model_path.exists() and model_path.stat().st_size > 0:
-        if not checkpoint_path.exists():
-            shutil.copy2(model_path, checkpoint_path)
-        emit(event="progress", stage="ready", downloaded_bytes=model_path.stat().st_size, total_bytes=model_path.stat().st_size)
-        return 0
-
-    tmp = model_path.with_suffix(model_path.suffix + ".download")
-    if tmp.exists():
-        tmp.unlink()
-
-    request = urllib.request.Request(args.model_url, headers={"User-Agent": "Tooliva/AIModelDownloader"})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        total = int(response.headers.get("Content-Length") or 0)
-        done = 0
-        emit(event="progress", stage="downloading", downloaded_bytes=0, total_bytes=total)
-        with tmp.open("wb") as handle:
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
-                handle.write(chunk)
-                done += len(chunk)
-                emit(event="progress", stage="downloading", downloaded_bytes=done, total_bytes=total)
-
-    tmp.replace(model_path)
-    shutil.copy2(model_path, checkpoint_path)
-    size = model_path.stat().st_size
-    emit(event="progress", stage="ready", downloaded_bytes=size, total_bytes=size)
-    return 0
 
 
 def check_runtime(args: argparse.Namespace) -> int:
@@ -459,11 +420,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog="lama_inpaint.py")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    dl = sub.add_parser("download-model")
-    dl.add_argument("--model-url", required=True)
-    dl.add_argument("--model-path", required=True)
-    dl.add_argument("--torch-home", required=True)
-
     check = sub.add_parser("check-runtime")
     check.add_argument("--torch-home", required=True)
     check.add_argument("--require-lama", action="store_true")
@@ -482,8 +438,6 @@ def main() -> int:
 
     args = parser.parse_args()
     try:
-        if args.command == "download-model":
-            return download_model(args)
         if args.command == "check-runtime":
             return check_runtime(args)
         if args.command == "inpaint-image":

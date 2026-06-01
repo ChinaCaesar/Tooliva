@@ -28,8 +28,10 @@ use crate::batch::tempfile::{
 use crate::batch::types::{BatchError, BatchTaskType};
 use crate::ffmpeg_gif::resolve_ffmpeg_ffprobe;
 use crate::local_inpaint::{
-    inpaint_image_basic, BasicInpaintAlgorithm, BasicInpaintRequest, InpaintRegion as BasicInpaintRegion,
+    inpaint_image_basic, BasicInpaintAlgorithm, BasicInpaintRequest,
+    InpaintRegion as BasicInpaintRegion,
 };
+use crate::process_utils::hide_process_window;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -316,7 +318,10 @@ fn inpaint_roi_frames(
         Some(format!(
             "{}",
             if mode == "ai" {
-                format!("LaMA high-quality inpaint frames with {} workers", worker_count)
+                format!(
+                    "LaMA high-quality inpaint frames with {} workers",
+                    worker_count
+                )
             } else {
                 "Applying local fast inpaint to ROI frames".to_string()
             }
@@ -364,10 +369,7 @@ fn inpaint_roi_frames(
                     })
                 };
                 if let Err(err) = result {
-                    set_first_error(
-                        &first_error,
-                        format!("Video ROI inpaint failed: {err}"),
-                    );
+                    set_first_error(&first_error, format!("Video ROI inpaint failed: {err}"));
                     return;
                 }
                 let done = finished.fetch_add(1, Ordering::Relaxed) + 1;
@@ -378,7 +380,8 @@ fn inpaint_roi_frames(
                     Some(format!(
                         "{} frame {} / {}",
                         if mode == "ai" { "AI" } else { "Fast" },
-                        done, total
+                        done,
+                        total
                     )),
                 );
             });
@@ -479,10 +482,10 @@ fn run_ffmpeg_with_cancel(
     if ctx.cancel.is_cancelled() {
         return Err(BatchError::canceled());
     }
-    let child = Command::new(ffmpeg)
-        .args(&args)
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
+    let mut command = Command::new(ffmpeg);
+    command.args(&args).stdout(Stdio::null()).stderr(Stdio::piped());
+    hide_process_window(&mut command);
+    let child = command
         .spawn()
         .map_err(|err| BatchError::io(format!("Failed to start FFmpeg: {err}")))?;
 
@@ -756,8 +759,8 @@ fn distance_to_rect(x: f32, y: f32, rect: (f32, f32, f32, f32)) -> f32 {
 }
 
 fn probe_video_dimensions(ffprobe: &Path, input: &Path) -> Result<VideoDimensions, BatchError> {
-    let out = Command::new(ffprobe)
-        .args([
+    let mut command = Command::new(ffprobe);
+    command.args([
             "-v",
             "error",
             "-select_streams",
@@ -767,7 +770,9 @@ fn probe_video_dimensions(ffprobe: &Path, input: &Path) -> Result<VideoDimension
             "-of",
             "json",
             &path_to_string(input)?,
-        ])
+        ]);
+    hide_process_window(&mut command);
+    let out = command
         .output()
         .map_err(|err| BatchError::io(format!("Failed to start ffprobe: {err}")))?;
     if !out.status.success() {
@@ -835,8 +840,8 @@ fn value_to_i32(value: &Value) -> Option<i32> {
 }
 
 fn probe_video_fps(ffprobe: &Path, input: &Path) -> Result<String, BatchError> {
-    let out = Command::new(ffprobe)
-        .args([
+    let mut command = Command::new(ffprobe);
+    command.args([
             "-v",
             "error",
             "-select_streams",
@@ -846,7 +851,9 @@ fn probe_video_fps(ffprobe: &Path, input: &Path) -> Result<String, BatchError> {
             "-of",
             "default=noprint_wrappers=1:nokey=1",
             &path_to_string(input)?,
-        ])
+        ]);
+    hide_process_window(&mut command);
+    let out = command
         .output()
         .map_err(|err| BatchError::io(format!("Failed to start ffprobe: {err}")))?;
     let value = String::from_utf8_lossy(&out.stdout)
@@ -899,8 +906,10 @@ fn choose_encoder_backend(ffmpeg: &Path, ext: &str) -> EncoderBackend {
 fn ffmpeg_supports_encoder(ffmpeg: &Path, encoder: &str) -> bool {
     static ENCODERS: OnceLock<String> = OnceLock::new();
     let encoders = ENCODERS.get_or_init(|| {
-        Command::new(ffmpeg)
-            .args(["-hide_banner", "-encoders"])
+        let mut command = Command::new(ffmpeg);
+        command.args(["-hide_banner", "-encoders"]);
+        hide_process_window(&mut command);
+        command
             .output()
             .ok()
             .map(|out| String::from_utf8_lossy(&out.stdout).to_string())

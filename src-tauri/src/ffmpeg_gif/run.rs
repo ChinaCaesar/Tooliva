@@ -24,14 +24,14 @@ pub fn probe_duration_secs(ffprobe: &Path, input: &Path) -> Result<f64, String> 
         .ok_or_else(|| "输入路径编码无效".to_string())?;
     let mut command = Command::new(ffprobe);
     command.args([
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=noprint_wrappers=1:nokey=1",
-            input_str,
-        ]);
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        input_str,
+    ]);
     hide_process_window(&mut command);
     let out = command
         .output()
@@ -143,7 +143,10 @@ where
     let tail_clone = Arc::clone(&stderr_tail);
 
     let mut command = Command::new(ffmpeg);
-    command.args(&args).stdout(Stdio::piped()).stderr(Stdio::piped());
+    command
+        .args(&args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     hide_process_window(&mut command);
     let mut child = command
         .spawn()

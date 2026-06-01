@@ -1,5 +1,5 @@
-pub mod ai_runtime;
 pub mod ai_models;
+pub mod ai_runtime;
 pub mod app_update;
 pub mod batch;
 pub mod db;

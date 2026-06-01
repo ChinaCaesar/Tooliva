@@ -6,6 +6,11 @@ pub struct PathMetadataResponse {
     pub size: u64,
 }
 
+#[derive(Serialize)]
+pub struct TempDirectoryResponse {
+    pub path: String,
+}
+
 #[tauri::command]
 pub fn get_path_metadata(path: String) -> Result<PathMetadataResponse, String> {
     let trimmed = path.trim();
@@ -18,6 +23,14 @@ pub fn get_path_metadata(path: String) -> Result<PathMetadataResponse, String> {
     }
     let meta = std::fs::metadata(p).map_err(|e| e.to_string())?;
     Ok(PathMetadataResponse { size: meta.len() })
+}
+
+#[tauri::command]
+pub fn get_temp_directory() -> Result<TempDirectoryResponse, String> {
+    let path = std::env::temp_dir();
+    Ok(TempDirectoryResponse {
+        path: path.to_string_lossy().into_owned(),
+    })
 }
 
 #[derive(Serialize)]

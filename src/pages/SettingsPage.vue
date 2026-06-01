@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
@@ -6,15 +6,15 @@ import { open, message, confirm } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { WINDOW_SIZE_OPTIONS, AI_RUNTIME_ENABLED } from "@/config/constants";
 import { APP_VERSION, APP_VERSION_LABEL } from "@/config/appVersion";
+import { tauriClient } from "@/bridge/tauriClient";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { useExternalNavigate } from "@/composables/useExternalNavigate";
 import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
-import { LANGUAGES, type AppLanguage, type AppWindowSize, type ThemeMode, type UserSettings } from "@/types/settings";
+import { LANGUAGES, type AiPathMode, type AppLanguage, type AppWindowSize, type UserSettings } from "@/types/settings";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useTaskStore } from "@/stores/task.store";
 import SettingsSectionCard from "@/pages/settings/components/SettingsSectionCard.vue";
 import SettingsRow from "@/pages/settings/components/SettingsRow.vue";
-import SettingsThemeSegment from "@/pages/settings/components/SettingsThemeSegment.vue";
 import SettingsPathRow from "@/pages/settings/components/SettingsPathRow.vue";
 import AiRuntimeInstallLoadingOverlay from "@/components/ai-runtime/AiRuntimeInstallLoadingOverlay.vue";
 import { type AppUpdateCheckResult } from "@/modules/app-updates/api";
@@ -31,10 +31,8 @@ const taskStore = useTaskStore();
 const { navigate } = useExternalNavigate();
 const {
   language,
-  theme,
   taskDoneNotificationEnabled,
   windowSize,
-  launchOnStartup,
   minimizeToTray,
   confirmOnClose,
   defaultOutputDirectory,
@@ -42,10 +40,12 @@ const {
   outputFileNamingRule,
   maxConcurrentTasks,
   autoCheckUpdates,
-  updateMethod,
   checkFrequency,
   privacyUxImprovement,
-  errorReportingEnabled
+  errorReportingEnabled,
+  aiPathMode,
+  aiRuntimeRoot,
+  aiModelsRoot
 } = storeToRefs(settingsStore);
 
 const appVersion = computed(() => APP_VERSION_LABEL);
@@ -59,6 +59,7 @@ const updateResultModalOpen = ref(false);
 const updateProgressValue = ref(0);
 const updateProgressLabel = ref("");
 const updateProgressBytesText = ref("");
+const systemTempDirectory = ref("");
 const updateChecking = ref(false);
 const updateInstalling = ref(false);
 const updateResult = ref<AppUpdateCheckResult | null>(null);
@@ -98,12 +99,29 @@ const {
 
 const aiRuntimeDisplayPath = computed(() => aiRuntimePath.value || "");
 const lamaModelDisplayPath = computed(() => modelsRoot.value || lamaModelPath.value || "");
+const effectiveCacheDirectory = computed(() => cacheDirectory.value || systemTempDirectory.value || "");
 const showAiRuntimeLoadingOverlay = computed(() => isRuntimeBusy.value || isReplacingRuntime.value);
+const isCustomAiPathMode = computed(() => aiPathMode.value === "custom");
+const defaultAiRuntimeRoot = computed(() => aiPanel.aiRuntime.localPaths.value?.defaultRuntimeRoot || "");
+const defaultAiModelsRoot = computed(() => aiPanel.aiRuntime.localPaths.value?.defaultModelsRoot || "");
+const resolvedAiRuntimeRoot = computed(() => aiPanel.aiRuntime.localPaths.value?.runtimeRoot || defaultAiRuntimeRoot.value || aiRuntimeRoot.value);
+const resolvedAiModelsRoot = computed(() => aiPanel.aiRuntime.localPaths.value?.modelsRoot || defaultAiModelsRoot.value || aiModelsRoot.value);
+const aiPathModeDescription = computed(() =>
+  isCustomAiPathMode.value
+    ? t("pages.settings.aiModules.pathModeCustomDesc")
+    : t("pages.settings.aiModules.pathModeDefaultDesc")
+);
 const aiRuntimeLoadingMessage = computed(() => {
   if (aiRuntimeProgress.value?.message) return aiRuntimeProgress.value.message;
   if (isReplacingRuntime.value && !isRuntimeBusy.value) return t("aiEnhancement.overlay.replacingRuntime");
   return aiRuntimeStatusText.value;
 });
+const runtimeStatusDescription = computed(() =>
+  `${aiRuntimeSimpleStatusText.value}${hasInstalledAiRuntime.value ? "" : ` 路 ${t("pages.settings.aiModules.notInstalled")}`}`
+);
+const modelStatusDescription = computed(() =>
+  `${aiModelStatusText.value}${isLamaModelReady.value ? "" : ` 路 ${t("pages.settings.aiModules.notInstalled")}`}`
+);
 
 watch(clearDataModalOpen, (open) => {
   if (open) {
@@ -144,12 +162,7 @@ function onWindowSizeChange(event: Event): void {
   settingsStore.setWindowSize(target.value as AppWindowSize);
 }
 
-function onThemeUpdate(value: ThemeMode): void {
-  settingsStore.setTheme(value);
-}
-
 type BooleanToggleKey =
-  | "launchOnStartup"
   | "minimizeToTray"
   | "confirmOnClose"
   | "autoCheckUpdates"
@@ -159,6 +172,27 @@ type BooleanToggleKey =
 function onToggleBoolean(key: BooleanToggleKey, checked: boolean): void {
   const partial: Partial<UserSettings> = { [key]: checked };
   settingsStore.patchSettings(partial);
+}
+
+async function persistAiPathSettings(partial: Partial<UserSettings>): Promise<void> {
+  await settingsStore.updateSettings(partial);
+  if (AI_RUNTIME_ENABLED) {
+    await refreshStatus();
+  }
+}
+
+async function onAiPathModeChange(event: Event): Promise<void> {
+  const nextMode = (event.target as HTMLSelectElement).value as AiPathMode;
+  if (nextMode === aiPathMode.value) return;
+  if (nextMode === "custom") {
+    await persistAiPathSettings({
+      aiPathMode: "custom",
+      aiRuntimeRoot: aiRuntimeRoot.value || defaultAiRuntimeRoot.value,
+      aiModelsRoot: aiModelsRoot.value || defaultAiModelsRoot.value
+    });
+    return;
+  }
+  await persistAiPathSettings({ aiPathMode: "default" });
 }
 
 async function pickOutputDirectory(): Promise<void> {
@@ -185,6 +219,35 @@ async function pickCacheDirectory(): Promise<void> {
   }
 }
 
+async function pickAiDirectory(kind: "runtime" | "models"): Promise<void> {
+  if (!isTauri()) {
+    window.alert(t("pages.settings.path.webNoPicker"));
+    return;
+  }
+  const selected = await open({ directory: true, multiple: false });
+  const path = Array.isArray(selected) ? selected[0] : selected;
+  if (typeof path !== "string" || path.length === 0) {
+    return;
+  }
+  await persistAiPathSettings(
+    kind === "runtime"
+      ? { aiPathMode: "custom", aiRuntimeRoot: path }
+      : { aiPathMode: "custom", aiModelsRoot: path }
+  );
+}
+
+async function pickAiRuntimeDirectory(): Promise<void> {
+  await pickAiDirectory("runtime");
+}
+
+async function pickAiModelsDirectory(): Promise<void> {
+  await pickAiDirectory("models");
+}
+
+async function restoreDefaultAiPaths(): Promise<void> {
+  await persistAiPathSettings({ aiPathMode: "default" });
+}
+
 function onNamingRuleChange(event: Event): void {
   const v = (event.target as HTMLSelectElement).value;
   settingsStore.patchSettings({ outputFileNamingRule: v });
@@ -195,10 +258,6 @@ function onMaxConcurrentChange(event: Event): void {
   settingsStore.patchSettings({ maxConcurrentTasks: Number.isFinite(v) ? v : 3 });
 }
 
-function onUpdateMethodChange(event: Event): void {
-  settingsStore.patchSettings({ updateMethod: (event.target as HTMLSelectElement).value });
-}
-
 function onCheckFrequencyChange(event: Event): void {
   settingsStore.patchSettings({ checkFrequency: (event.target as HTMLSelectElement).value });
 }
@@ -207,6 +266,16 @@ async function onClearCache(): Promise<void> {
   const body = t("pages.settings.dashboard.clearCacheHint");
   if (isTauri()) await message(body, { title: t("pages.settings.dashboard.cacheTitle") });
   else window.alert(body);
+}
+
+async function loadSystemTempDirectory(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const result = await tauriClient.getTempDirectory();
+    systemTempDirectory.value = result.path.trim();
+  } catch {
+    systemTempDirectory.value = "";
+  }
 }
 
 async function onCheckUpdates(): Promise<void> {
@@ -247,7 +316,7 @@ async function onCheckUpdates(): Promise<void> {
       settings: {
         autoCheckUpdates: autoCheckUpdates.value,
         checkFrequency: checkFrequency.value,
-        updateMethod: updateMethod.value,
+        updateMethod: "stable",
       },
       currentVersion: APP_VERSION,
       locale: language.value,
@@ -396,6 +465,7 @@ async function onReplaceLamaModel(): Promise<void> {
 }
 
 onMounted(() => {
+  void loadSystemTempDirectory();
   if (AI_RUNTIME_ENABLED) {
     void refreshStatus();
   }
@@ -413,16 +483,6 @@ onMounted(() => {
       <div class="settings-page__grid">
         <div class="settings-page__col settings-page__col--main">
           <SettingsSectionCard :title="$t('pages.settings.dashboard.sectionGeneral')">
-            <SettingsRow :title="$t('pages.settings.general.autoLaunchTitle')" :description="$t('pages.settings.general.autoLaunchDesc')">
-              <label class="toggle">
-                <input
-                  type="checkbox"
-                  :checked="launchOnStartup"
-                  @change="onToggleBoolean('launchOnStartup', ($event.target as HTMLInputElement).checked)"
-                />
-                <span class="toggle__ui" aria-hidden="true" />
-              </label>
-            </SettingsRow>
             <SettingsRow :title="$t('pages.settings.dashboard.minimizeTrayTitle')" :description="$t('pages.settings.dashboard.minimizeTrayDesc')">
               <label class="toggle">
                 <input
@@ -450,9 +510,6 @@ onMounted(() => {
                 </option>
               </select>
             </SettingsRow>
-            <SettingsRow :title="$t('pages.settings.dashboard.themeTitle')" :description="$t('pages.settings.dashboard.themeDesc')">
-              <SettingsThemeSegment :model-value="theme" @update:model-value="onThemeUpdate" />
-            </SettingsRow>
             <SettingsRow :title="$t('pages.settings.general.windowSizeTitle')" :description="$t('pages.settings.general.windowSizeDesc')">
               <select class="select" :value="windowSize" @change="onWindowSizeChange">
                 <option v-for="item in WINDOW_SIZE_OPTIONS" :key="item.value" :value="item.value">
@@ -473,6 +530,7 @@ onMounted(() => {
               <SettingsPathRow
                 :path-value="defaultOutputDirectory"
                 empty-hint-key="pages.settings.dashboard.outputEmptyHint"
+                mode="simple"
                 @change="pickOutputDirectory"
               />
             </SettingsRow>
@@ -506,8 +564,9 @@ onMounted(() => {
               :description="$t('pages.settings.dashboard.cacheDirDesc')"
             >
               <SettingsPathRow
-                :path-value="cacheDirectory"
+                :path-value="effectiveCacheDirectory"
                 empty-hint-key="pages.settings.dashboard.cacheEmptyHint"
+                mode="simple"
                 @change="pickCacheDirectory"
               />
             </SettingsRow>
@@ -519,33 +578,82 @@ onMounted(() => {
           </SettingsSectionCard>
 
           <SettingsSectionCard v-if="AI_RUNTIME_ENABLED" :title="$t('pages.settings.aiModules.sectionTitle')">
-            <SettingsRow
-              variant="block"
-              :title="$t('pages.settings.aiModules.runtimeTitle')"
-              :description="`${aiRuntimeSimpleStatusText}${hasInstalledAiRuntime ? '' : ' · ' + $t('pages.settings.aiModules.notInstalled')}`"
-            >
-              <SettingsPathRow
-                :path-value="aiRuntimeDisplayPath"
-                empty-hint-key="pages.settings.aiModules.runtimeEmptyHint"
-                change-label-key="pages.settings.actions.replace"
-                :change-disabled="isReplacingRuntime"
-                ai-open-target="runtime"
-                @change="onReplaceAiRuntime"
-              />
+            <SettingsRow :title="$t('pages.settings.aiModules.pathModeTitle')" :description="aiPathModeDescription">
+              <select class="select" :value="aiPathMode" @change="onAiPathModeChange">
+                <option value="default">{{ $t("pages.settings.aiModules.pathModeDefault") }}</option>
+                <option value="custom">{{ $t("pages.settings.aiModules.pathModeCustom") }}</option>
+              </select>
+            </SettingsRow>
+            <SettingsRow variant="block" :title="$t('pages.settings.aiModules.runtimeStorageRootTitle')" :description="$t('pages.settings.aiModules.runtimeStorageRootDesc')">
+              <div class="settings-page__ai-asset-card">
+                <div class="settings-page__ai-asset-block">
+                  <SettingsPathRow
+                    :path-value="resolvedAiRuntimeRoot"
+                    :open-path="resolvedAiRuntimeRoot"
+                    empty-hint-key="pages.settings.aiModules.runtimeStorageEmptyHint"
+                    change-label-key="pages.settings.actions.chooseFolder"
+                    mode="simple"
+                    @change="pickAiRuntimeDirectory"
+                  />
+                  <p class="settings-page__path-note">
+                    {{ $t("pages.settings.aiModules.defaultRuntimeRootLabel", { path: defaultAiRuntimeRoot }) }}
+                  </p>
+                </div>
+                <div class="settings-page__ai-asset-divider" />
+                <div class="settings-page__ai-asset-block">
+                  <h4 class="settings-page__ai-asset-title">{{ $t("pages.settings.aiModules.runtimeTitle") }}</h4>
+                  <p class="settings-page__ai-asset-desc">{{ runtimeStatusDescription }}</p>
+                  <SettingsPathRow
+                    :path-value="aiRuntimeDisplayPath"
+                    empty-hint-key="pages.settings.aiModules.runtimeEmptyHint"
+                    change-label-key="pages.settings.actions.replace"
+                    :change-disabled="isReplacingRuntime"
+                    ai-open-target="runtime"
+                    mode="simple"
+                    @change="onReplaceAiRuntime"
+                  />
+                </div>
+              </div>
+            </SettingsRow>
+            <SettingsRow variant="block" :title="$t('pages.settings.aiModules.modelsStorageRootTitle')" :description="$t('pages.settings.aiModules.modelsStorageRootDesc')">
+              <div class="settings-page__ai-asset-card">
+                <div class="settings-page__ai-asset-block">
+                  <SettingsPathRow
+                    :path-value="resolvedAiModelsRoot"
+                    :open-path="resolvedAiModelsRoot"
+                    empty-hint-key="pages.settings.aiModules.modelsStorageEmptyHint"
+                    change-label-key="pages.settings.actions.chooseFolder"
+                    mode="simple"
+                    @change="pickAiModelsDirectory"
+                  />
+                  <p class="settings-page__path-note">
+                    {{ $t("pages.settings.aiModules.defaultModelsRootLabel", { path: defaultAiModelsRoot }) }}
+                  </p>
+                </div>
+                <div class="settings-page__ai-asset-divider" />
+                <div class="settings-page__ai-asset-block">
+                  <h4 class="settings-page__ai-asset-title">{{ $t("pages.settings.aiModules.modelTitle") }}</h4>
+                  <p class="settings-page__ai-asset-desc">{{ modelStatusDescription }}</p>
+                  <SettingsPathRow
+                    :path-value="lamaModelDisplayPath"
+                    empty-hint-key="pages.settings.aiModules.modelEmptyHint"
+                    change-label-key="pages.settings.actions.replace"
+                    :change-disabled="isReplacingModel"
+                    ai-open-target="models"
+                    mode="simple"
+                    @change="onReplaceLamaModel"
+                  />
+                </div>
+              </div>
             </SettingsRow>
             <SettingsRow
-              variant="block"
-              :title="$t('pages.settings.aiModules.modelTitle')"
-              :description="`${aiModelStatusText}${isLamaModelReady ? '' : ' · ' + $t('pages.settings.aiModules.notInstalled')}`"
+              v-if="isCustomAiPathMode"
+              :title="$t('pages.settings.aiModules.restoreDefaultTitle')"
+              :description="$t('pages.settings.aiModules.restoreDefaultDesc')"
             >
-              <SettingsPathRow
-                :path-value="lamaModelDisplayPath"
-                empty-hint-key="pages.settings.aiModules.modelEmptyHint"
-                change-label-key="pages.settings.actions.replace"
-                :change-disabled="isReplacingModel"
-                ai-open-target="models"
-                @change="onReplaceLamaModel"
-              />
+              <button type="button" class="btn-ghost" @click="restoreDefaultAiPaths">
+                {{ $t("pages.settings.aiModules.restoreDefaultAction") }}
+              </button>
             </SettingsRow>
           </SettingsSectionCard>
         </div>
@@ -561,12 +669,6 @@ onMounted(() => {
                 />
                 <span class="toggle__ui" aria-hidden="true" />
               </label>
-            </SettingsRow>
-            <SettingsRow :title="$t('pages.settings.dashboard.updateMethodTitle')" :description="$t('pages.settings.dashboard.updateMethodDesc')">
-              <select class="select" :value="updateMethod" @change="onUpdateMethodChange">
-                <option value="stable">{{ $t("pages.settings.dashboard.updateStable") }}</option>
-                <option value="beta">{{ $t("pages.settings.dashboard.updateBeta") }}</option>
-              </select>
             </SettingsRow>
             <SettingsRow :title="$t('pages.settings.dashboard.checkFrequencyTitle')" :description="$t('pages.settings.dashboard.checkFrequencyDesc')">
               <select class="select" :value="checkFrequency" @change="onCheckFrequencyChange">
@@ -857,6 +959,46 @@ onMounted(() => {
 .btn-danger:hover {
   background: #b91c1c;
 }
+.settings-page__ai-asset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top left, rgba(219, 234, 254, 0.8), transparent 45%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+.settings-page__ai-asset-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-page__ai-asset-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.settings-page__ai-asset-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: #64748b;
+}
+.settings-page__ai-asset-divider {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0), rgba(148, 163, 184, 0.45), rgba(148, 163, 184, 0));
+}
+.settings-page__path-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+  padding: 0 2px;
+}
 .about-card__brand {
   display: flex;
   align-items: center;
@@ -1010,3 +1152,4 @@ onMounted(() => {
   cursor: not-allowed;
 }
 </style>
+

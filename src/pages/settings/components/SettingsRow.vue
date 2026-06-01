@@ -3,7 +3,7 @@ const props = withDefaults(
   defineProps<{
     title: string;
     description?: string;
-    /** 块级布局：右侧控件占满宽度（用于路径行）。 */
+    /** Block layout lets complex controls expand beneath the copy. */
     variant?: "default" | "block";
   }>(),
   { variant: "default" }
@@ -31,17 +31,21 @@ const props = withDefaults(
   padding: 12px 0;
   border-bottom: 1px solid #f1f5f9;
 }
+
 .settings-row:last-child {
   border-bottom: none;
   padding-bottom: 0;
 }
+
 .settings-row:first-child {
   padding-top: 0;
 }
+
 .settings-row__text {
   min-width: 0;
   flex: 1;
 }
+
 .settings-row__title {
   margin: 0;
   font-size: 14px;
@@ -49,24 +53,30 @@ const props = withDefaults(
   font-weight: 600;
   color: #111827;
 }
+
 .settings-row__desc {
   margin: 4px 0 0;
   font-size: 12px;
   line-height: 18px;
   color: #64748b;
 }
+
 .settings-row__control {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .settings-row--block {
   flex-direction: column;
   align-items: stretch;
 }
+
 .settings-row--block .settings-row__control {
   width: 100%;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
 }
 </style>

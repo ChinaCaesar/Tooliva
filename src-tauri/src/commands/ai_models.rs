@@ -2,8 +2,8 @@ use serde::Serialize;
 use tauri::AppHandle;
 
 use crate::ai_runtime::{
-    ensure_lama_torch_checkpoint, read_installed_runtime_state, resolve_ai_runtime_paths,
-    LAMA_MODEL_FILE, LAMA_MODEL_ID, LAMA_MODEL_SIZE_BYTES,
+    ensure_lama_torch_checkpoint, ensure_models_storage_writable, read_installed_runtime_state,
+    resolve_ai_runtime_paths, LAMA_MODEL_FILE, LAMA_MODEL_ID, LAMA_MODEL_SIZE_BYTES,
 };
 use crate::ai_worker::{
     check_lama_runtime_health, ensure_lama_worker_ready, inpaint_image_with_lama, AiRuntimeHealth,
@@ -91,6 +91,7 @@ fn warm_ai_inpaint_worker_blocking() -> Result<AiRuntimeHealth, String> {
 }
 
 fn lama_status() -> Result<AiModelStatus, String> {
+    ensure_models_storage_writable()?;
     let paths = resolve_ai_runtime_paths()?;
     let manifest = read_installed_runtime_state()?;
     let expected_size = manifest

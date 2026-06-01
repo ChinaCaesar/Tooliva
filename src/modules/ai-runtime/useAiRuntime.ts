@@ -149,7 +149,7 @@ export function useAiRuntime() {
     status.value = "NOT_INSTALLED";
   }
 
-  async function openDirectory(target: "runtime" | "models" | "downloads"): Promise<void> {
+  async function openDirectory(target: "runtime" | "models"): Promise<void> {
     await tauriClient.openLocalAiRuntimeDirectory(target);
   }
 

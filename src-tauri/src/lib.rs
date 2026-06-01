@@ -1,5 +1,5 @@
-mod ai_runtime_manager;
 mod ai_runtime;
+mod ai_runtime_manager;
 mod ai_worker;
 mod batch;
 mod batch_processors;
@@ -38,19 +38,24 @@ pub fn run() {
                 app.deep_link().register_all()?;
             }
 
+            let settings = commands::db::load_saved_settings(app.handle())?;
+            commands::db::apply_runtime_path_settings(&settings);
             commands::db::apply_saved_window_size(app.handle())?;
             Ok(())
         })
         .manage(commands::image_jobs::ImageProcessorRegistryState(
             image_processors::registry::build_default_registry(),
         ))
-        .manage(commands::app_update::PreparedInstallerState(Mutex::new(None)))
+        .manage(commands::app_update::PreparedInstallerState(Mutex::new(
+            None,
+        )))
         .manage(batch::BatchTaskManagerState(Arc::new(
             batch::BatchTaskManager::new(batch_processors::build_default_batch_registry()),
         )))
         .invoke_handler(tauri::generate_handler![
             commands::system::ping_host,
             commands::system::get_path_metadata,
+            commands::system::get_temp_directory,
             commands::app_update::download_app_update_installer,
             commands::app_update::launch_prepared_update_installer,
             commands::ai_runtime::check_ai_runtime_status,
@@ -86,6 +91,16 @@ pub fn run() {
             commands::batch::get_batch_task_result,
             commands::batch::get_batch_task_status
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                let stay_in_tray = commands::db::load_saved_settings(&app_handle)
+                    .map(|settings| settings.minimize_to_tray)
+                    .unwrap_or(false);
+                if stay_in_tray {
+                    api.prevent_exit();
+                }
+            }
+        });
 }

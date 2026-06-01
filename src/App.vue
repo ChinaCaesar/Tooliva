@@ -13,6 +13,7 @@ import { APP_DEBUG } from "@/config/constants";
 import AppLayout from "@/layouts/AppLayout.vue";
 import AppConfirmDialog from "@/components/dialogs/AppConfirmDialog.vue";
 import EntitlementUpgradeDialog from "@/components/entitlement/EntitlementUpgradeDialog.vue";
+import { startDesktopWindowLifecycle, stopDesktopWindowLifecycle } from "@/services/desktopWindowLifecycle";
 
 async function onKeydown(event: KeyboardEvent): Promise<void> {
   if (!APP_DEBUG || !isTauri() || event.key !== "F12") return;
@@ -27,11 +28,17 @@ async function onKeydown(event: KeyboardEvent): Promise<void> {
 }
 
 onMounted(() => {
+  if (isTauri()) {
+    void startDesktopWindowLifecycle();
+  }
   if (!APP_DEBUG) return;
   globalThis.addEventListener("keydown", onKeydown);
 });
 
 onUnmounted(() => {
+  if (isTauri()) {
+    void stopDesktopWindowLifecycle();
+  }
   if (!APP_DEBUG) return;
   globalThis.removeEventListener("keydown", onKeydown);
 });

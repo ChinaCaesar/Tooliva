@@ -511,9 +511,13 @@ pub async fn start_image_upscale(
             Ok(StartImageUpscaleResult {
                 task_id,
                 input_path: input_path.display().to_string(),
-                output_path: finalize_output_path(outcome.output_path.clone(), final_output_path, overwrite)?
-                    .display()
-                    .to_string(),
+                output_path: finalize_output_path(
+                    outcome.output_path.clone(),
+                    final_output_path,
+                    overwrite,
+                )?
+                .display()
+                .to_string(),
                 success: true,
                 error: None,
                 original_width,
@@ -656,9 +660,13 @@ pub async fn start_image_compress(
             Ok(StartImageCompressResult {
                 task_id,
                 input_path: input_path.display().to_string(),
-                output_path: finalize_output_path(outcome.output_path.clone(), final_output_path, overwrite)?
-                    .display()
-                    .to_string(),
+                output_path: finalize_output_path(
+                    outcome.output_path.clone(),
+                    final_output_path,
+                    overwrite,
+                )?
+                .display()
+                .to_string(),
                 success: true,
                 error: None,
                 original_width,
@@ -833,9 +841,13 @@ pub async fn start_image_watermark(
             Ok(StartImageWatermarkResult {
                 task_id,
                 input_path: input_path.display().to_string(),
-                output_path: finalize_output_path(outcome.output_path.clone(), final_output_path, overwrite)?
-                    .display()
-                    .to_string(),
+                output_path: finalize_output_path(
+                    outcome.output_path.clone(),
+                    final_output_path,
+                    overwrite,
+                )?
+                .display()
+                .to_string(),
                 success: true,
                 error: None,
                 original_width,
@@ -966,9 +978,9 @@ fn temporary_overwrite_path(input_path: &Path, extension: &str) -> Result<PathBu
         .file_stem()
         .and_then(|name| name.to_str())
         .ok_or_else(|| "输入文件名非法".to_string())?;
-    Ok(ensure_unique_output_path(&parent.join(format!(
-        ".{stem}.overwrite.tmp.{extension}"
-    ))))
+    Ok(ensure_unique_output_path(
+        &parent.join(format!(".{stem}.overwrite.tmp.{extension}")),
+    ))
 }
 
 fn finalize_output_path(

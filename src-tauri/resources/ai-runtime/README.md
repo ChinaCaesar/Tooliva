@@ -1,6 +1,6 @@
 # AI Runtime
 
-This directory is the shared runtime home for local AI tools.
+This directory contains the local runtime source used to build the offline AI runtime package.
 
 Expected packaged layout:
 
@@ -12,15 +12,18 @@ resources/ai-runtime/
     requirements.txt      # Python dependencies for the portable runtime
 ```
 
-Large model files are not bundled into the installer. They are downloaded on first use to the app data model store:
+The desktop installer does not bundle the large runtime payload or the LaMA model.
+Instead, users download these files separately and import them manually inside the app.
+
+Imported model files are stored under:
 
 ```text
-<app-data>/ai-models/
+<install-dir>/ToolivaAI/models/
   lama/big-lama.pt
   _torch/hub/checkpoints/big-lama.pt
 ```
 
-The `_torch` directory is shared by iopaint/PyTorch so future image and video watermark removal can reuse the same LaMA model without another download.
+The `_torch` directory is shared by iopaint/PyTorch so future image and video watermark removal can reuse the same imported LaMA model. Users can override the runtime/model directories from the Settings page if they prefer a custom writable location.
 
 ## Development setup
 

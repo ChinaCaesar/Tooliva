@@ -71,10 +71,10 @@ pub fn build_mask(
         }
         let x1 = ((region.x.clamp(0.0, 100.0) / 100.0) * width as f32).floor() as i32;
         let y1 = ((region.y.clamp(0.0, 100.0) / 100.0) * height as f32).floor() as i32;
-        let x2 = (((region.x + region.width).clamp(0.0, 100.0) / 100.0) * width as f32).ceil()
-            as i32;
-        let y2 = (((region.y + region.height).clamp(0.0, 100.0) / 100.0) * height as f32).ceil()
-            as i32;
+        let x2 =
+            (((region.x + region.width).clamp(0.0, 100.0) / 100.0) * width as f32).ceil() as i32;
+        let y2 =
+            (((region.y + region.height).clamp(0.0, 100.0) / 100.0) * height as f32).ceil() as i32;
         for y in y1.max(0)..y2.min(height as i32) {
             for x in x1.max(0)..x2.min(width as i32) {
                 mask[(y as usize) * (width as usize) + x as usize] = true;
@@ -221,7 +221,11 @@ fn average_unmasked_image_color(image: &RgbaImage, mask: &[bool]) -> Rgba<u8> {
     ])
 }
 
-fn save_dynamic_image(image: &DynamicImage, output_path: &PathBuf, ext: &str) -> Result<(), String> {
+fn save_dynamic_image(
+    image: &DynamicImage,
+    output_path: &PathBuf,
+    ext: &str,
+) -> Result<(), String> {
     if let Some(parent) = output_path.parent() {
         std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }

@@ -53,7 +53,13 @@ fn sanitize_version(version: &str) -> String {
         .trim()
         .trim_start_matches('v')
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' { ch } else { '_' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' {
+                ch
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -143,7 +149,10 @@ pub async fn download_app_update_installer(
     emit_progress(&app, "finished", downloaded_bytes, total_bytes);
     cleanup_old_installers(&download_dir, &installer_path);
 
-    let mut guard = state.0.lock().map_err(|_| "installer_state_poisoned".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "installer_state_poisoned".to_string())?;
     *guard = Some(installer_path.clone());
 
     Ok(DownloadAppUpdateResult {
@@ -156,7 +165,10 @@ pub fn launch_prepared_update_installer(
     state: State<'_, PreparedInstallerState>,
 ) -> Result<(), String> {
     let installer_path = {
-        let guard = state.0.lock().map_err(|_| "installer_state_poisoned".to_string())?;
+        let guard = state
+            .0
+            .lock()
+            .map_err(|_| "installer_state_poisoned".to_string())?;
         guard
             .clone()
             .ok_or_else(|| "installer_not_prepared".to_string())?

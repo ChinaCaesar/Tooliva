@@ -11,6 +11,8 @@ param(
   [string]$ModelBaseUrl = "",
   [string]$ModelVersion = "1.0.0",
   [string]$ModelFileName = "big-lama.pt",
+  [string]$SourceRoot = "",
+  [string]$OutputRoot = "",
   [string]$ModelFilePath = "",
   [string]$ModelSha256 = "PLEASE_REPLACE_WITH_REAL_SHA256",
   [UInt64]$ModelSize = 196000000,
@@ -21,9 +23,9 @@ param(
   [string]$OsRequirement = "Windows 10/11 64-bit",
   [bool]$AvxRequired = $false,
   [bool]$Avx2Recommended = $true,
-  [string]$SourceRoot = "",
-  [string]$OutputRoot = "",
-  [switch]$SkipArchive
+  [switch]$KeepPaddle,
+  [switch]$SkipArchive,
+  [switch]$SkipRuntimeSmokeTest
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,7 +45,21 @@ $archivePath = Join-Path $OutputRoot $PackageFileName
 $manifestPath = Join-Path $OutputRoot "manifest.generated.json"
 $criticalSitePackageFiles = @(
   "torch\__init__.py",
-  "torch\version.py"
+  "torch\version.py",
+  "torchvision\__init__.py",
+  "iopaint\__init__.py",
+  "iopaint\model_manager.py",
+  "cv2\cv2.pyd",
+  "numpy\__init__.py",
+  "PIL\__init__.py",
+  "colorama\__init__.py",
+  "typing_extensions.py"
+)
+$defaultExcludedDirectoryNames = @("__pycache__", "tests")
+$defaultExcludedFileExtensions = @(".pyc", ".map", ".h", ".lib")
+$defaultExcludedSitePackagePaths = @(
+  "paddle",
+  "paddlepaddle-3.0.0.dist-info"
 )
 
 function Remove-DirectoryIfExists {
@@ -53,27 +69,70 @@ function Remove-DirectoryIfExists {
   }
 }
 
+function Test-ExcludedDirectory {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$RelativePath,
+    [string[]]$ExcludeDirectoryNames = @(),
+    [string[]]$ExcludeRelativeDirectories = @()
+  )
+
+  if ($ExcludeDirectoryNames -contains $Name) {
+    return $true
+  }
+
+  foreach ($excludedPath in $ExcludeRelativeDirectories) {
+    $normalizedExcludedPath = $excludedPath.Replace("\", "/").Trim("/")
+    if ([string]::IsNullOrWhiteSpace($normalizedExcludedPath)) {
+      continue
+    }
+    if ($RelativePath -eq $normalizedExcludedPath -or $RelativePath.StartsWith($normalizedExcludedPath + "/")) {
+      return $true
+    }
+  }
+
+  return $false
+}
+
+function Test-ExcludedFile {
+  param(
+    [Parameter(Mandatory = $true)]$Item,
+    [string[]]$ExcludeFileExtensions = @()
+  )
+
+  return $ExcludeFileExtensions -contains $Item.Extension.ToLowerInvariant()
+}
+
 function Copy-TreeFiltered {
   param(
     [Parameter(Mandatory = $true)][string]$From,
-    [Parameter(Mandatory = $true)][string]$To
+    [Parameter(Mandatory = $true)][string]$To,
+    [string[]]$ExcludeDirectoryNames = $defaultExcludedDirectoryNames,
+    [string[]]$ExcludeRelativeDirectories = @(),
+    [string[]]$ExcludeFileExtensions = $defaultExcludedFileExtensions,
+    [string]$RelativePrefix = ""
   )
 
+  New-Item -ItemType Directory -Path $To -Force | Out-Null
   foreach ($item in Get-ChildItem -LiteralPath $From -Force) {
+    $relativePath = if ([string]::IsNullOrWhiteSpace($RelativePrefix)) {
+      $item.Name
+    } else {
+      $RelativePrefix + "/" + $item.Name
+    }
+
     if ($item.PSIsContainer) {
-      if ($item.Name -eq "__pycache__") {
+      if (Test-ExcludedDirectory -Name $item.Name -RelativePath $relativePath -ExcludeDirectoryNames $ExcludeDirectoryNames -ExcludeRelativeDirectories $ExcludeRelativeDirectories) {
         continue
       }
-      New-Item -ItemType Directory -Path $To -Force | Out-Null
-      Copy-Item -LiteralPath $item.FullName -Destination $To -Recurse -Force
+      Copy-TreeFiltered -From $item.FullName -To (Join-Path $To $item.Name) -ExcludeDirectoryNames $ExcludeDirectoryNames -ExcludeRelativeDirectories $ExcludeRelativeDirectories -ExcludeFileExtensions $ExcludeFileExtensions -RelativePrefix $relativePath
       continue
     }
 
-    if ($item.Extension -eq ".pyc") {
+    if (Test-ExcludedFile -Item $item -ExcludeFileExtensions $ExcludeFileExtensions) {
       continue
     }
 
-    New-Item -ItemType Directory -Path $To -Force | Out-Null
     Copy-Item -LiteralPath $item.FullName -Destination (Join-Path $To $item.Name) -Force
   }
 }
@@ -108,6 +167,41 @@ function Test-IsVirtualEnvRuntime {
 
   $pyvenvConfig = Join-Path $PythonRoot "pyvenv.cfg"
   return Test-Path -LiteralPath $pyvenvConfig
+}
+
+function Test-BundledRuntimeSmoke {
+  param(
+    [Parameter(Mandatory = $true)][string]$BasePythonRoot,
+    [Parameter(Mandatory = $true)][string]$SitePackagesRoot,
+    [Parameter(Mandatory = $true)][string]$SidecarsRoot
+  )
+
+  $smokeRoot = Join-Path $repoRoot "_runtime_smoke_package"
+  $smokePythonRoot = Join-Path $smokeRoot "python"
+  $smokeSitePackages = Join-Path $smokePythonRoot "Lib\site-packages"
+  $smokeSidecars = Join-Path $smokeRoot "sidecars"
+  $smokeTorchHome = Join-Path $smokeRoot "_torch"
+  $basePythonExe = Join-Path $BasePythonRoot "python.exe"
+  $smokePythonExe = Join-Path $smokePythonRoot "Scripts\python.exe"
+  $smokeSidecarEntry = Join-Path $smokeSidecars "lama_inpaint.py"
+
+  Remove-DirectoryIfExists -Path $smokeRoot
+  New-Item -ItemType Directory -Path $smokeRoot -Force | Out-Null
+
+  & $basePythonExe -S -m venv $smokePythonRoot
+  if ($LASTEXITCODE -ne 0) {
+    throw "Bundled AI runtime smoke test failed while creating venv from $basePythonExe"
+  }
+
+  Copy-TreeFiltered -From $SitePackagesRoot -To $smokeSitePackages
+  Copy-TreeFiltered -From $SidecarsRoot -To $smokeSidecars
+  Assert-CriticalFiles -Root $smokeSitePackages -RelativePaths $criticalSitePackageFiles -Label "Bundled AI site-packages smoke test"
+
+  New-Item -ItemType Directory -Path $smokeTorchHome -Force | Out-Null
+  $smokeOutput = & $smokePythonExe $smokeSidecarEntry check-runtime --torch-home $smokeTorchHome --require-lama 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw "Bundled AI runtime smoke test failed.`n$($smokeOutput | Out-String)"
+  }
 }
 
 function Get-RelativePackageUrl {
@@ -201,15 +295,22 @@ Remove-DirectoryIfExists -Path $stageRoot
 New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $stageRoot "sidecars") -Force | Out-Null
 Copy-TreeFiltered -From $sidecarsDir -To (Join-Path $stageRoot "sidecars")
+$excludedSitePackagePaths = @()
+if (!$KeepPaddle) {
+  $excludedSitePackagePaths = $defaultExcludedSitePackagePaths
+}
 if ($layout -eq "portable") {
   New-Item -ItemType Directory -Path (Join-Path $stageRoot "python") -Force | Out-Null
   Copy-TreeFiltered -From $pythonDir -To (Join-Path $stageRoot "python")
 } else {
   New-Item -ItemType Directory -Path (Join-Path $stageRoot "python-base") -Force | Out-Null
   New-Item -ItemType Directory -Path (Join-Path $stageRoot "python-site-packages") -Force | Out-Null
-  Copy-TreeFiltered -From $basePythonDir -To (Join-Path $stageRoot "python-base")
-  Copy-TreeFiltered -From $sitePackagesDir -To (Join-Path $stageRoot "python-site-packages")
+  Copy-TreeFiltered -From $basePythonDir -To (Join-Path $stageRoot "python-base") -ExcludeRelativeDirectories @("Lib/site-packages")
+  Copy-TreeFiltered -From $sitePackagesDir -To (Join-Path $stageRoot "python-site-packages") -ExcludeRelativeDirectories $excludedSitePackagePaths
   Assert-CriticalFiles -Root (Join-Path $stageRoot "python-site-packages") -RelativePaths $criticalSitePackageFiles -Label "Staged AI site-packages"
+  if (!$SkipRuntimeSmokeTest) {
+    Test-BundledRuntimeSmoke -BasePythonRoot (Join-Path $stageRoot "python-base") -SitePackagesRoot (Join-Path $stageRoot "python-site-packages") -SidecarsRoot (Join-Path $stageRoot "sidecars")
+  }
 }
 
 $packageSha256 = "SKIPPED"
@@ -232,16 +333,6 @@ if (!$SkipArchive) {
     if (!(Test-Path -LiteralPath $archivePath)) {
       throw "Compress-Archive did not create the expected archive: $archivePath"
     }
-    <#
-    if ($layout -eq "portable") {
-      & $tarExe.Source -a -cf $archivePath "python" "sidecars"
-    } else {
-      & $tarExe.Source -a -cf $archivePath "python-base" "python-site-packages" "sidecars"
-    }
-    if ($LASTEXITCODE -ne 0) {
-      throw "tar.exe failed with exit code $LASTEXITCODE"
-    }
-    #>
   } finally {
     Pop-Location
   }
@@ -307,6 +398,11 @@ if (![string]::IsNullOrWhiteSpace($ManifestUrl)) {
 Write-Host "Stage directory: $stageRoot"
 if (!$SkipArchive) {
   Write-Host "Archive created: $archivePath"
+  Write-Host "Archive SHA256: $packageSha256"
+  Write-Host "Archive Size: $packageSize"
+}
+if ($excludedSitePackagePaths.Count -gt 0) {
+  Write-Host "Excluded site-packages: $($excludedSitePackagePaths -join ', ')"
 }
 Write-Host "Manifest created: $manifestPath"
 Write-Host "Package URL: $packageUrl"

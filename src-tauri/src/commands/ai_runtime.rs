@@ -1,6 +1,8 @@
 use serde::Deserialize;
 
-use crate::ai_runtime::{resolve_ai_runtime_data_root, resolve_ai_runtime_paths};
+use crate::ai_runtime::{
+    resolve_ai_path_config, resolve_ai_runtime_data_root, resolve_ai_runtime_paths,
+};
 use crate::ai_runtime_manager::{
     check_ai_environment_impl, check_ai_runtime_status_impl, install_local_ai_runtime_package_impl,
     remove_ai_runtime_impl,
@@ -27,11 +29,13 @@ pub struct OpenLocalAiRuntimeDirectoryPayload {
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalAiRuntimePathsPayload {
+    pub path_mode: String,
     pub runtime_root: String,
     pub models_root: String,
+    pub default_runtime_root: String,
+    pub default_models_root: String,
     pub current_runtime_path: String,
     pub versions_path: String,
-    pub downloads_path: String,
     pub manifest_path: String,
     pub lama_model_path: String,
 }
@@ -58,14 +62,17 @@ pub async fn check_ai_environment(
 #[tauri::command]
 pub async fn get_local_ai_runtime_paths() -> Result<LocalAiRuntimePathsPayload, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let path_config = resolve_ai_path_config()?;
         let data_root = resolve_ai_runtime_data_root()?;
         let paths = resolve_ai_runtime_paths()?;
         Ok(LocalAiRuntimePathsPayload {
+            path_mode: path_config.mode,
             runtime_root: data_root.display().to_string(),
             models_root: paths.models_root.display().to_string(),
+            default_runtime_root: path_config.default_runtime_root.display().to_string(),
+            default_models_root: path_config.default_models_root.display().to_string(),
             current_runtime_path: paths.runtime_root.display().to_string(),
             versions_path: paths.versions_root.display().to_string(),
-            downloads_path: paths.downloads_root.display().to_string(),
             manifest_path: paths.runtime_manifest_path.display().to_string(),
             lama_model_path: paths.lama_model_file.display().to_string(),
         })
@@ -84,12 +91,14 @@ pub async fn open_local_ai_runtime_directory(
         let target_path = match payload.target.as_str() {
             "runtime" => data_root,
             "models" => paths.models_root,
-            "downloads" => paths.downloads_root,
             other => return Err(format!("Unsupported AI runtime directory target: {other}")),
         };
 
         std::fs::create_dir_all(&target_path).map_err(|err| {
-            format!("Failed to create directory {}: {err}", target_path.display())
+            format!(
+                "Failed to create directory {}: {err}",
+                target_path.display()
+            )
         })?;
 
         #[cfg(target_os = "windows")]
@@ -97,7 +106,9 @@ pub async fn open_local_ai_runtime_directory(
             std::process::Command::new("explorer")
                 .arg(target_path.as_os_str())
                 .spawn()
-                .map_err(|err| format!("Failed to open directory {}: {err}", target_path.display()))?;
+                .map_err(|err| {
+                    format!("Failed to open directory {}: {err}", target_path.display())
+                })?;
             return Ok(());
         }
 
@@ -106,7 +117,9 @@ pub async fn open_local_ai_runtime_directory(
             std::process::Command::new("open")
                 .arg(target_path.as_os_str())
                 .spawn()
-                .map_err(|err| format!("Failed to open directory {}: {err}", target_path.display()))?;
+                .map_err(|err| {
+                    format!("Failed to open directory {}: {err}", target_path.display())
+                })?;
             return Ok(());
         }
 
@@ -115,7 +128,9 @@ pub async fn open_local_ai_runtime_directory(
             std::process::Command::new("xdg-open")
                 .arg(target_path.as_os_str())
                 .spawn()
-                .map_err(|err| format!("Failed to open directory {}: {err}", target_path.display()))?;
+                .map_err(|err| {
+                    format!("Failed to open directory {}: {err}", target_path.display())
+                })?;
             return Ok(());
         }
     })
@@ -128,7 +143,9 @@ pub async fn install_local_ai_runtime_package(
     payload: InstallLocalAiRuntimePackagePayload,
 ) -> Result<crate::ai_runtime_manager::RuntimeInstallResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        install_local_ai_runtime_package_impl(std::path::PathBuf::from(payload.package_path).as_path())
+        install_local_ai_runtime_package_impl(
+            std::path::PathBuf::from(payload.package_path).as_path(),
+        )
     })
     .await
     .map_err(|err| err.to_string())?

@@ -112,7 +112,7 @@
     "beforeDevCommand": "npm run dev:desktop",
     "beforeBuildCommand": "npm run build",
     "devUrl": "http://localhost:5174",
-    "frontendDist": "../dist"
+    "frontendDist": "../dist-app"
   },
   "app": {
     "windows": [
@@ -404,3 +404,69 @@ npm run tauri:build
 - 在“统一目录输出”模式转换，验证目录生效。
 - 对单个文件使用“另存为”，验证覆盖全局策略。
 - 转换过程中点击取消，验证任务状态为“已取消”。
+
+## AI Runtime 打包命令
+
+下面这套命令已经在当前仓库做过验证，可用于打包本地 AI 组件手动导入包。
+
+说明：
+- 默认会精简运行时，移除 `__pycache__`、`.pyc`、`.map`、`.h`、`.lib`、`tests`
+- 默认会排除 `paddle` 和 `paddlepaddle-3.0.0.dist-info`
+- 默认会做运行时 smoke test，确认 `torch / iopaint / cv2` 这条链可以正常导入
+- 测试目录会写入 `_runtime_test/`、`_runtime_smoke_*/`、`_ai_stage/`，这些目录已加入 `.gitignore`
+
+1. 先准备精简后的 AI runtime 源目录
+
+```powershell
+.\scripts\prepare-ai-runtime-source.ps1 `
+  -BasePythonRoot "D:\python3.10" `
+  -SitePackagesSource ".\src-tauri\resources\ai-runtime\python\Lib\site-packages" `
+  -SidecarsSource ".\src-tauri\resources\ai-runtime\sidecars" `
+  -OutputRoot ".\_ai"
+```
+
+2. 再生成用户可手动导入的 AI runtime 压缩包
+
+```powershell
+.\scripts\package-ai-runtime.ps1 `
+  -RuntimeVersion 1.0.0 `
+  -SourceRoot ".\_ai"
+```
+
+3. 如需把模型文件信息一起写入 manifest，可追加模型路径
+
+```powershell
+.\scripts\package-ai-runtime.ps1 `
+  -RuntimeVersion 1.0.0 `
+  -SourceRoot ".\_ai" `
+  -ModelFilePath "D:\releases\big-lama.pt"
+```
+
+4. 如果确实需要保留 paddle，可在两步命令里都追加 `-KeepPaddle`
+
+```powershell
+.\scripts\prepare-ai-runtime-source.ps1 `
+  -BasePythonRoot "D:\python3.10" `
+  -SitePackagesSource ".\src-tauri\resources\ai-runtime\python\Lib\site-packages" `
+  -SidecarsSource ".\src-tauri\resources\ai-runtime\sidecars" `
+  -OutputRoot ".\_ai" `
+  -KeepPaddle
+
+.\scripts\package-ai-runtime.ps1 `
+  -RuntimeVersion 1.0.0 `
+  -SourceRoot ".\_ai" `
+  -KeepPaddle
+```
+
+默认输出目录：
+
+```text
+dist/ai-runtime/<RuntimeVersion>/
+  ai-runtime.zip
+  manifest.generated.json
+```
+
+本次实际验证结果：
+- 成功生成 `ai-runtime.zip`
+- 归档大小为 `2565830757` bytes，约 `2.39 GiB`
+- 默认精简配置下，归档会排除 `paddle`

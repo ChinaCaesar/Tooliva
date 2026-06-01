@@ -6,7 +6,6 @@ export const IMAGE_COMPRESS_PROGRESS_EVENT = "image-compress-progress";
 export const IMAGE_WATERMARK_PROGRESS_EVENT = "image-watermark-progress";
 export const IMAGE_UPSCALE_PROGRESS_EVENT = "image-upscale-progress";
 export const VIDEO_TO_GIF_PROGRESS_EVENT = "video-to-gif-progress";
-export const AI_MODEL_PROGRESS_EVENT = "ai-model-progress";
 export const AI_RUNTIME_PROGRESS_EVENT = "ai-runtime-progress";
 export const APP_UPDATE_INSTALL_PROGRESS_EVENT = "app-update-install-progress";
 
@@ -74,6 +73,10 @@ export interface OpenDirectoryPayload {
   directoryPath: string;
 }
 
+export interface TempDirectoryResult {
+  path: string;
+}
+
 export interface AiModelStatusPayload {
   modelId: string;
   displayName: string;
@@ -91,15 +94,6 @@ export interface AiModelImportResultPayload {
   modelId: string;
   modelPath: string;
   sizeBytes: number;
-}
-
-export interface AiModelProgressPayload {
-  modelId: string;
-  stage: string;
-  downloadedBytes: number;
-  totalBytes: number;
-  percent: number;
-  message?: string;
 }
 
 export type AiRuntimeStatus =
@@ -134,18 +128,19 @@ export interface AiRuntimeLocalStatusPayload {
   installPath: string;
   currentPath: string;
   versionsPath: string;
-  downloadsPath: string;
   manifestPath: string;
   missingReason: string | null;
   packageChannel: string | null;
 }
 
 export interface LocalAiRuntimePathsPayload {
+  pathMode: string;
   runtimeRoot: string;
   modelsRoot: string;
+  defaultRuntimeRoot: string;
+  defaultModelsRoot: string;
   currentRuntimePath: string;
   versionsPath: string;
-  downloadsPath: string;
   manifestPath: string;
   lamaModelPath: string;
 }
@@ -493,6 +488,10 @@ export class TauriClient {
     await this.call<void>("open_directory_in_file_manager", { payload });
   }
 
+  public async getTempDirectory(): Promise<TempDirectoryResult> {
+    return this.call<TempDirectoryResult>("get_temp_directory");
+  }
+
   public async getAiModelStatus(): Promise<AiModelStatusPayload> {
     return this.call<AiModelStatusPayload>("get_ai_model_status");
   }
@@ -517,7 +516,7 @@ export class TauriClient {
     return this.call<LocalAiRuntimePathsPayload>("get_local_ai_runtime_paths");
   }
 
-  public async openLocalAiRuntimeDirectory(target: "runtime" | "models" | "downloads"): Promise<void> {
+  public async openLocalAiRuntimeDirectory(target: "runtime" | "models"): Promise<void> {
     await this.call("open_local_ai_runtime_directory", { payload: { target } });
   }
 
@@ -560,12 +559,6 @@ export class TauriClient {
 
   public async warmAiInpaintWorker(): Promise<void> {
     await this.call("warm_ai_inpaint_worker");
-  }
-
-  public async onAiModelProgress(handler: (payload: AiModelProgressPayload) => void): Promise<UnlistenFn> {
-    return listen<AiModelProgressPayload>(AI_MODEL_PROGRESS_EVENT, (event) => {
-      handler(event.payload);
-    });
   }
 
   /**

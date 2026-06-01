@@ -1,3 +1,4 @@
+use crate::ai_runtime::{apply_ai_path_settings, AiPathSettingsInput, AI_PATH_MODE_DEFAULT};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -44,6 +45,12 @@ pub struct AppSettingsPayload {
     pub privacy_ux_improvement: bool,
     #[serde(default = "default_true")]
     pub error_reporting_enabled: bool,
+    #[serde(default = "default_ai_path_mode")]
+    pub ai_path_mode: String,
+    #[serde(default)]
+    pub ai_runtime_root: String,
+    #[serde(default)]
+    pub ai_models_root: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -55,9 +62,6 @@ pub struct HomeStatsPayload {
     pub today_saved_minutes: i64,
 }
 
-/// 单条「最近使用」展示记录：每个 `tool_key` 在库中至多对应一行（最近一次）。
-///
-/// 当该结构出现在 `HomeDashboardPayload.recent_items` 中时，至多 3 条，按 `used_at_ts` 降序。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HomeRecentUsagePayload {
@@ -71,7 +75,6 @@ pub struct HomeRecentUsagePayload {
 #[serde(rename_all = "camelCase")]
 pub struct HomeDashboardPayload {
     pub stats: HomeStatsPayload,
-    /// 最近使用：`recent_items` 中每个 `tool_key` 至多一条，为各工具最近一次活动，按 `used_at` 降序，至多 3 条。
     pub recent_items: Vec<HomeRecentUsagePayload>,
     pub top_tools: Vec<HomeTopToolPayload>,
 }
@@ -81,7 +84,6 @@ pub struct HomeDashboardPayload {
 pub struct RecordToolUsagePayload {
     pub tool_key: String,
     pub file_name: String,
-    /// 保留字段以兼容旧前端；不再落库。
     #[serde(default)]
     #[allow(dead_code)]
     pub saved_seconds: i64,
@@ -112,6 +114,7 @@ pub fn save_app_settings(payload: AppSettingsPayload, app: AppHandle) -> Result<
         params![SETTINGS_KEY, serialized, now_ts],
     )
     .map_err(|err| format!("保存设置失败：{err}"))?;
+    apply_runtime_path_settings(&payload);
     apply_window_size(&app, &payload.window_size)?;
     Ok(())
 }
@@ -132,8 +135,6 @@ pub fn record_tool_usage(payload: RecordToolUsagePayload, app: AppHandle) -> Res
     Ok(())
 }
 
-/// 清除 SQLite 中的使用记录与已保存设置行（不含应用数据目录下其他文件）。
-/// 前端应在成功后重新写入默认设置。
 #[tauri::command]
 pub fn clear_local_user_data(app: AppHandle) -> Result<(), String> {
     let conn = open_database(&app)?;
@@ -141,6 +142,7 @@ pub fn clear_local_user_data(app: AppHandle) -> Result<(), String> {
         .map_err(|err| format!("清除使用记录失败：{err}"))?;
     conn.execute("DELETE FROM settings WHERE key = ?1", params![SETTINGS_KEY])
         .map_err(|err| format!("清除设置记录失败：{err}"))?;
+    apply_runtime_path_settings(&default_settings());
     Ok(())
 }
 
@@ -148,7 +150,6 @@ pub fn clear_local_user_data(app: AppHandle) -> Result<(), String> {
 pub fn get_home_dashboard(app: AppHandle) -> Result<HomeDashboardPayload, String> {
     let conn = open_database(&app)?;
 
-    // 不再聚合「次数 / 节省时间」等；保留字段供旧版前端兼容，恒为零与空列表。
     let stats = HomeStatsPayload {
         total_usage_count: 0,
         today_usage_count: 0,
@@ -207,6 +208,9 @@ fn default_settings() -> AppSettingsPayload {
         check_frequency: "daily".to_string(),
         privacy_ux_improvement: true,
         error_reporting_enabled: true,
+        ai_path_mode: AI_PATH_MODE_DEFAULT.to_string(),
+        ai_runtime_root: String::new(),
+        ai_models_root: String::new(),
     }
 }
 
@@ -228,6 +232,10 @@ fn default_update_method() -> String {
 
 fn default_check_frequency() -> String {
     "daily".to_string()
+}
+
+fn default_ai_path_mode() -> String {
+    AI_PATH_MODE_DEFAULT.to_string()
 }
 
 fn default_window_size_value() -> String {
@@ -258,6 +266,9 @@ pub fn load_saved_settings(app: &AppHandle) -> Result<AppSettingsPayload, String
     }
     if parsed.max_concurrent_tasks == 0 {
         parsed.max_concurrent_tasks = 3;
+    }
+    if parsed.ai_path_mode.trim().is_empty() {
+        parsed.ai_path_mode = AI_PATH_MODE_DEFAULT.to_string();
     }
     Ok(parsed)
 }
@@ -326,7 +337,6 @@ fn initialize_tables(connection: &Connection) -> Result<(), String> {
     Ok(())
 }
 
-/// 将旧版 `usage_events` 中「每工具最近一次」迁入 `tool_last_usage` 后删除旧表。
 fn migrate_legacy_usage_events_if_present(connection: &Connection) -> Result<(), String> {
     let legacy_exists: i64 = connection
         .query_row(
@@ -365,4 +375,12 @@ fn current_unix_timestamp() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs() as i64)
         .unwrap_or(0)
+}
+
+pub fn apply_runtime_path_settings(settings: &AppSettingsPayload) {
+    apply_ai_path_settings(AiPathSettingsInput {
+        mode: settings.ai_path_mode.clone(),
+        runtime_root: settings.ai_runtime_root.clone(),
+        models_root: settings.ai_models_root.clone(),
+    });
 }

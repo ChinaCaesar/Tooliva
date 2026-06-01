@@ -17,7 +17,8 @@ use crate::batch::tempfile::{allocate_unique_final_path, ensure_parent_dir};
 use crate::batch::types::{BatchError, BatchTaskType};
 use crate::debug_log::debug_log_to_stderr;
 use crate::local_inpaint::{
-    inpaint_image_basic, BasicInpaintAlgorithm, BasicInpaintRequest, InpaintRegion as BasicInpaintRegion,
+    inpaint_image_basic, BasicInpaintAlgorithm, BasicInpaintRequest,
+    InpaintRegion as BasicInpaintRegion,
 };
 
 #[derive(Debug, Clone, Deserialize)]

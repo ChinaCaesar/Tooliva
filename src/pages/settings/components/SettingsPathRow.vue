@@ -12,12 +12,14 @@ const props = withDefaults(
     changeDisabled?: boolean;
     openPath?: string;
     aiOpenTarget?: "runtime" | "models";
+    mode?: "default" | "simple";
   }>(),
   {
     changeLabelKey: "pages.settings.actions.change",
     changeDisabled: false,
     openPath: undefined,
-    aiOpenTarget: undefined
+    aiOpenTarget: undefined,
+    mode: "default"
   }
 );
 
@@ -58,8 +60,19 @@ async function onOpen(): Promise<void> {
 </script>
 
 <template>
-  <div class="path-row">
-    <code class="path-row__path">{{ pathValue || $t("pages.settings.dashboard.pathNotSet") }}</code>
+  <div class="path-row" :class="{ 'path-row--simple': mode === 'simple' }">
+    <div v-if="mode !== 'simple'" class="path-row__panel">
+      <span class="path-row__label">{{ $t("pages.settings.dashboard.openFolder") }}</span>
+      <code class="path-row__path">{{ pathValue || $t("pages.settings.dashboard.pathNotSet") }}</code>
+    </div>
+    <div v-else class="path-row__simple-field">
+      <input
+        class="path-row__input"
+        type="text"
+        :value="pathValue || $t('pages.settings.dashboard.pathNotSet')"
+        readonly
+      />
+    </div>
     <div class="path-row__actions">
       <button type="button" class="path-row__btn" :disabled="changeDisabled" @click="emit('change')">
         {{ $t(changeLabelKey) }}
@@ -76,42 +89,89 @@ async function onOpen(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 12px;
   width: 100%;
+}
+.path-row--simple {
+  gap: 10px;
+}
+.path-row__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dbe7ff;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(239, 246, 255, 0.92) 0%, rgba(248, 250, 252, 0.96) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.path-row__simple-field {
+  width: 100%;
+}
+.path-row__input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #dbe1ea;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  padding: 0 12px;
+  font-size: 13px;
+  line-height: 40px;
+  outline: none;
+}
+.path-row__label {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
 }
 .path-row__path {
   display: block;
   font-size: 12px;
-  line-height: 18px;
-  color: #475569;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 8px 10px;
+  line-height: 20px;
+  color: #334155;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(191, 219, 254, 0.95);
+  border-radius: 12px;
+  padding: 12px 14px;
   word-break: break-all;
   white-space: pre-wrap;
+  box-shadow: 0 10px 30px rgba(148, 163, 184, 0.08);
 }
 .path-row__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .path-row__btn {
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
   background: #ffffff;
   color: #1d4ed8;
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 7px 14px;
   cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .path-row__btn--secondary {
   color: #334155;
 }
 .path-row__btn:hover {
-  background: #f8fafc;
+  background: #eff6ff;
+  border-color: #93c5fd;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
 }
 .path-row__btn:disabled {
   opacity: 0.45;
@@ -120,5 +180,9 @@ async function onOpen(): Promise<void> {
 .path-row__btn:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+
+.path-row--simple .path-row__actions {
+  justify-content: flex-end;
 }
 </style>

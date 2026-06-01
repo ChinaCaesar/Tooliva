@@ -6,9 +6,9 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::ai_runtime::{
-    read_installed_runtime_state, resolve_ai_runtime_data_root, resolve_ai_runtime_paths,
-    resolve_current_runtime_dir, resolve_runtime_version_dir, write_installed_runtime_state,
-    InstalledAiRuntimeState,
+    ensure_runtime_storage_writable, read_installed_runtime_state, resolve_ai_runtime_data_root,
+    resolve_ai_runtime_paths, resolve_current_runtime_dir, resolve_runtime_version_dir,
+    write_installed_runtime_state, InstalledAiRuntimeState,
 };
 use crate::process_utils::hide_process_window;
 
@@ -21,7 +21,6 @@ pub struct AiRuntimeStatus {
     pub install_path: String,
     pub current_path: String,
     pub versions_path: String,
-    pub downloads_path: String,
     pub manifest_path: String,
     pub missing_reason: Option<String>,
     pub package_channel: Option<String>,
@@ -65,6 +64,7 @@ enum RuntimeSourceLayout {
 }
 
 pub fn check_ai_runtime_status_impl() -> Result<AiRuntimeStatus, String> {
+    let _ = cleanup_stale_current_runtime_dir();
     let paths = resolve_ai_runtime_paths()?;
     let state = read_installed_runtime_state()?;
     let available = paths.python_exe.exists() && paths.sidecar_script.exists();
@@ -89,27 +89,19 @@ pub fn check_ai_runtime_status_impl() -> Result<AiRuntimeStatus, String> {
         installed,
         available,
         current_version: state.as_ref().and_then(|item| item.current_version.clone()),
-        install_path: paths
-            .runtime_root
-            .parent()
-            .unwrap_or(&paths.runtime_root)
-            .display()
-            .to_string(),
+        install_path: resolve_ai_runtime_data_root()?.display().to_string(),
         current_path: paths.runtime_root.display().to_string(),
         versions_path: paths.versions_root.display().to_string(),
-        downloads_path: paths.downloads_root.display().to_string(),
         manifest_path: paths.runtime_manifest_path.display().to_string(),
         missing_reason,
         package_channel: state.and_then(|item| item.channel),
     })
 }
 
-pub fn check_ai_environment_impl(required_free_disk_gb: u64) -> Result<AiEnvironmentStatus, String> {
-    let runtime_root = resolve_ai_runtime_paths()?
-        .runtime_root
-        .parent()
-        .map(PathBuf::from)
-        .ok_or_else(|| "Unable to resolve AI runtime root".to_string())?;
+pub fn check_ai_environment_impl(
+    required_free_disk_gb: u64,
+) -> Result<AiEnvironmentStatus, String> {
+    let runtime_root = resolve_ai_runtime_data_root()?;
     let disk_bytes = get_available_disk_bytes(&runtime_root)?;
     let memory_bytes = get_available_memory_bytes()?;
     let is_64_bit = cfg!(target_pointer_width = "64");
@@ -141,8 +133,18 @@ pub fn check_ai_environment_impl(required_free_disk_gb: u64) -> Result<AiEnviron
         available_memory_gb: bytes_to_gb(memory_bytes),
         available_disk_gb: bytes_to_gb(disk_bytes),
         cpu_arch: std::env::consts::ARCH.to_string(),
-        avx: if avx_supported { "supported" } else { "unknown" }.to_string(),
-        avx2: if avx2_supported { "supported" } else { "unknown" }.to_string(),
+        avx: if avx_supported {
+            "supported"
+        } else {
+            "unknown"
+        }
+        .to_string(),
+        avx2: if avx2_supported {
+            "supported"
+        } else {
+            "unknown"
+        }
+        .to_string(),
         reasons,
     })
 }
@@ -157,6 +159,8 @@ pub fn install_local_ai_runtime_package_impl(
         return Err(format!("AI 组件包路径不是文件：{}", package_path.display()));
     }
 
+    ensure_runtime_storage_writable()?;
+
     let package_size = fs::metadata(package_path)
         .map(|meta| meta.len())
         .unwrap_or_default();
@@ -168,7 +172,11 @@ pub fn install_local_ai_runtime_package_impl(
         .file_stem()
         .and_then(|item| item.to_str())
         .unwrap_or("ai-runtime");
-    let runtime_version = format!("manual-{}-{}", sanitize_version_segment(file_stem), timestamp);
+    let runtime_version = format!(
+        "manual-{}-{}",
+        sanitize_version_segment(file_stem),
+        timestamp
+    );
 
     install_ai_runtime_package_impl(&runtime_version, "manual", package_size, package_path)
 }
@@ -248,15 +256,14 @@ fn install_ai_runtime_package_impl(
     }
     validate_runtime_layout(&target_dir)?;
 
-    if !is_path_inside(&target_dir, &runtime_data_root) || !is_path_inside(&current_dir, &runtime_data_root) {
+    if !is_path_inside(&target_dir, &runtime_data_root) {
         return Err(format!(
-            "Refusing to sync AI runtime outside data root. dataRoot={}, target={}, current={}",
+            "Refusing to install AI runtime outside data root. dataRoot={}, target={}",
             runtime_data_root.display(),
             target_dir.display(),
-            current_dir.display()
         ));
     }
-    sync_current_runtime(&target_dir, &current_dir)?;
+    cleanup_legacy_current_runtime(&current_dir, runtime_version)?;
 
     let installed_at_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -269,13 +276,13 @@ fn install_ai_runtime_package_impl(
         package_url: Some(package_path.display().to_string()),
         models: Vec::new(),
         installed_at_ms: Some(installed_at_ms),
-        current_path: Some(current_dir.display().to_string()),
+        current_path: Some(target_dir.display().to_string()),
     })?;
 
     Ok(RuntimeInstallResult {
         version: runtime_version.to_string(),
         install_path: target_dir.display().to_string(),
-        current_path: current_dir.display().to_string(),
+        current_path: target_dir.display().to_string(),
         manifest_path: paths.runtime_manifest_path.display().to_string(),
     })
 }
@@ -288,7 +295,9 @@ fn normalize_extracted_runtime_root(staging_dir: &Path) -> Result<PathBuf, Strin
     if direct_python.exists() && direct_sidecars.exists() {
         return Ok(staging_dir.to_path_buf());
     }
-    if direct_python_base.exists() && direct_python_site_packages.exists() && direct_sidecars.exists()
+    if direct_python_base.exists()
+        && direct_python_site_packages.exists()
+        && direct_sidecars.exists()
     {
         return Ok(staging_dir.to_path_buf());
     }
@@ -347,10 +356,7 @@ fn detect_runtime_source_layout(target_dir: &Path) -> Result<RuntimeSourceLayout
         return Ok(RuntimeSourceLayout::BaseBundle);
     }
 
-    Err(
-        "AI 运行时安装包目录结构不正确。请重新导入由发布脚本生成的 AI 组件包。"
-            .to_string(),
-    )
+    Err("AI 运行时安装包目录结构不正确。请重新导入由发布脚本生成的 AI 组件包。".to_string())
 }
 
 fn validate_portable_python_runtime(target_dir: &Path) -> Result<(), String> {
@@ -378,14 +384,12 @@ fn validate_base_python_root(base_python_root: &Path) -> Result<(), String> {
     let pyvenv_cfg = base_python_root.join("pyvenv.cfg");
     if pyvenv_cfg.exists() {
         return Err(
-            "AI 运行时安装包中的 python-base 仍然是虚拟环境，不能用于稳定发布。"
-                .to_string(),
+            "AI 运行时安装包中的 python-base 仍然是虚拟环境，不能用于稳定发布。".to_string(),
         );
     }
     if !base_python.exists() {
         return Err(
-            "AI 运行时安装包缺少 python-base\\python.exe，无法在本机重建运行环境。"
-                .to_string(),
+            "AI 运行时安装包缺少 python-base\\python.exe，无法在本机重建运行环境。".to_string(),
         );
     }
     Ok(())
@@ -415,9 +419,7 @@ fn materialize_runtime_from_bundle(target_dir: &Path) -> Result<(), String> {
     create_venv.arg("-m").arg("venv").arg(&runtime_python);
     hide_process_window(&mut create_venv);
     let output = create_venv.output().map_err(|err| {
-        format!(
-            "Failed to start bundled base Python while creating AI runtime environment: {err}"
-        )
+        format!("Failed to start bundled base Python while creating AI runtime environment: {err}")
     })?;
     if !output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -512,11 +514,34 @@ fn sanitize_version_segment(input: &str) -> String {
     sanitized.trim_matches('-').to_string()
 }
 
-fn sync_current_runtime(version_dir: &Path, current_dir: &Path) -> Result<(), String> {
-    if current_dir.exists() {
-        fs::remove_dir_all(current_dir).map_err(|err| err.to_string())?;
+fn cleanup_legacy_current_runtime(current_dir: &Path, runtime_version: &str) -> Result<(), String> {
+    if !current_dir.exists() {
+        return Ok(());
     }
-    copy_dir_recursive(version_dir, current_dir)
+    let current_version_dir = resolve_runtime_version_dir(runtime_version)?;
+    if current_dir == current_version_dir {
+        return Ok(());
+    }
+    fs::remove_dir_all(current_dir).map_err(|err| {
+        format!(
+            "Failed to remove legacy duplicated AI runtime directory {}: {err}",
+            current_dir.display()
+        )
+    })
+}
+
+fn cleanup_stale_current_runtime_dir() -> Result<(), String> {
+    let Some(state) = read_installed_runtime_state()? else {
+        return Ok(());
+    };
+    let Some(version) = state.current_version.as_deref() else {
+        return Ok(());
+    };
+    let current_dir = resolve_current_runtime_dir()?;
+    if !current_dir.exists() {
+        return Ok(());
+    }
+    cleanup_legacy_current_runtime(&current_dir, version)
 }
 
 fn copy_dir_recursive(from: &Path, to: &Path) -> Result<(), String> {
@@ -563,7 +588,13 @@ fn copy_dir_contents(from: &Path, to: &Path) -> Result<(), String> {
 
 fn run_powershell(script: &str) -> Result<String, String> {
     let mut command = Command::new("powershell");
-    command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]);
+    command.args([
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        script,
+    ]);
     hide_process_window(&mut command);
 
     let output = command

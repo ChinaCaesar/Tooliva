@@ -76,7 +76,10 @@ export const DEFAULT_SETTINGS: UserSettings = {
   updateMethod: "stable",
   checkFrequency: "daily",
   privacyUxImprovement: true,
-  errorReportingEnabled: true
+  errorReportingEnabled: true,
+  aiPathMode: "default",
+  aiRuntimeRoot: "",
+  aiModelsRoot: ""
 };
 
 export const ROUTE_PATHS = {
