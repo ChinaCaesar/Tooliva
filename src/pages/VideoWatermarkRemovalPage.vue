@@ -846,7 +846,7 @@ onBeforeUnmount(() => {
           <span class="vw-engine__value">{{ processingEngineLabel }}</span>
         </div>
 
-        <AiEnhancementStatusPanel @synced="syncRemovalModeWithAi(true)" />
+        <AiEnhancementStatusPanel guide-entry-id="video-watermark-removal-ai-guide" @synced="syncRemovalModeWithAi(true)" />
       </section>
     </div>
 

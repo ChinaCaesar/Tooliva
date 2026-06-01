@@ -115,7 +115,8 @@
       upgradeRuntime: "一键升级 AI 组件",
       retry: "重试",
       importModel: "导入 LaMA 模型",
-      importingModel: "正在导入模型..."
+      importingModel: "正在导入模型...",
+      viewGuide: "查看官网教程"
     },
     installProgress: {
       preparing: "正在准备 AI 组件…",
@@ -487,6 +488,9 @@
       },
       aiModules: {
         sectionTitle: "AI 增强组件",
+        guideTitle: "官网教程",
+        guideDesc: "查看 AI 增强组件安装、导入模型与使用说明。",
+        guideAction: "打开教程",
         pathModeTitle: "存储位置模式",
         pathModeDefault: "安装目录下",
         pathModeCustom: "自定义目录",
@@ -1695,4 +1699,3 @@
     }
   }
 } as const;
-

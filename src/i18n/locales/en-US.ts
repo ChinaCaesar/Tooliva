@@ -117,7 +117,8 @@ export const enUS = {
       upgradeRuntime: "Upgrade AI runtime",
       retry: "Retry",
       importModel: "Import LaMA model",
-      importingModel: "Importing model..."
+      importingModel: "Importing model...",
+      viewGuide: "View guide"
     },
     installProgress: {
       preparing: "Preparing AI runtime…",
@@ -491,6 +492,9 @@ export const enUS = {
       },
       aiModules: {
         sectionTitle: "AI enhancement",
+        guideTitle: "Website guide",
+        guideDesc: "Open the official AI enhancement guide for setup, model import, and usage steps.",
+        guideAction: "Open guide",
         pathModeTitle: "Storage mode",
         pathModeDefault: "Install directory",
         pathModeCustom: "Custom directory",

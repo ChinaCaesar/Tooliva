@@ -6,11 +6,21 @@ import { Info } from "@lucide/vue";
 
 import AiRuntimeInstallLoadingOverlay from "@/components/ai-runtime/AiRuntimeInstallLoadingOverlay.vue";
 
+import { useAiEnhancementGuideNavigate } from "@/modules/ai-runtime/useAiEnhancementGuideNavigate";
 import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
 
 
 
 const { t } = useI18n();
+const { openAiEnhancementGuide } = useAiEnhancementGuideNavigate();
+const props = withDefaults(
+  defineProps<{
+    guideEntryId?: string;
+  }>(),
+  {
+    guideEntryId: "ai-enhancement-panel-guide",
+  }
+);
 
 
 
@@ -67,6 +77,12 @@ async function handleInstallRuntime() {
 async function handleImportModel() {
 
   await importModel(() => emit("synced"));
+
+}
+
+async function handleOpenGuide() {
+
+  await openAiEnhancementGuide(props.guideEntryId);
 
 }
 
@@ -171,6 +187,20 @@ async function handleImportModel() {
       >
 
         {{ isImportingAiModel ? t("aiEnhancement.actions.importingModel") : t("aiEnhancement.actions.importModel") }}
+
+      </button>
+
+      <button
+
+        type="button"
+
+        class="ai-enhancement-panel__btn ai-enhancement-panel__btn--guide"
+
+        @click="handleOpenGuide"
+
+      >
+
+        {{ t("aiEnhancement.actions.viewGuide") }}
 
       </button>
 
@@ -339,6 +369,18 @@ async function handleImportModel() {
   border-color: #dbeafe;
 
   box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.06);
+
+}
+
+
+
+.ai-enhancement-panel__btn--guide {
+
+  border-color: #bfdbfe;
+
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+
+  color: #1d4ed8;
 
 }
 

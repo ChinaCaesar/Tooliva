@@ -715,7 +715,7 @@ onBeforeUnmount(() => {
           <p v-else class="wm-muted">{{ t("pages.watermarkRemoval.mode.aiHintImage") }}</p>
         </div>
 
-        <AiEnhancementStatusPanel @synced="syncRemovalModeWithAi(true)" />
+        <AiEnhancementStatusPanel guide-entry-id="image-watermark-removal-ai-guide" @synced="syncRemovalModeWithAi(true)" />
       </section>
     </div>
 

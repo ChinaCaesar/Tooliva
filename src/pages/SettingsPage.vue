@@ -10,6 +10,7 @@ import { tauriClient } from "@/bridge/tauriClient";
 import { HOME_ASSETS } from "@/pages/home/resources/homeAssets";
 import { useExternalNavigate } from "@/composables/useExternalNavigate";
 import { showAppAlert, showAppConfirm } from "@/utils/appDialog";
+import { useAiEnhancementGuideNavigate } from "@/modules/ai-runtime/useAiEnhancementGuideNavigate";
 import { useAiEnhancementPanel } from "@/modules/ai-runtime/useAiEnhancementPanel";
 import { LANGUAGES, type AiPathMode, type AppLanguage, type AppWindowSize, type UserSettings } from "@/types/settings";
 import { useSettingsStore } from "@/stores/settings.store";
@@ -30,6 +31,7 @@ const { t } = useI18n();
 const settingsStore = useSettingsStore();
 const taskStore = useTaskStore();
 const { navigate } = useExternalNavigate();
+const { openAiEnhancementGuide } = useAiEnhancementGuideNavigate();
 const {
   language,
   taskDoneNotificationEnabled,
@@ -445,6 +447,10 @@ async function onOpenLink(kind: "terms" | "privacy"): Promise<void> {
   });
 }
 
+async function onOpenAiGuide(): Promise<void> {
+  await openAiEnhancementGuide("settings-ai-modules-guide");
+}
+
 async function onReplaceAiRuntime(): Promise<void> {
   if (!isTauri() || isReplacingRuntime.value) return;
   if (hasInstalledAiRuntime.value) {
@@ -606,6 +612,11 @@ onMounted(() => {
                 <option value="default">{{ $t("pages.settings.aiModules.pathModeDefault") }}</option>
                 <option value="custom">{{ $t("pages.settings.aiModules.pathModeCustom") }}</option>
               </select>
+            </SettingsRow>
+            <SettingsRow :title="$t('pages.settings.aiModules.guideTitle')" :description="$t('pages.settings.aiModules.guideDesc')">
+              <button type="button" class="btn-ghost btn-ghost--guide" @click="onOpenAiGuide">
+                {{ $t("pages.settings.aiModules.guideAction") }}
+              </button>
             </SettingsRow>
             <SettingsRow variant="block" :title="$t('pages.settings.aiModules.runtimeStorageRootTitle')" :description="$t('pages.settings.aiModules.runtimeStorageRootDesc')">
               <div class="settings-page__ai-asset-card">
@@ -968,6 +979,11 @@ onMounted(() => {
 }
 .btn-primary:hover {
   background: #1d4ed8;
+}
+.btn-ghost--guide {
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
 }
 .btn-danger {
   border: none;

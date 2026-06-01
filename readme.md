@@ -58,6 +58,7 @@ npm run tauri:build
 ### Documentation
 
 - Packaging and release notes: [PACKAGING.md](./PACKAGING.md)
+- AI runtime GitHub upload guide: [AI_GITHUB_RELEASE_GUIDE.md](./AI_GITHUB_RELEASE_GUIDE.md)
 
 ## 中文
 
@@ -117,3 +118,4 @@ npm run tauri:build
 ### 相关文档
 
 - 打包与发布说明：[PACKAGING.md](./PACKAGING.md)
+- AI 组件上传与版本说明：[AI_GITHUB_RELEASE_GUIDE.md](./AI_GITHUB_RELEASE_GUIDE.md)
