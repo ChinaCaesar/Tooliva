@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { resolveMembershipTierLabel } from '@/auth/membership';
 import { useAuthStore } from '@/stores/auth.store';
 
 const emit = defineEmits<{
@@ -28,7 +29,9 @@ const providerLabel = computed(() => {
   return t(key);
 });
 
-const membershipLabel = computed(() => authStore.membership?.tierLabel ?? '');
+const membershipLabel = computed(() =>
+  resolveMembershipTierLabel(authStore.membership, t)
+);
 
 const expiryText = computed(() => {
   const expiresAt = authStore.membership?.expiresAt;

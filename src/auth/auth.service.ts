@@ -1,14 +1,13 @@
 import { API_BASE_URL, AUTH_DESKTOP_CLIENT, AUTH_REDIRECT_URI, WEBSITE_URL } from '@/config/constants';
 import { httpFetch } from '@/utils/httpFetch';
 import { computeCodeChallenge, generateCodeVerifier, generateState } from '@/auth/pkce';
+import { mapMembershipSnapshot } from '@/auth/membership';
 import type {
   AuthExchangeResult,
   AuthProvider,
   AuthSession,
   BackendMembershipSnapshot,
   BackendUserInfo,
-  MembershipInfo,
-  MembershipTier,
   PendingPkceSession,
 } from '@/auth/types';
 
@@ -82,34 +81,6 @@ function normalizeProvider(provider?: string): AuthProvider {
   return 'EMAIL';
 }
 
-function normalizeTier(tier?: string): MembershipTier {
-  if (tier === 'pro' || tier === 'lifetime') {
-    return tier;
-  }
-  return 'free';
-}
-
-function normalizeExpiresAt(value: BackendMembershipSnapshot['expires_at']): string | null {
-  if (!value) {
-    return null;
-  }
-  if (typeof value === 'number') {
-    return value > 0 ? new Date(value * 1000).toISOString() : null;
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function mapMembership(snapshot?: BackendMembershipSnapshot): MembershipInfo {
-  const tier = normalizeTier(snapshot?.tier);
-  return {
-    tier,
-    tierLabel: tier === 'lifetime' ? 'Lifetime' : tier === 'pro' ? 'Pro' : 'Free',
-    isActive: Boolean(snapshot?.is_active),
-    expiresAt: normalizeExpiresAt(snapshot?.expires_at),
-  };
-}
-
 function mapUser(userInfo: BackendUserInfo): AuthExchangeResult['user'] {
   return {
     id: String(userInfo.id || ''),
@@ -174,7 +145,7 @@ export class AuthService {
 
     return {
       user: mapUser(data.userInfo),
-      membership: mapMembership(data.membership),
+      membership: mapMembershipSnapshot(data.membership),
       tokens: {
         accessToken: String(data.userInfo.token),
         refreshToken: String(data.userInfo.refresh_token || ''),

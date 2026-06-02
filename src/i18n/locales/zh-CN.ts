@@ -778,6 +778,7 @@
         freeTitle: "免费会员",
         freeDescription: "免费会员可体验核心功能，但每天有使用限额；需要无限次使用时可升级为付费会员。",
         paidTitle: "付费会员已生效",
+        activeTitle: "{plan}已生效",
         paidDescription: "你的账号当前已拥有付费会员权益，核心工具可不限次使用。",
         lifetimeTitle: "终身会员已生效",
         lifetimeDescription: "你的账号当前已拥有终身付费会员权益。"

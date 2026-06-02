@@ -8,11 +8,10 @@ export interface AuthUser {
   avatar?: string;
 }
 
-export type MembershipTier = 'free' | 'pro' | 'lifetime';
+export type MembershipTier = 'none' | 'monthly' | 'yearly' | 'lifetime';
 
 export interface MembershipInfo {
   tier: MembershipTier;
-  tierLabel: string;
   isActive: boolean;
   expiresAt: string | null;
 }

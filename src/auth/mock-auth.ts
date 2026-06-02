@@ -9,26 +9,22 @@ const MOCK_USERS: Record<AuthProvider, Omit<AuthUser, 'id'>> = {
 
 const MOCK_MEMBERSHIP: Record<AuthProvider, MembershipInfo> = {
   WECHAT: {
-    tier: 'pro',
-    tierLabel: '专业版',
+    tier: 'monthly',
     isActive: true,
     expiresAt: '2027-05-23T00:00:00.000Z',
   },
   GOOGLE: {
-    tier: 'pro',
-    tierLabel: '专业版',
+    tier: 'yearly',
     isActive: true,
     expiresAt: '2027-03-15T00:00:00.000Z',
   },
   GITHUB: {
     tier: 'lifetime',
-    tierLabel: '终身会员',
     isActive: true,
     expiresAt: null,
   },
   EMAIL: {
-    tier: 'pro',
-    tierLabel: '专业版',
+    tier: 'monthly',
     isActive: true,
     expiresAt: '2026-12-31T00:00:00.000Z',
   },

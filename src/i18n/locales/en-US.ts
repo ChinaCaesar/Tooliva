@@ -785,6 +785,7 @@ export const enUS = {
         freeTitle: "Free membership",
         freeDescription: "Free members can use the product with daily limits. Upgrade to paid membership when you need unlimited usage.",
         paidTitle: "Paid membership active",
+        activeTitle: "{plan} active",
         paidDescription: "Your account currently has active paid-member rights and can use core tools without daily limits.",
         lifetimeTitle: "Lifetime membership active",
         lifetimeDescription: "Your account already has lifetime paid-member rights."

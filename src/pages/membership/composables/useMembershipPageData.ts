@@ -1,5 +1,6 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { mapMembershipSnapshot, resolveMembershipSummaryTitle, resolveMembershipTierLabel } from "@/auth/membership";
 import { fetchDesktopMembershipSnapshot, fetchDesktopPricingPlans, type DesktopMembershipSnapshot, type DesktopPricingPlan } from "@/modules/membership/api";
 import { resolveMembershipErrorMessage } from "@/modules/membership/resolveMembershipErrorMessage";
 import { useAuthStore } from "@/stores/auth.store";
@@ -91,18 +92,11 @@ export function useMembershipPageData() {
 
   const currentPlanCode = computed(() => mapCurrentPlanCode(snapshot.value));
 
-  const summaryTitle = computed(() => {
-    if (!authStore.isLoggedIn) {
-      return t("pages.membershipDesktop.summary.guestTitle");
-    }
-    if (!snapshot.value?.is_active) {
-      return t("pages.membershipDesktop.summary.freeTitle");
-    }
-    if (snapshot.value.tier === "lifetime") {
-      return t("pages.membershipDesktop.summary.lifetimeTitle");
-    }
-    return t("pages.membershipDesktop.summary.paidTitle");
-  });
+  const mappedMembership = computed(() => mapMembershipSnapshot(snapshot.value ?? undefined));
+
+  const summaryTitle = computed(() =>
+    resolveMembershipSummaryTitle(mappedMembership.value, authStore.isLoggedIn, t),
+  );
 
   const summaryDescription = computed(() => {
     if (!authStore.isLoggedIn) {
@@ -119,9 +113,7 @@ export function useMembershipPageData() {
 
   const membershipStatusLabel = computed(() => {
     if (!authStore.isLoggedIn) return t("pages.membershipDesktop.status.guest");
-    if (!snapshot.value?.is_active) return t("pages.membershipDesktop.status.free");
-    if (snapshot.value.tier === "lifetime") return t("pages.membershipDesktop.status.lifetime");
-    return t("pages.membershipDesktop.status.paid");
+    return resolveMembershipTierLabel(mappedMembership.value, t);
   });
 
   const membershipExpiryLabel = computed(() => {

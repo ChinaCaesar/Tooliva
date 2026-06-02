@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { AuthApiError, authService, isAuthInvalidError } from '@/auth/auth.service';
+import { mapMembershipSnapshot } from '@/auth/membership';
 import { parseAuthCallbackUrl } from '@/auth/deep-link';
 import type { AuthSession, AuthUser, MembershipInfo, PendingPkceSession, TokenPair } from '@/auth/types';
 import {
@@ -7,6 +8,7 @@ import {
   AUTH_PKCE_STORAGE_KEY,
   AUTH_SESSION_STORAGE_KEY,
 } from '@/config/constants';
+import { fetchDesktopMembershipSnapshot } from '@/modules/membership/api';
 import { openExternalUrl } from '@/utils/openExternalUrl';
 import { focusMainWindow } from '@/utils/windowControl';
 import { useNotificationStore } from '@/stores/notification.store';
@@ -53,6 +55,14 @@ function removeKey(key: string): void {
   localStorage.removeItem(key);
 }
 
+function emptyMembership(): MembershipInfo {
+  return {
+    tier: 'none',
+    isActive: false,
+    expiresAt: null,
+  };
+}
+
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user: null,
@@ -92,18 +102,14 @@ export const useAuthStore = defineStore('auth', {
 
       const session: AuthSession = {
         user: this.user,
-        membership: this.membership ?? {
-          tier: 'free',
-          tierLabel: 'Free',
-          isActive: false,
-          expiresAt: null,
-        },
+        membership: this.membership ?? emptyMembership(),
         tokens: this.tokens,
         loggedInAt: this.loggedInAt,
       };
 
       try {
         this.user = await authService.validateSession(session);
+        await this.refreshMembership();
         this.persistSession();
       } catch (error) {
         if (isAuthInvalidError(error)) {
@@ -242,6 +248,22 @@ export const useAuthStore = defineStore('auth', {
           durationMs: 5000,
         });
         return false;
+      }
+    },
+
+    async refreshMembership(): Promise<void> {
+      if (!this.isLoggedIn) {
+        return;
+      }
+
+      try {
+        const snapshot = await fetchDesktopMembershipSnapshot();
+        this.membership = mapMembershipSnapshot(snapshot);
+        this.persistSession();
+      } catch (error) {
+        if (isAuthInvalidError(error)) {
+          this.logout();
+        }
       }
     },
 

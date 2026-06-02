@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { LogOut, User, X } from "@lucide/vue";
+import { resolveMembershipTierLabel } from "@/auth/membership";
 import { WEBSITE_URL } from "@/config/constants";
 import { openExternalUrl } from "@/utils/openExternalUrl";
 import { useAuthStore } from "@/stores/auth.store";
@@ -26,8 +27,8 @@ const providerLabel = computed(() => {
   return t(key);
 });
 
-const membershipLabel = computed(
-  () => authStore.membership?.tierLabel ?? t("auth.userProfile.noMembership")
+const membershipLabel = computed(() =>
+  resolveMembershipTierLabel(authStore.membership, t)
 );
 
 const expiryText = computed(() => {
@@ -78,6 +79,9 @@ watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
+      if (authStore.isLoggedIn) {
+        void authStore.refreshMembership();
+      }
       globalThis.requestAnimationFrame(() => {
         panelRef.value?.focus();
       });
