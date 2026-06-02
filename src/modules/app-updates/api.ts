@@ -185,9 +185,12 @@ export async function checkDesktopAppUpdate(options: CheckUpdateOptions): Promis
     pickString(source, ["downloadUrl", "download_url", "url", "link"])
     || pickNestedString(source, ["package", "package_file"]);
   const resolvedPackageUrl = packageUrl ? resolveDownloadUrl(packageUrl) : "";
+  const versionGreaterThanCurrent = isVersionGreater(latestVersion, options.currentVersion);
 
   return {
-    available: explicitAvailable ?? isVersionGreater(latestVersion, options.currentVersion),
+    // Only treat an update as available when the remote version is strictly newer.
+    // This prevents stale or incorrect backend flags such as `available=true` for the same version.
+    available: explicitAvailable === false ? false : versionGreaterThanCurrent,
     currentVersion: options.currentVersion,
     latestVersion,
     notes: notesList.join("\n") || pickString(source, ["notes", "summary", "description", "content"]),
