@@ -4,6 +4,12 @@
 
 Tooliva is a local-first desktop toolbox for creator and media workflows. It combines a Vue 3 front end with a Tauri + Rust desktop runtime so common processing tasks can run on the user's machine instead of in the cloud.
 
+### Official website
+
+- [Official website](https://tool.toolivaai.com/)
+- [Official website (zh-CN)](https://tool.toolivaai.com/zh-CN)
+
+
 ### What this project is for
 
 - Provide one desktop entry point for image, video, and workflow utilities
@@ -55,6 +61,7 @@ npm run build
 npm run tauri:build
 ```
 
+
 ### Documentation
 
 - Packaging and release notes: [PACKAGING.md](./PACKAGING.md)
@@ -63,6 +70,12 @@ npm run tauri:build
 ## 中文
 
 Tooliva 是一个面向创作者与媒体处理场景的本地优先桌面工具箱。项目使用 Vue 3 构建前端界面，使用 Tauri + Rust 提供桌面运行时与本地能力，让常见处理任务尽量在用户设备上完成，而不是依赖云端。
+
+### 官网
+
+- [官网（英文）](https://tool.toolivaai.com/)
+- [官网（中文）](https://tool.toolivaai.com/zh-CN)
+
 
 ### 这个项目是做什么的
 
@@ -114,6 +127,7 @@ npm run tauri:dev
 npm run build
 npm run tauri:build
 ```
+
 
 ### 相关文档
 
