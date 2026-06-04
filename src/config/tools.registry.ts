@@ -84,7 +84,7 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
     descriptionKey: "pages.home.tools.imageWatermarkRemoval.description",
     gradient: "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)",
     actionCode: "image-watermark-removal",
-    recommended: false,
+    recommended: true,
     sortOrder: 50
   },
   {
@@ -95,7 +95,7 @@ const TOOLS_REGISTRY_RAW: AppToolDef[] = [
     descriptionKey: "pages.home.tools.videoWatermarkRemoval.description",
     gradient: "linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%)",
     actionCode: "video-watermark-removal",
-    recommended: false,
+    recommended: true,
     sortOrder: 55
   }
 ];

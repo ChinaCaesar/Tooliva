@@ -318,6 +318,8 @@ export type WatermarkPosition =
   | "bottomRight"
   | "custom";
 
+export type WatermarkCustomAnchor = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
+
 export interface StartImageWatermarkPayload {
   taskId: string;
   inputPath: string;
@@ -328,6 +330,7 @@ export interface StartImageWatermarkPayload {
   opacity: number;
   margin: number;
   rotation: number;
+  customAnchor?: WatermarkCustomAnchor;
   offsetXRatio?: number;
   offsetYRatio?: number;
   offsetXPxOnOriginal?: number;
@@ -346,6 +349,7 @@ export interface GetImageWatermarkPreviewGeometryPayload {
   opacity: number;
   margin: number;
   rotation: number;
+  customAnchor?: WatermarkCustomAnchor;
   offsetXRatio?: number;
   offsetYRatio?: number;
   offsetXPxOnOriginal?: number;
@@ -371,6 +375,7 @@ export interface GetImageWatermarkOverlayPreviewPayload {
   opacity: number;
   margin: number;
   rotation: number;
+  customAnchor?: WatermarkCustomAnchor;
   offsetXRatio?: number;
   offsetYRatio?: number;
   offsetXPxOnOriginal?: number;

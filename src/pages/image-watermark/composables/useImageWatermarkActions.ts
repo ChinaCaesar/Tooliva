@@ -7,6 +7,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useRouter } from "vue-router";
 import {
   tauriClient,
+  type WatermarkCustomAnchor,
   type StartImageWatermarkResult,
   type WatermarkMode,
   type WatermarkPosition
@@ -182,6 +183,64 @@ function resolvePresetRatios(
   return {
     x: maxX > 0 ? left / maxX : 0,
     y: maxY > 0 ? top / maxY : 0
+  };
+}
+
+function resolveCustomOffsets(
+  positionValue: WatermarkPosition,
+  previewDragRatioValue: { x: number; y: number },
+  previewRectValue: PreviewRect,
+  overlayRectValue: PreviewRect,
+  originalRectValue: PreviewRect,
+  resolveOriginalOffsetPxValue: () => { x: number; y: number }
+): {
+  customAnchor?: WatermarkCustomAnchor;
+  offsetXRatio?: number;
+  offsetYRatio?: number;
+  offsetXPxOnOriginal?: number;
+  offsetYPxOnOriginal?: number;
+} {
+  if (positionValue !== "custom") {
+    return {};
+  }
+  const maxX = Math.max(0, previewRectValue.width - overlayRectValue.width);
+  const maxY = Math.max(0, previewRectValue.height - overlayRectValue.height);
+  const left = Math.min(maxX, Math.max(0, previewDragRatioValue.x * maxX));
+  const top = Math.min(maxY, Math.max(0, previewDragRatioValue.y * maxY));
+  const right = Math.max(0, maxX - left);
+  const bottom = Math.max(0, maxY - top);
+  const overlayCenterX = left + overlayRectValue.width / 2;
+  const overlayCenterY = top + overlayRectValue.height / 2;
+  const cornerDistances: Array<{ anchor: WatermarkCustomAnchor; distance: number }> = [
+    { anchor: "topLeft", distance: Math.hypot(overlayCenterX, overlayCenterY) },
+    { anchor: "topRight", distance: Math.hypot(previewRectValue.width - overlayCenterX, overlayCenterY) },
+    { anchor: "bottomLeft", distance: Math.hypot(overlayCenterX, previewRectValue.height - overlayCenterY) },
+    { anchor: "bottomRight", distance: Math.hypot(previewRectValue.width - overlayCenterX, previewRectValue.height - overlayCenterY) }
+  ];
+  cornerDistances.sort((a, b) => a.distance - b.distance);
+  const customAnchor = cornerDistances[0]?.anchor ?? "topLeft";
+  const offsetPx = resolveOriginalOffsetPxValue();
+  const originalOverlayWidth =
+    previewRectValue.width > 0
+      ? Math.max(1, Math.round((overlayRectValue.width * originalRectValue.width) / previewRectValue.width))
+      : overlayRectValue.width;
+  const originalOverlayHeight =
+    previewRectValue.height > 0
+      ? Math.max(1, Math.round((overlayRectValue.height * originalRectValue.height) / previewRectValue.height))
+      : overlayRectValue.height;
+  const originalRightPx = Math.max(0, originalRectValue.width - originalOverlayWidth - offsetPx.x);
+  const originalBottomPx = Math.max(0, originalRectValue.height - originalOverlayHeight - offsetPx.y);
+  const anchorOffsets =
+    customAnchor === "topLeft"
+      ? { offsetXRatio: previewDragRatioValue.x, offsetYRatio: previewDragRatioValue.y, offsetXPxOnOriginal: offsetPx.x, offsetYPxOnOriginal: offsetPx.y }
+      : customAnchor === "topRight"
+        ? { offsetXRatio: undefined, offsetYRatio: previewDragRatioValue.y, offsetXPxOnOriginal: originalRightPx, offsetYPxOnOriginal: offsetPx.y }
+        : customAnchor === "bottomLeft"
+          ? { offsetXRatio: previewDragRatioValue.x, offsetYRatio: undefined, offsetXPxOnOriginal: offsetPx.x, offsetYPxOnOriginal: originalBottomPx }
+          : { offsetXRatio: undefined, offsetYRatio: undefined, offsetXPxOnOriginal: originalRightPx, offsetYPxOnOriginal: originalBottomPx };
+  return {
+    customAnchor,
+    ...anchorOffsets
   };
 }
 
@@ -571,7 +630,6 @@ export function useImageWatermarkActions() {
     }
     const currentRequestId = ++watermarkGeometryRequestId;
     try {
-      const offsetPx = resolveOriginalOffsetPx();
       const geometry = await tauriClient.getImageWatermarkPreviewGeometry({
         inputPath: previewImagePath.value,
         mode: mode.value,
@@ -579,10 +637,14 @@ export function useImageWatermarkActions() {
         opacity: opacity.value,
         margin: margin.value,
         rotation: rotation.value,
-        offsetXRatio: previewDragRatio.value.x,
-        offsetYRatio: previewDragRatio.value.y,
-        offsetXPxOnOriginal: offsetPx.x,
-        offsetYPxOnOriginal: offsetPx.y,
+        ...resolveCustomOffsets(
+          position.value,
+          previewDragRatio.value,
+          previewRect.value,
+          previewOverlaySize.value,
+          previewNaturalSize.value,
+          resolveOriginalOffsetPx
+        ),
         text: mode.value === "text" ? text.value.trim() : undefined,
         fontSize: mode.value === "text" ? fontSize.value : undefined,
         textColor: mode.value === "text" ? textColor.value : undefined,
@@ -605,7 +667,6 @@ export function useImageWatermarkActions() {
    * 构建水印预览参数，确保几何查询和图层预览严格同源。
    */
   function buildOverlayPreviewPayload() {
-    const offsetPx = resolveOriginalOffsetPx();
     return {
       inputPath: previewImagePath.value,
       mode: mode.value,
@@ -613,10 +674,14 @@ export function useImageWatermarkActions() {
       opacity: opacity.value,
       margin: margin.value,
       rotation: rotation.value,
-      offsetXRatio: previewDragRatio.value.x,
-      offsetYRatio: previewDragRatio.value.y,
-      offsetXPxOnOriginal: offsetPx.x,
-      offsetYPxOnOriginal: offsetPx.y,
+      ...resolveCustomOffsets(
+        position.value,
+        previewDragRatio.value,
+        previewRect.value,
+        previewOverlaySize.value,
+        previewNaturalSize.value,
+        resolveOriginalOffsetPx
+      ),
       text: mode.value === "text" ? text.value.trim() : undefined,
       fontSize: mode.value === "text" ? fontSize.value : undefined,
       textColor: mode.value === "text" ? textColor.value : undefined,
@@ -1018,7 +1083,6 @@ export function useImageWatermarkActions() {
    * 组装加水印任务参数，确保预览拖拽位置能同步到实际处理。
    */
   function buildWatermarkPayload(current: WatermarkItem) {
-    const offsetPx = resolveOriginalOffsetPx();
     return {
       taskId: current.id,
       inputPath: current.inputPath,
@@ -1029,10 +1093,14 @@ export function useImageWatermarkActions() {
       opacity: opacity.value,
       margin: margin.value,
       rotation: rotation.value,
-      offsetXRatio: previewDragRatio.value.x,
-      offsetYRatio: previewDragRatio.value.y,
-      offsetXPxOnOriginal: offsetPx.x,
-      offsetYPxOnOriginal: offsetPx.y,
+      ...resolveCustomOffsets(
+        position.value,
+        previewDragRatio.value,
+        previewRect.value,
+        previewOverlaySize.value,
+        previewNaturalSize.value,
+        resolveOriginalOffsetPx
+      ),
       text: mode.value === "text" ? text.value.trim() : undefined,
       fontSize: mode.value === "text" ? fontSize.value : undefined,
       textColor: mode.value === "text" ? textColor.value : undefined,

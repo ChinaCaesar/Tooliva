@@ -20,6 +20,7 @@ pub struct WatermarkParams {
     pub opacity: u8,
     pub margin: u32,
     pub rotation: f32,
+    pub custom_anchor: Option<String>,
     pub offset_x_ratio: Option<f32>,
     pub offset_y_ratio: Option<f32>,
     pub offset_x_px_on_original: Option<u32>,
@@ -55,6 +56,15 @@ enum WatermarkPosition {
     MiddleRight,
     BottomLeft,
     BottomCenter,
+    BottomRight,
+    Custom,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum WatermarkCustomAnchor {
+    TopLeft,
+    TopRight,
+    BottomLeft,
     BottomRight,
 }
 
@@ -117,6 +127,7 @@ impl ImageProcessor for WatermarkProcessor {
             overlay_image.width(),
             overlay_image.height(),
             normalize_position(&params.position),
+            normalize_custom_anchor(params.custom_anchor.as_deref()),
             params.margin,
             params.offset_x_px_on_original,
             params.offset_y_px_on_original,
@@ -294,6 +305,7 @@ pub fn composite_and_save_watermark(
         overlay_image.width(),
         overlay_image.height(),
         normalize_position(&params.position),
+        normalize_custom_anchor(params.custom_anchor.as_deref()),
         params.margin,
         params.offset_x_px_on_original,
         params.offset_y_px_on_original,
@@ -411,7 +423,17 @@ fn normalize_position(value: &str) -> WatermarkPosition {
         "bottomLeft" => WatermarkPosition::BottomLeft,
         "bottomCenter" => WatermarkPosition::BottomCenter,
         "bottomRight" => WatermarkPosition::BottomRight,
+        "custom" => WatermarkPosition::Custom,
         _ => WatermarkPosition::BottomRight,
+    }
+}
+
+fn normalize_custom_anchor(value: Option<&str>) -> WatermarkCustomAnchor {
+    match value.unwrap_or("topLeft") {
+        "topRight" => WatermarkCustomAnchor::TopRight,
+        "bottomLeft" => WatermarkCustomAnchor::BottomLeft,
+        "bottomRight" => WatermarkCustomAnchor::BottomRight,
+        _ => WatermarkCustomAnchor::TopLeft,
     }
 }
 
@@ -538,6 +560,7 @@ fn resolve_position(
     overlay_width: u32,
     overlay_height: u32,
     position: WatermarkPosition,
+    custom_anchor: WatermarkCustomAnchor,
     margin: u32,
     offset_x_px_on_original: Option<u32>,
     offset_y_px_on_original: Option<u32>,
@@ -546,13 +569,27 @@ fn resolve_position(
 ) -> (u32, u32) {
     let max_x = base_width.saturating_sub(overlay_width);
     let max_y = base_height.saturating_sub(overlay_height);
-    if let (Some(x_px), Some(y_px)) = (offset_x_px_on_original, offset_y_px_on_original) {
-        return (x_px.min(max_x), y_px.min(max_y));
-    }
-    if let (Some(x_ratio), Some(y_ratio)) = (offset_x_ratio, offset_y_ratio) {
-        let x = ((max_x as f32) * x_ratio.clamp(0.0, 1.0)).round() as u32;
-        let y = ((max_y as f32) * y_ratio.clamp(0.0, 1.0)).round() as u32;
-        return (x.min(max_x), y.min(max_y));
+    if matches!(position, WatermarkPosition::Custom) {
+        if let (Some(x_px), Some(y_px)) = (offset_x_px_on_original, offset_y_px_on_original) {
+            return match custom_anchor {
+                WatermarkCustomAnchor::TopLeft => (x_px.min(max_x), y_px.min(max_y)),
+                WatermarkCustomAnchor::TopRight => {
+                    (max_x.saturating_sub(x_px.min(max_x)), y_px.min(max_y))
+                }
+                WatermarkCustomAnchor::BottomLeft => {
+                    (x_px.min(max_x), max_y.saturating_sub(y_px.min(max_y)))
+                }
+                WatermarkCustomAnchor::BottomRight => (
+                    max_x.saturating_sub(x_px.min(max_x)),
+                    max_y.saturating_sub(y_px.min(max_y)),
+                ),
+            };
+        }
+        if let (Some(x_ratio), Some(y_ratio)) = (offset_x_ratio, offset_y_ratio) {
+            let x = ((max_x as f32) * x_ratio.clamp(0.0, 1.0)).round() as u32;
+            let y = ((max_y as f32) * y_ratio.clamp(0.0, 1.0)).round() as u32;
+            return (x.min(max_x), y.min(max_y));
+        }
     }
     match position {
         WatermarkPosition::TopLeft => (margin.min(max_x), margin.min(max_y)),
@@ -569,6 +606,7 @@ fn resolve_position(
             max_x.saturating_sub(margin.min(max_x)),
             max_y.saturating_sub(margin.min(max_y)),
         ),
+        WatermarkPosition::Custom => (max_x / 2, max_y / 2),
     }
 }
 
